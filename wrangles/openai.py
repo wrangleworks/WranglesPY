@@ -21,6 +21,12 @@ DEFAULT_EMBEDDING_URLS = {
     "openai": "https://api.openai.com/v1/embeddings",
     "jina":   "https://api.jina.ai/v1/embeddings",
 }
+_RETRYABLE_EMBEDDING_TRANSPORT_ERRORS = (
+    _requests.exceptions.Timeout,
+    _requests.exceptions.ConnectionError,
+    _requests.exceptions.ChunkedEncodingError,
+    _requests.exceptions.ContentDecodingError,
+)
 
 
 def format_input_data(data: any) -> str:
@@ -242,7 +248,7 @@ def _embedding_thread(
                 json=request_body,
                 timeout=timeout,
             )
-        except (_requests.exceptions.Timeout, _requests.exceptions.ConnectionError) as exc:
+        except _requests.exceptions.RequestException as exc:
             transport_error = exc
 
         if response is not None and response.ok:
@@ -257,8 +263,13 @@ def _embedding_thread(
             response.status_code == 401 or "Incorrect API key" in context.get("message", "")
         ):
             raise ValueError("API Key provided is missing or invalid.")
+        if provider == "openai":
+            _openai_responses._raise_for_fatal_error(context)
 
-        retryable = transport_error is not None or _openai_responses._should_retry(context)
+        retryable = (
+            isinstance(transport_error, _RETRYABLE_EMBEDDING_TRANSPORT_ERRORS)
+            or _openai_responses._should_retry(context)
+        )
         final = attempt == retries or not retryable
         _openai_responses._log_api_error(context, final=final)
         if final:

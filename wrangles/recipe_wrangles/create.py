@@ -258,7 +258,7 @@ def embeddings(
         type: integer
         minimum: 0
         description: >-
-          Additional attempts after timeouts, connection failures, or transient HTTP errors.
+          Additional attempts after transient transport or HTTP errors.
           Defaults to 0. Retries use exponential backoff and respect Retry-After.
           Permanent errors fail immediately.
       timeout:
