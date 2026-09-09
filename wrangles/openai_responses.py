@@ -195,13 +195,6 @@ def _should_retry(context: dict) -> bool:
     return status_code == 429 or status_code in (408, 409, 500, 502, 503, 504)
 
 
-def _raise_for_fatal_error(context: dict) -> None:
-    if str(context.get("code", "")).lower() == "model_not_found":
-        raise ValueError(
-            f"OpenAI model {context.get('model')!r} does not exist or is not accessible."
-        )
-
-
 def _error_message(context: dict) -> str:
     parts = ["OpenAI API error"]
     if context.get("status_code"):
@@ -233,14 +226,25 @@ def _log_api_error(context: dict, final: bool = False) -> None:
     )
 
 
+def _remaining_seconds(deadline_at: float = None) -> float:
+    if deadline_at is None:
+        return None
+    return deadline_at - _time.monotonic()
+
+
 def _sleep_for_retry(
     context: dict,
     backoff_time: float,
+    deadline_at: float = None,
 ) -> float:
     if context.get("retry_after") is not None:
         delay = min(context["retry_after"], 60)
     else:
         delay = min(backoff_time + _random.uniform(0, min(backoff_time, 1)), 60)
+
+    remaining = _remaining_seconds(deadline_at)
+    if remaining is not None and delay >= remaining:
+        return None
 
     _time.sleep(delay)
     return delay
@@ -715,6 +719,7 @@ def call_structured(
     timeout: int,
     retries: int,
     required_fields: list,
+    deadline_at: float = None,
 ) -> dict:
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     request_payload = _copy.deepcopy(payload)
@@ -739,6 +744,14 @@ def call_structured(
     response = None
     backoff_time = 1
     for attempt in range(retries + 1):
+        remaining = _remaining_seconds(deadline_at)
+        if remaining is not None and remaining <= 0:
+            return failure("Deadline Exceeded")
+
+        request_timeout = timeout
+        if remaining is not None:
+            request_timeout = min(timeout, max(remaining, 0.001))
+
         response = None
         try:
             started = _time.time()
@@ -746,7 +759,7 @@ def call_structured(
                 url=url,
                 headers=headers,
                 json=request_payload,
-                timeout=timeout,
+                timeout=request_timeout,
             )
             elapsed_seconds = _time.time() - started
         except _requests.exceptions.Timeout:
@@ -783,14 +796,13 @@ def call_structured(
                         f"Invalid structured response: {e}",
                         response_json=response_json,
                     )
-        elif response is not None:
+        else:
             context = _response_context(
                 response,
                 endpoint="responses",
                 model=request_payload.get("model"),
                 attempt=attempt + 1,
             )
-            _raise_for_fatal_error(context)
             error_message = context.get("message", "")
 
             if error_message:
@@ -804,9 +816,11 @@ def call_structured(
             _log_api_error(context, final=False)
 
         if response is not None and not response.ok:
-            _sleep_for_retry(context, backoff_time)
+            delay = _sleep_for_retry(context, backoff_time, deadline_at)
         else:
-            _sleep_for_retry({}, backoff_time)
+            delay = _sleep_for_retry({}, backoff_time, deadline_at)
+        if delay is None:
+            return failure("Deadline Exceeded")
         backoff_time *= 2
 
     return failure("Failed")

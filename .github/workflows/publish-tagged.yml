@@ -25,30 +25,6 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - name: Validate deployment app configuration
-        env:
-          DEPLOY_APP_CLIENT_ID: ${{ vars.DEPLOY_APP_CLIENT_ID }}
-          DEPLOY_APP_PRIVATE_KEY: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
-        run: |
-          MISSING=()
-          [[ -z "$DEPLOY_APP_CLIENT_ID" ]] && MISSING+=(DEPLOY_APP_CLIENT_ID)
-          [[ -z "$DEPLOY_APP_PRIVATE_KEY" ]] && MISSING+=(DEPLOY_APP_PRIVATE_KEY)
-          if [[ ${#MISSING[@]} -gt 0 ]]; then
-            echo "::error::Deployment app configuration is missing: ${MISSING[*]}. See docs/github-app-deployment.md."
-            exit 1
-          fi
-
-      # Check credentials and installation permissions before release tests
-      # or publishing. The dispatch job creates its own fresh token later.
-      - name: Verify Lambda workflow app access
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: ${{ vars.DEPLOY_APP_CLIENT_ID }}
-          private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
-          owner: wrangleworks
-          repositories: Lambda-Recipes
-          permission-actions: write
-
       - name: Checkout Repository
         uses: actions/checkout@v5
 
@@ -104,7 +80,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest==9.0.2 lorem pytest-mock jsonschema==4.26.0
+          pip install pytest==9.0.2 lorem pytest-mock
           pip install -r requirements-full.txt
           pip install .
           
@@ -160,7 +136,7 @@ jobs:
           brew update
           brew install freetds
           python -m pip install --upgrade pip
-          pip install pytest==9.0.2 lorem pytest-mock jsonschema==4.26.0
+          pip install pytest==9.0.2 lorem pytest-mock
           pip install -r requirements-full.txt
           pip install .
 
@@ -264,7 +240,7 @@ jobs:
       - name: Install Test Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest==9.0.2 lorem pytest-mock jsonschema==4.26.0
+          pip install pytest==9.0.2 lorem pytest-mock
 
       - name: Run Tests
         run: pytest
@@ -416,8 +392,8 @@ jobs:
   # ── Trigger PROD deployment in Lambda-Recipes ─────────────────────────────
   # Runs after publish-pypi (or when skipped) because Lambda-Recipes verify-setup
   # requires the version to exist on PyPI before the deploy pipeline starts.
-  # The deployment app issues a short-lived token limited to Lambda-Recipes
-  # workflow access. Installation and configuration: docs/github-app-deployment.md.
+  # CROSS_REPO_PAT_V2: GitHub PAT with Actions read/write on Lambda-Recipes
+  # (and Contents read/write on wrangleworks.github.io for Deploy Dev schema publish).
   trigger-deploy-prod:
     name: Trigger PROD Deploy
     runs-on: ubuntu-latest
@@ -454,26 +430,17 @@ jobs:
             '{wrangles_version: $wrangles_version, deploy_user: $deploy_user}')
           echo "payload=$payload" >> "$GITHUB_OUTPUT"
 
-      - name: Create Lambda deployment token
-        id: deploy-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: ${{ vars.DEPLOY_APP_CLIENT_ID }}
-          private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
-          owner: wrangleworks
-          repositories: Lambda-Recipes
-          permission-actions: write
-
       - name: Deploy Prod
         uses: convictional/trigger-workflow-and-wait@f69fa9eedd3c62a599220f4d5745230e237904be # v1.6.5
         with:
           owner: wrangleworks
           repo: Lambda-Recipes
           workflow_file_name: deploy-prod.yml
-          github_token: ${{ steps.deploy-token.outputs.token }}
+          github_token: ${{ secrets.CROSS_REPO_PAT_V2 }}
           ref: main
           wait_interval: 15
           client_payload: ${{ steps.dispatch.outputs.payload }}
           propagate_failure: true
           trigger_workflow: true
           wait_workflow: true
+
