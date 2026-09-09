@@ -211,6 +211,7 @@ def embeddings(
     precision: str = "float32",
     provider: str = None,
     task: str = None,
+    timeout: float = 30,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -255,9 +256,18 @@ def embeddings(
           - python list
       retries:
         type: integer
+        minimum: 0
         description: >-
-          The number of times to retry if the request fails.
-          This will apply exponential backoff to help with rate limiting.
+          Additional attempts after timeouts, connection failures, or transient HTTP errors.
+          Defaults to 0. Retries use exponential backoff and respect Retry-After.
+          Permanent errors fail immediately.
+      timeout:
+        type: number
+        exclusiveMinimum: 0
+        default: 30
+        description: >-
+          Request timeout in seconds for each attempt. Defaults to 30.
+          Each retry receives the full timeout; this is not a total batch deadline.
       provider:
         type: string
         description: >-
@@ -322,6 +332,7 @@ def embeddings(
             precision,
             provider=provider,
             task=task,
+            timeout=timeout,
             **kwargs
         )
 
