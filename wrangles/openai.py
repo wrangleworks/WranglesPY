@@ -192,7 +192,8 @@ def _embedding_thread(
     retries: int = 0,
     request_params: dict = None,
     precision: str = "float32",
-    provider: str = "openai"
+    provider: str = "openai",
+    timeout: float = 30,
 ):
     """
     Get embeddings
@@ -205,6 +206,7 @@ def _embedding_thread(
     :param request_params: Additional request parameters to pass to the backend.
     :param precision: The precision of the embeddings. Default is float32.
     :param provider: The embedding provider to use. Default is openai.
+    :param timeout: Per-attempt request timeout in seconds. Default is 30.
     """
     if request_params is None:
         request_params = {}
@@ -228,53 +230,43 @@ def _embedding_thread(
     _logging.debug(f": Computing embeddings :: model :: {model}, record_count :: {len(input_list)}")
 
     response = None
+    transport_error = None
     backoff_time = 1
-    while (retries + 1):
+    for attempt in range(retries + 1):
+        response = None
+        transport_error = None
         try:
             response = _requests.post(
                 url=url,
-                headers={
-                    "Authorization": f"Bearer {api_key}"
-                },
+                headers={"Authorization": f"Bearer {api_key}"},
                 json=request_body,
-                timeout=30
+                timeout=timeout,
             )
-        except Exception:
-            pass
+        except (_requests.exceptions.Timeout, _requests.exceptions.ConnectionError) as exc:
+            transport_error = exc
 
-        if response and response.ok:
+        if response is not None and response.ok:
             break
-        else:
-            if response is not None and response.status_code == 401:
-                raise ValueError("API Key provided is missing or invalid.")
-            try:
-                error_message = response.json().get('error').get('message')
-            except Exception:
-                error_message = ""
-            # Raise errors for fatal errors rather than continuing
-            if error_message:
-                if "Incorrect API key" in error_message:
-                    raise ValueError("API Key provided is missing or invalid.")
-            context = _openai_responses._response_context(
-                response,
-                endpoint="embeddings",
-                model=model,
-            ) if response else {}
-            if retries == 0 or not _openai_responses._should_retry(context):
-                if response:
-                    _openai_responses._log_api_error(context, final=True)
-                break
-            if response:
-                _openai_responses._log_api_error(context, final=False)
 
-        retries -= 1
-        if response and not response.ok:
-            _openai_responses._sleep_for_retry(context, backoff_time)
-        else:
-            _time.sleep(backoff_time)
+        context = _openai_responses._response_context(
+            response, endpoint="embeddings", model=model, attempt=attempt + 1,
+        )
+        if transport_error is not None:
+            context["message"] = f"{type(transport_error).__name__}: {transport_error}"
+        if response is not None and (
+            response.status_code == 401 or "Incorrect API key" in context.get("message", "")
+        ):
+            raise ValueError("API Key provided is missing or invalid.")
+
+        retryable = transport_error is not None or _openai_responses._should_retry(context)
+        final = attempt == retries or not retryable
+        _openai_responses._log_api_error(context, final=final)
+        if final:
+            break
+        _openai_responses._sleep_for_retry(context, backoff_time)
         backoff_time *= 2
 
-    if response and response.ok:
+    if response is not None and response.ok:
         if provider == "jina":
             try:
                 return [
@@ -293,19 +285,11 @@ def _embedding_thread(
             for row in response.json()['data']
         ]
     else:
-        try:
-            error_msg = _openai_responses._error_message(
-                _openai_responses._response_context(
-                    response,
-                    endpoint="embeddings",
-                    model=model,
-                )
-            )
-        except Exception:
-            error_msg = 'Unknown error'
+        error_msg = _openai_responses._error_message(context)
         raise RuntimeError(
-            f"Failed to get embeddings: {error_msg}. Consider raising the number of retries."
-        )
+            f"Failed to get embeddings after {attempt + 1} attempt(s): {error_msg}"
+        ) from transport_error
+
 
 def embeddings(
     input_list,
@@ -318,6 +302,7 @@ def embeddings(
     precision: str = "float32",
     provider: str = None,
     task: str = None,
+    timeout: float = 30,
     **kwargs
 ) -> list:
     """
@@ -334,8 +319,8 @@ def embeddings(
     :param batch_size: (Optional, default 100) The number of rows to submit per individual request.
     :param threads: (Optional, default 10) The number of requests to submit in parallel. \
           Each request contains the number of rows set as batch_size.
-    :param retries: The number of times to retry. This will exponentially \
-          backoff to assist with rate limiting
+    :param retries: Additional attempts after transient HTTP or transport failures.
+          Defaults to 0. Uses exponential backoff and Retry-After; permanent errors fail immediately.
     :param url: The endpoint to send requests to. Defaults to the standard endpoint for \
           the resolved provider. Setting a Jina URL without an explicit provider will \
           automatically use Jina's request/response format.
@@ -346,8 +331,17 @@ def embeddings(
           Pass both only when using a custom endpoint with a non-default provider's API format.
     :param task: (Optional, Jina only) The task type for the embedding model. \
           Valid values: retrieval.query, retrieval.passage, text-matching, classification, separation.
+    :param timeout: Per-attempt request timeout in seconds. Default is 30.
     :return: A list of embeddings corresponding to the input
     """
+    if not isinstance(retries, int) or isinstance(retries, bool) or retries < 0:
+        raise ValueError("retries must be a non-negative integer.")
+    if (
+        not isinstance(timeout, (int, float)) or isinstance(timeout, bool)
+        or not _np.isfinite(timeout) or timeout <= 0
+    ):
+        raise ValueError("timeout must be a positive finite number of seconds.")
+
     # Infer provider from URL when not explicitly set
     if provider is None:
         if "jina.ai" in url:
@@ -397,7 +391,8 @@ def embeddings(
             [retries] * len(batches),
             [kwargs] * len(batches),
             [precision] * len(batches),
-            [provider] * len(batches)
+            [provider] * len(batches),
+            [timeout] * len(batches),
         ))
 
     results = list(_chain.from_iterable(results))
