@@ -1028,26 +1028,53 @@ class TestTrainLookup:
             wrangles.recipe.run(recipe, dataframe=df)
         
     
-    def test_update_model_not_found(self):  
-        """  
-        Test update fails when model doesn't exist   
-        """  
-        df = pd.DataFrame({  
-            'Key': ['Rachel', 'Dolores'],  
-            'Value': ['Blade Runner 2049', 'Westworld Updated']  
-        })  
-          
-        recipe = """  
-        write:  
-          - train.lookup:  
-              model_id: test-model-id  
-              action: UPDATE  
-        """  
-          
-        # This would test with an actual existing model  
-        # For testing purposes, we'll catch the expected error  
-        with pytest.raises(RuntimeError, match="Access denied to model test-model-id"):  
-            wrangles.recipe.run(recipe, dataframe=df)  
+    @pytest.mark.parametrize(
+        "status_code, error_type, message",
+        [
+            pytest.param(
+                404,
+                RuntimeError,
+                "Something went wrong trying to access model test-model-id",
+                id="missing-model",
+            ),
+            pytest.param(
+                403,
+                wrangles.data.AuthorizationError,
+                "Access denied to model test-model-id. Check the user's model permissions.",
+                id="access-denied",
+            ),
+        ],
+    )
+    def test_update_model_access_errors(self, mocker, status_code, error_type, message):
+        """Missing models return 404; existing models without access return 403."""
+        response = _requests.Response()
+        response.status_code = status_code
+        mocker.patch("wrangles.data._auth.get_access_token", return_value="test-token")
+        request = mocker.patch("wrangles.data._utils.request_retries", return_value=response)
+        train_lookup = mocker.patch("wrangles.connectors.train._train.lookup")
+
+        df = pd.DataFrame({
+            'Key': ['Rachel', 'Dolores'],
+            'Value': ['Blade Runner 2049', 'Westworld Updated'],
+        })
+        recipe = """
+        write:
+          - train.lookup:
+              model_id: test-model-id
+              action: UPDATE
+        """
+
+        with pytest.raises(error_type) as error:
+            wrangles.recipe.run(recipe, dataframe=df)
+
+        assert type(error.value) is error_type
+        assert str(error.value) == f"train.lookup (line 3) - {message}"
+        assert request.called
+        for call in request.call_args_list:
+            assert call.kwargs["request_type"] == "GET"
+            assert call.kwargs["url"].endswith("/model/metadata")
+            assert call.kwargs["params"] == {"id": "test-model-id"}
+        train_lookup.assert_not_called()
   
     def test_action_parameter_validation_recipe(self):  
         """  

@@ -246,7 +246,6 @@ def get_or_compute(
     *,
     policy: CachePolicy,
     cacheable: _Callable,
-    deadline_at: float = None,
 ):
     """Return a cached value or compute it once across concurrent callers."""
     if not policy.enabled:
@@ -280,11 +279,7 @@ def get_or_compute(
         return cached
 
     if not owner:
-        wait_timeout = None
-        if deadline_at is not None:
-            wait_timeout = max(deadline_at - _time.monotonic(), 0)
-        if not flight.event.wait(wait_timeout):
-            return compute()
+        flight.event.wait()
         if flight.exception is not None:
             raise flight.exception
         _maybe_log(policy)
@@ -320,7 +315,7 @@ def execute_batch(
     cacheable: _Callable,
     max_workers: int,
     policy: CachePolicy,
-    deadline_at: float = None,
+    preflight_first: bool = False,
 ) -> list:
     """Execute rows in order while deduplicating identical effective requests."""
     if not input_rows:
@@ -328,6 +323,9 @@ def execute_batch(
 
     if not policy.enabled:
         with _futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            if preflight_first:
+                first_result = executor.submit(compute, input_rows[0]).result()
+                return [first_result, *executor.map(compute, input_rows[1:])]
             return list(executor.map(compute, input_rows))
 
     grouped = _OrderedDict()
@@ -340,7 +338,21 @@ def execute_batch(
     worker_count = min(max_workers, len(grouped))
     with _futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
         future_groups = {}
-        for key, group in grouped.items():
+        group_items = iter(grouped.items())
+        if preflight_first:
+            key, group = next(group_items)
+            row = group["row"]
+            result = executor.submit(
+                get_or_compute,
+                key,
+                lambda row=row: compute(row),
+                policy=policy,
+                cacheable=cacheable,
+            ).result()
+            for index in group["indices"]:
+                results[index] = _copy.deepcopy(result)
+
+        for key, group in group_items:
             row = group["row"]
             future = executor.submit(
                 get_or_compute,
@@ -348,7 +360,6 @@ def execute_batch(
                 lambda row=row: compute(row),
                 policy=policy,
                 cacheable=cacheable,
-                deadline_at=deadline_at,
             )
             future_groups[future] = group
 

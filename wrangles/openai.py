@@ -50,7 +50,6 @@ def chatGPT(
     url: str = "https://api.openai.com/v1/chat/completions",
     timeout: int = None,
     retries: int = 0,
-    deadline_at: float = None,
 ):
     """
     Submit a request to openAI chatGPT.
@@ -60,7 +59,6 @@ def chatGPT(
     :param settings: Custom model settings
     :param timeout: Time limit to apply to the request
     :param retries: Number of times to retry if the request fails
-    :param deadline_at: Monotonic deadline shared by all retries for this call
     """
     content = format_input_data(data)
 
@@ -77,23 +75,9 @@ def chatGPT(
 
     _logging.debug(f": Calling OpenAI ChatGPT :: timeout :: {timeout}, retries :: {retries}")
     response = None
-    deadline_exceeded = False
     backoff_time = 1
     retry_count = 0
     while (retries + 1):
-        remaining = _openai_responses._remaining_seconds(deadline_at)
-        if remaining is not None and remaining <= 0:
-            deadline_exceeded = True
-            break
-
-        request_timeout = timeout
-        if remaining is not None:
-            request_timeout = (
-                min(timeout, max(remaining, 0.001))
-                if timeout is not None
-                else max(remaining, 0.001)
-            )
-
         response = None
         try:
             response = _requests.post(
@@ -102,7 +86,7 @@ def chatGPT(
                     "Authorization": f"Bearer {api_key}"
                 },
                 json = settings_local,
-                timeout=request_timeout
+                timeout=timeout
             )
         except _requests.exceptions.Timeout:
             if retries == 0:
@@ -144,6 +128,7 @@ def chatGPT(
                 endpoint="chat_completions",
                 model=settings_local.get("model"),
             ) if response is not None else {}
+            _openai_responses._raise_for_fatal_error(context)
             if retries == 0 or not _openai_responses._should_retry(context):
                 if response is not None:
                     _openai_responses._log_api_error(context, final=True)
@@ -156,20 +141,15 @@ def chatGPT(
         if retries >= 0:
             _logging.warning(f": Retrying OpenAI request :: attempt :: {retry_count}")
             if response is not None and not response.ok:
-                delay = _openai_responses._sleep_for_retry(
+                _openai_responses._sleep_for_retry(
                     context,
                     backoff_time,
-                    deadline_at,
                 )
             else:
-                delay = _openai_responses._sleep_for_retry(
+                _openai_responses._sleep_for_retry(
                     {},
                     backoff_time,
-                    deadline_at,
                 )
-            if delay is None:
-                deadline_exceeded = True
-                break
             backoff_time *= 2
 
     if response is not None and response.ok:
@@ -182,19 +162,16 @@ def chatGPT(
             pass
 
     # Attempt to get a useful error message
-    if deadline_exceeded:
-        error_message = "Deadline Exceeded"
-    else:
-        try:
-            error_message = _openai_responses._error_message(
-                _openai_responses._response_context(
-                    response,
-                    endpoint="chat_completions",
-                    model=settings_local.get("model"),
-                )
+    try:
+        error_message = _openai_responses._error_message(
+            _openai_responses._response_context(
+                response,
+                endpoint="chat_completions",
+                model=settings_local.get("model"),
             )
-        except:
-            error_message = "Failed"
+        )
+    except:
+        error_message = "Failed"
 
     _logging.error(f": OpenAI API error :: {error_message}")
 

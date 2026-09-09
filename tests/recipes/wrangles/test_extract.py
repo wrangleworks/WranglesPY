@@ -4395,11 +4395,10 @@ class TestExtractAI:
         assert "Ignoring 'reasoning' parameter" in caplog.text
         assert "Ignoring 'verbosity' parameter" in caplog.text
 
-    def test_ai_invalid_model_per_row_error(self):
+    def test_ai_invalid_model_fails_recipe(self):
         """
-        Test that a non-existent model returns a descriptive
-        error string per row rather than raising and failing
-        the whole recipe
+        Test that a non-existent model fails the recipe after
+        validating the shared model configuration on the first row.
         """
         with pytest.raises(
             ValueError,
