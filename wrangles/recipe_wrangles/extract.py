@@ -522,14 +522,14 @@ def ai(
         type: number
         exclusiveMinimum: 0
         description: >-
-          Maximum seconds for one HTTP attempt. The configured default is 12;
-          deadline can end the overall call sooner.
+          Network timeout in seconds for each HTTP attempt. The configured
+          default is 12. Each retry uses the same timeout.
       retries:
         type: integer
         minimum: 0
         description: >-
-          Number of additional attempts after a retryable failure. The configured
-          default is 1. Backoff and request timeouts remain bounded by deadline.
+          Number of additional attempts per row after a retryable failure. The
+          configured default is 1. Retry delays are separate from timeout.
       url:
         type: string
         description: |-
@@ -549,15 +549,24 @@ def ai(
         enum:
           - responses
           - chat_completions
-      deadline:
-        type: number
-        exclusiveMinimum: 0
-        description: >-
-          Total seconds allowed for the entire wrangle call, including queued
-          work, retries, and backoff. The configured default is 15.
       store:
         type: boolean
-        description: Whether OpenAI may store Responses API results. Defaults to false.
+        description: Whether OpenAI may store Responses API results. Defaults to true.
+      metadata:
+        type: object
+        description: >-
+          Labels attached to OpenAI requests, such as recipe_name and wrangles_user.
+          Available recipe name and Wrangles user are added automatically. Explicit
+          labels override those defaults; an empty object disables automatic labels.
+          These appear with stored logs and are separate from model instructions.
+          Up to 16 string pairs; keys may contain up to 64 characters and values
+          up to 512 characters. Does not enable workflow tracing.
+        maxProperties: 16
+        propertyNames:
+          maxLength: 64
+        additionalProperties:
+          type: string
+          maxLength: 512
       cache:
         type: boolean
         description: >-

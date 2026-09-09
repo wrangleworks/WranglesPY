@@ -28,6 +28,40 @@ jobs:
     outputs:
       rc_version: ${{ steps.compute.outputs.rc_version }}
     steps:
+      - name: Validate deployment app configuration
+        env:
+          DEPLOY_APP_CLIENT_ID: ${{ vars.DEPLOY_APP_CLIENT_ID }}
+          DEPLOY_APP_PRIVATE_KEY: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
+        run: |
+          MISSING=()
+          [[ -z "$DEPLOY_APP_CLIENT_ID" ]] && MISSING+=(DEPLOY_APP_CLIENT_ID)
+          [[ -z "$DEPLOY_APP_PRIVATE_KEY" ]] && MISSING+=(DEPLOY_APP_PRIVATE_KEY)
+          if [[ ${#MISSING[@]} -gt 0 ]]; then
+            echo "::error::Deployment app configuration is missing: ${MISSING[*]}. See docs/github-app-deployment.md."
+            exit 1
+          fi
+
+      # Validate the installation and permissions before running tests or
+      # publishing. These tokens are revoked when this job finishes; each
+      # later job creates a fresh token immediately before it needs one.
+      - name: Verify schema repository app access
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEPLOY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
+          owner: wrangleworks
+          repositories: wrangleworks.github.io
+          permission-contents: write
+
+      - name: Verify Lambda workflow app access
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEPLOY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
+          owner: wrangleworks
+          repositories: Lambda-Recipes
+          permission-actions: write
+
       - name: Validate version input format
         run: |
           if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
@@ -151,11 +185,21 @@ jobs:
       - name: Save schema as schema_dev.json
         run: cp schema/schema.json schema/schema_dev.json
 
+      - name: Create schema publishing token
+        id: schema-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEPLOY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
+          owner: wrangleworks
+          repositories: wrangleworks.github.io
+          permission-contents: write
+
       - name: Checkout wrangleworks.github.io
         uses: actions/checkout@v5
         with:
           repository: wrangleworks/wrangleworks.github.io
-          token: ${{ secrets.CROSS_REPO_PAT_V2 }}
+          token: ${{ steps.schema-token.outputs.token }}
           path: wrangleworks.github.io
 
       - name: Copy schema_dev.json to wrangleworks.github.io
@@ -164,8 +208,8 @@ jobs:
       - name: Commit and push schema_dev.json
         working-directory: wrangleworks.github.io
         run: |
-          git config user.name "mborodii-prog"
-          git config user.email "mborodii@binariks.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add schema/recipes/schema_dev.json
           if git diff --cached --quiet; then
             echo "No changes to schema_dev.json, skipping commit."
@@ -228,9 +272,8 @@ jobs:
         run: twine upload --repository codeartifact dist/*
 
   # ── 5. Trigger DEV deployment in Lambda-Recipes ───────────────────────────
-  # CROSS_REPO_PAT_V2: a GitHub PAT with Actions read/write on Lambda-Recipes
-  # (and Contents read/write on wrangleworks.github.io for schema publish),
-  # stored as a repository or org secret. Required to dispatch workflows across repositories.
+  # The deployment app issues a short-lived token limited to Lambda-Recipes
+  # workflow access. Installation and configuration: docs/github-app-deployment.md.
   trigger-deploy-dev:
     name: Trigger DEV Deploy
     runs-on: ubuntu-latest
@@ -266,13 +309,23 @@ jobs:
             '{wrangles_version: $wrangles_version, deploy_user: $deploy_user, reason: $reason}')
           echo "payload=$payload" >> "$GITHUB_OUTPUT"
 
+      - name: Create Lambda deployment token
+        id: deploy-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEPLOY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
+          owner: wrangleworks
+          repositories: Lambda-Recipes
+          permission-actions: write
+
       - name: Deploy Dev
         uses: convictional/trigger-workflow-and-wait@f69fa9eedd3c62a599220f4d5745230e237904be # v1.6.5
         with:
           owner: wrangleworks
           repo: Lambda-Recipes
           workflow_file_name: deploy-dev.yml
-          github_token: ${{ secrets.CROSS_REPO_PAT_V2 }}
+          github_token: ${{ steps.deploy-token.outputs.token }}
           ref: main
           wait_interval: 15
           client_payload: ${{ steps.dispatch.outputs.payload }}

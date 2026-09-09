@@ -123,6 +123,7 @@ env.bak/
 venv.bak/
 docs/*
 !docs/extract_ai_user_guide.md
+!docs/github-app-deployment.md
 .DS_Store
 
 # Spyder project settings
