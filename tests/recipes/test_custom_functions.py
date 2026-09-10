@@ -1160,39 +1160,37 @@ def test_input_list_mapped_to_multiple_positional_params():
     )
     assert df['result'][0] == 'row1-row2-default'
 
-def test_positional_fallback_without_input():
+def test_positional_fallback_requires_input():
     """
     Regression test for https://github.com/wrangleworks/WranglesPY/issues/747
 
-    The positional fallback should also apply without an explicit `input`
-    key, as long as the dataframe's column(s) don't match any parameter
-    name and the column count fits the function's remaining parameters.
+    The positional fallback only applies when input is given explicitly.
+    Without input, mismatched dataframe column(s) are not bound
+    positionally - the function is called without them, surfacing the
+    original missing-argument error rather than silently guessing intent.
     """
     def func(x, y="default", z="default"):
         return f"{x}-{y}-{z}"
 
-    df = wrangles.recipe.run(
-        """
-        wrangles:
-          - custom.func:
-              output: result
-        """,
-        functions=[func],
-        dataframe=pd.DataFrame({"my_col": ["row1", "row2"]})
-    )
-    assert (
-        df['result'][0] == 'row1-default-default' and
-        df['result'][1] == 'row2-default-default'
-    )
+    with pytest.raises(TypeError, match="missing 1 required positional argument: 'x'"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - custom.func:
+                  output: result
+            """,
+            functions=[func],
+            dataframe=pd.DataFrame({"my_col": ["row1", "row2"]})
+        )
 
 def test_positional_fallback_too_many_columns_error():
     """
     Regression test for https://github.com/wrangleworks/WranglesPY/issues/747
 
-    If there are more unmatched columns than the function has remaining
-    unfilled parameters, it's ambiguous which columns to use, so a clear
-    error should be raised rather than silently guessing or falling back
-    to a confusing "missing argument" TypeError.
+    If there are more unmatched input columns than the function has
+    remaining unfilled parameters, it's ambiguous which columns to use, so
+    a clear error should be raised rather than silently guessing or
+    falling back to a confusing "missing argument" TypeError.
     """
     def func(x, y="default", z="default"):
         return f"{x}-{y}-{z}"
@@ -1205,6 +1203,11 @@ def test_positional_fallback_too_many_columns_error():
             """
             wrangles:
               - custom.func:
+                  input:
+                    - a
+                    - b
+                    - c
+                    - d
                   output: result
             """,
             functions=[func],
