@@ -1107,6 +1107,113 @@ def test_column_spaces_in_kwargs():
     df = wrangles.recipe.run(recipe, functions=space_function)
     assert df['New Description'][0] == 'this is a description'
 
+def test_input_mapped_to_positional_param_with_defaults():
+    """
+    Regression test for https://github.com/wrangleworks/WranglesPY/issues/747
+
+    When `input` maps a column whose name does not match any of the
+    custom function's parameter names, the value should still be bound
+    positionally to the function's first unfilled parameter, allowing
+    any trailing parameters with defaults to fall back correctly instead
+    of the input value being silently dropped.
+    """
+    def func(x, y="default", z="default"):
+        return f"{x}-{y}-{z}"
+
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - custom.func:
+              input: my_col
+              output: result
+        """,
+        functions=[func],
+        dataframe=pd.DataFrame({"my_col": ["row1", "row2"]})
+    )
+    assert (
+        df['result'][0] == 'row1-default-default' and
+        df['result'][1] == 'row2-default-default'
+    )
+
+def test_input_list_mapped_to_multiple_positional_params():
+    """
+    Regression test for https://github.com/wrangleworks/WranglesPY/issues/747
+
+    A list of input columns with names that don't match any parameter
+    should be bound positionally, in order, to the function's remaining
+    unfilled parameters.
+    """
+    def func(x, y, z="default"):
+        return f"{x}-{y}-{z}"
+
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - custom.func:
+              input:
+                - col_a
+                - col_b
+              output: result
+        """,
+        functions=[func],
+        dataframe=pd.DataFrame({"col_a": ["row1"], "col_b": ["row2"]})
+    )
+    assert df['result'][0] == 'row1-row2-default'
+
+def test_positional_fallback_requires_input():
+    """
+    Regression test for https://github.com/wrangleworks/WranglesPY/issues/747
+
+    The positional fallback only applies when input is given explicitly.
+    Without input, mismatched dataframe column(s) are not bound
+    positionally - the function is called without them, surfacing the
+    original missing-argument error rather than silently guessing intent.
+    """
+    def func(x, y="default", z="default"):
+        return f"{x}-{y}-{z}"
+
+    with pytest.raises(TypeError, match="missing 1 required positional argument: 'x'"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - custom.func:
+                  output: result
+            """,
+            functions=[func],
+            dataframe=pd.DataFrame({"my_col": ["row1", "row2"]})
+        )
+
+def test_positional_fallback_too_many_columns_error():
+    """
+    Regression test for https://github.com/wrangleworks/WranglesPY/issues/747
+
+    If there are more unmatched input columns than the function has
+    remaining unfilled parameters, it's ambiguous which columns to use, so
+    a clear error should be raised rather than silently guessing or
+    falling back to a confusing "missing argument" TypeError.
+    """
+    def func(x, y="default", z="default"):
+        return f"{x}-{y}-{z}"
+
+    with pytest.raises(
+        ValueError,
+        match=r"accepts at most 3 unfilled parameter\(s\) \(x, y, z\) but 4 column\(s\) were provided: a, b, c, d"
+    ):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - custom.func:
+                  input:
+                    - a
+                    - b
+                    - c
+                    - d
+                  output: result
+            """,
+            functions=[func],
+            dataframe=pd.DataFrame({"a": [1], "b": [2], "c": [3], "d": [4]})
+        )
+
 def test_row_function_where():
     """
     Test a custom function that applies to an
