@@ -1600,7 +1600,7 @@ class TestCreateEmbeddings:
                 - create.embeddings:
                     input: text
                     output: embedding
-                    api_key: ${OPENAI_API_KEY}
+                    api_key: fake-key
                     output_type: Something here is not right
                 """
             )
@@ -1828,6 +1828,8 @@ class TestCreateEmbeddings:
         )
         assert df.empty and list(df.columns) == ['text', 'embedding']
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_jina(self):
         """
         Test create.embeddings with Jina provider returns the correct shape.
@@ -1912,6 +1914,8 @@ class TestCreateEmbeddings:
                 provider="unsupported-provider",
             )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_jina_infer_provider_from_url(self):
         """
         Test that when the Jina URL is provided without an explicit provider,
@@ -2112,6 +2116,8 @@ class TestCreateEmbeddings:
                     task="retrieval.query",
                 )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_jina_return_value(self):
         """
         Test that the Python API returns a list of numpy arrays when using the Jina provider.
