@@ -1211,10 +1211,44 @@ def test_user_not_returned_dataframe_read():
         "did not return a dataframe" in info.value.args[0]
     )
 
-def test_model_with_custom_functions():
+def _mock_custom_function_model(monkeypatch):
+    recipe = """
+    read:
+      - test:
+          rows: 1
+          values:
+            header1: value1
+            header2: value2
+    wrangles:
+      - custom.convert_case:
+          input: header2
+          output: header3
+    """
+    functions = """
+def convert_case(header2: str):
+    return header2.upper()
+"""
+    monkeypatch.setattr(
+        wrangles.data,
+        "model",
+        lambda model_id: {"purpose": "recipe"},
+    )
+    monkeypatch.setattr(
+        wrangles.data,
+        "model_content",
+        lambda model_id, version_id=None: {
+            "recipe": recipe,
+            "functions": functions,
+        },
+    )
+
+
+def test_model_with_custom_functions(monkeypatch):
     """
     Test a model that includes custom functions
     """
+    _mock_custom_function_model(monkeypatch)
+
     df = wrangles.recipe.run("42f319a8-0849-4177")
     assert (
         df['header1'][0] == "value1" and
@@ -1222,11 +1256,14 @@ def test_model_with_custom_functions():
         df['header3'][0] == "VALUE2"
     )
 
-def test_local_takes_priority():
+
+def test_local_takes_priority(monkeypatch):
     """
     Ensure a locally passed custom function overrides
     a remote function of the same name
     """
+    _mock_custom_function_model(monkeypatch)
+
     def convert_case(header2: str):
         return header2.title()
 
