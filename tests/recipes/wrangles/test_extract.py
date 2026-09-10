@@ -4,6 +4,8 @@ import wrangles
 import pandas as pd
 from unittest.mock import patch
 
+pytestmark = [pytest.mark.integration, pytest.mark.live_wrangleworks]
+
 
 class TestExtractAIWebSearch:
     @patch("wrangles.recipe_wrangles.extract._extract.ai")
