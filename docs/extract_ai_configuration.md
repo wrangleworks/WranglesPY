@@ -12,15 +12,117 @@ versioned replacement YAML file to override the complete configuration.
 - Provider: `openai`
 - Protocol: `responses`
 - Model: `gpt-5.4-mini`
-- Concurrency: 32
-- Per-request timeout: 12 seconds
-- Total call deadline: 15 seconds
-- Retries: 1, bounded by the total deadline
+- Default worker concurrency (`default_concurrency`): 32 per `extract.ai` call
+- Network timeout per HTTP attempt: 12 seconds
+- Retries: 1 additional attempt per row after a retryable failure
 - Reasoning effort: `none`
-- Response storage: disabled
+- Response storage: enabled
 
 Recipes and Python calls can override these settings individually. Saved XL
 models and recipe outputs are compiled through the same definition compiler.
+
+When `threads` is omitted, the call uses `extract_ai.default_concurrency`.
+An explicit `threads` value can raise or lower concurrency for that call.
+Custom `WRANGLES_AI_CONFIG` files should use `extract_ai.default_concurrency`.
+
+Each retry receives the full configured timeout. Queued rows and retry delays
+do not consume that timeout, so a complete batch can take much longer than one
+request. Long-running Python and GitHub jobs can process rows in successive
+waves; WranglesXL batches must still fit within XL's approximately 20-second
+request window. See [`extract_ai/README.md`](extract_ai/README.md) for timing
+and batch-size guidance.
+
+## Response storage and OpenAI logs
+
+The packaged default is `store: true`. Responses API requests retain their
+inputs and outputs at OpenAI for later inspection in the project's **Logs >
+Responses** view. No `protocol` or `url` override is needed with the packaged
+Responses defaults. OpenAI's standard policy retains stored response data for
+at least 30 days; see its [data controls](https://developers.openai.com/api/docs/guides/your-data#v1responses)
+for retention exceptions and project controls.
+
+Set `store: false` on an individual recipe step to disable response storage:
+
+```yaml
+wrangles:
+  - extract.ai:
+      input: Description
+      api_key: ${OPENAI_API_KEY}
+      store: false
+      output:
+        Product Type:
+          type: string
+```
+
+Direct Python calls can likewise pass `store=False`. A per-call value overrides
+the configuration. A replacement `WRANGLES_AI_CONFIG` file should set
+`extract_ai.store` explicitly; if it omits that key, the runtime's fallback
+is `true`.
+
+Response storage is separate from the local result cache. Cache hits do not
+send another OpenAI request or create another stored response. Changing
+`store` changes the effective cache key, so stored and unstored calls do not
+reuse each other's cached results. Use `cache: false` only when a fresh
+request is needed for diagnosis, and keep caching enabled for normal runs.
+
+The `store` option applies to the Responses path and does not select the API
+protocol or create Agents SDK workflow traces. The Chat Completions
+compatibility path does not forward this option.
+
+## Recipe and user labels in OpenAI logs
+
+`extract.ai` automatically adds available recipe and user labels to the
+request's `metadata`:
+
+| Label | Automatic source |
+| --- | --- |
+| `recipe_name` | Saved recipe title, local recipe file basename, or the caller's `recipe_name` run variable |
+| `wrangles_user` | `WRANGLES_USER` from run variables or the environment, then XL's `user_email`, then the configured Wrangles login |
+
+Once the companion WranglesXL and WranglesPY updates are both deployed,
+WranglesXL supplies the Recipe editor's displayed name and its existing user
+email automatically. Existing recipes need no edits. With an older XL client,
+provide `recipe_name` as a run variable or set `metadata.recipe_name` on the
+step. Python callers can likewise pass
+`variables={"recipe_name": "Product classification"}` to `recipe.run` for an
+inline recipe. Anonymous nested recipe steps inherit the enclosing name.
+
+Direct `wrangles.extract.ai` calls use the configured Wrangles login; when
+called from inside a recipe, they also use that recipe's context. Missing
+labels are omitted. Only these selected labels are added automatically, using
+already available context without another authentication request. They help
+diagnose runs and are not authenticated audit identities.
+
+Use explicit `metadata` to override either label or attach other labels:
+
+```yaml
+wrangles:
+  - extract.ai:
+      input: Description
+      api_key: ${OPENAI_API_KEY}
+      metadata:
+        recipe_name: Product classification
+        wrangles_user: ${WRANGLES_USER}
+        batch: trial-01
+      output:
+        Product Type:
+          type: string
+```
+
+For an explicit user override in XL, `${user_email}` is also available.
+`metadata: {}` disables all automatic labels for that step. Otherwise,
+explicit values take precedence and available automatic labels fill the
+remaining slots. OpenAI permits up to 16 string pairs, with keys up to 64
+characters and values up to 512 characters; see the
+[Responses API reference](https://developers.openai.com/api/reference/cli/resources/responses/methods/create).
+Automatically discovered labels are shortened to 512 characters if needed;
+invalid explicit metadata fails before any OpenAI request.
+
+Metadata is forwarded with both Responses and Chat Completions requests and
+is separate from model instructions. Stored Responses logs show the labels
+when response storage is enabled. Effective metadata is part of the local
+result-cache identity, so changing a label causes a cache miss. It does not
+change the OpenAI prompt-cache key or enable workflow tracing.
 
 ## Instructions
 
@@ -155,9 +257,10 @@ Default limits:
 - Concurrent duplicate suppression: enabled
 
 The effective key includes the provider, protocol, API credential hash, model,
-prompt, schema, model options, endpoint, and exact serialized input. A change
-to any of these produces a cache miss. Errors, timeouts, invalid structured
-responses, and oversized values are not cached.
+prompt, schema, model options, endpoint, response storage, effective metadata,
+and exact serialized input. A change to any of these produces a cache miss.
+Errors, timeouts, invalid structured responses, and oversized values are not
+cached.
 
 Use `cache: false` in a recipe or `cache=False` in Python to bypass the cache
 for one call. `cache_ttl` overrides the TTL for one call.

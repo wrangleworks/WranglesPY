@@ -42,7 +42,7 @@ except ImportError:
 
 _logging.getLogger().setLevel(_logging.INFO)
 
-# Recipe source and nesting state used for best-effort error line lookups.
+# Recipe source, logging attribution, and nesting state.
 # Context variables isolate simultaneous recipe.run() calls. Each run creates
 # a new dictionary so nested recipes can update their own source without
 # mutating the parent run's context. The context is copied into the worker
@@ -109,6 +109,7 @@ def _load_recipe(
     # another recipe) - unlike synthetic inline recipes, which should defer
     # to whatever recipe text the outer call was already tracking.
     _is_external_source = False
+    source_recipe_name = None
 
     # If the recipe to read is from "https://" or "http://"
     if 'https://' == recipe[:8] or 'http://' == recipe[:7]:
@@ -124,6 +125,7 @@ def _load_recipe(
         version_id = recipe.split(':')[1].strip() if ':' in recipe else None
 
         metadata = _data.model(model_id)
+        source_recipe_name = metadata.get('name')
         # If model_id format is correct but no mode_id exists
         if metadata.get('message', None) == 'error':
             raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
@@ -188,6 +190,7 @@ def _load_recipe(
             with open(recipe, "r", encoding='utf-8') as f:
                 recipe_string = f.read()
             _is_external_source = True
+            source_recipe_name = _os.path.basename(recipe)
         except:
             raise RuntimeError(
                 f'Error reading recipe: "{recipe}". ' \
@@ -278,6 +281,30 @@ def _load_recipe(
     run_context = _RECIPE_RUN_CONTEXT.get()
     if run_context is not None and (run_context['depth'] <= 1 or _is_external_source):
         run_context['recipe_string'] = recipe_string
+    if run_context is not None:
+        supplied_name = variables.get('recipe_name')
+        if not isinstance(supplied_name, str):
+            supplied_name = None
+        # Meta-wrangles forward the caller's variables unchanged. A saved child
+        # keeps its own title when an anonymous fragment forwards the older label.
+        changed_name = (
+            'recipe_name' in user_variable_keys
+            and supplied_name != run_context.get('recipe_name_variable')
+        )
+        if (
+            source_recipe_name
+            or changed_name
+            or run_context['depth'] <= 1
+            or _is_external_source
+        ):
+            run_context['recipe_name'] = source_recipe_name or supplied_name
+        run_context['recipe_name_variable'] = supplied_name
+        # XL supplies user_email; local runners normally supply WRANGLES_USER.
+        # These labels are diagnostic attribution, never authorization claims.
+        for candidate in (variables.get('WRANGLES_USER'), variables.get('user_email')):
+            if isinstance(candidate, str) and candidate.strip() and candidate != 'Missing':
+                run_context['wrangles_user'] = candidate
+                break
 
     # Check if there are any templated valued to update
     recipe_object = _replace_templated_values(recipe_object, variables)
@@ -1235,7 +1262,10 @@ def run(
     parent_context = _RECIPE_RUN_CONTEXT.get()
     run_context = {
         'depth': (parent_context.get('depth', 0) if parent_context else 0) + 1,
-        'recipe_string': parent_context.get('recipe_string') if parent_context else None
+        'recipe_string': parent_context.get('recipe_string') if parent_context else None,
+        'recipe_name': parent_context.get('recipe_name') if parent_context else None,
+        'recipe_name_variable': parent_context.get('recipe_name_variable') if parent_context else None,
+        'wrangles_user': parent_context.get('wrangles_user') if parent_context else None,
     }
     context_token = _RECIPE_RUN_CONTEXT.set(run_context)
     try:
