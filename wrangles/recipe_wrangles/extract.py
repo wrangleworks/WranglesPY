@@ -1869,3 +1869,93 @@ def regex(
             _write_regex(input_column, [output_column])
 
     return df
+
+
+def dimensions(
+    df: _pd.DataFrame,
+    output: str,
+    input: _Union[str, int, list] = None,
+    model: str = "gpt-5-mini",
+    api_key: str = None,
+    api_base: str = None,
+    threads: int = 4,
+    **kwargs
+):
+    """
+    type: object
+    description: >-
+      Extract structured dimensional measurements (length, width, height,
+      diameter, depth, explicitly stated volume, and labeled misc
+      dimensions such as thickness, radius, bore, area, clearance, or
+      gauge) from product text using an AI agent. Values are grounded in
+      the source text - no unit conversion or derived calculation is
+      performed, and counts, model numbers, electrical ratings, weights,
+      and pack quantities are not treated as dimensions. Requires the
+      optional nooa package (pip install nooa==0.0.10, Python 3.12+).
+    additionalProperties: false
+    required:
+      - output
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: >-
+          Input column name, column index, or list of columns supplied
+          together as text for each row. If omitted, all dataframe columns
+          are supplied.
+        items:
+          type: [string, integer]
+      output:
+        type: string
+        description: >-
+          Name of the column to write the extraction result to. Each row's
+          value is an object with a measurements list; each measurement has
+          kind (length, width, height, diameter, depth, volume, misc),
+          label, value, minimum, maximum, unit, qualifier, and source.
+      model:
+        type: string
+        description: >-
+          LiteLLM-style model identifier passed to NOOA, e.g. gpt-5-mini.
+          Default gpt-5-mini.
+      api_key:
+        type: string
+        description: >-
+          Provider API key, passed directly to the NOOA LLM client. Never
+          included in the prompt or output. Normally supplied through a
+          recipe variable, e.g. ${OPENAI_API_KEY}.
+      api_base:
+        type: string
+        description: Optional custom endpoint/base URL for the model provider.
+      threads:
+        type: integer
+        minimum: 1
+        description: >-
+          Maximum number of rows processed concurrently. Output row order
+          always matches input row order. Default 4.
+    """
+    if input is not None:
+        if not isinstance(input, list):
+            input = [input]
+        df_temp = df[input]
+    else:
+        df_temp = df
+
+    if input is not None and len(input) == 1:
+        rows = df_temp[input[0]].tolist()
+    else:
+        rows = df_temp.to_dict(orient='records')
+
+    results = _extract.dimensions(
+        rows,
+        model=model,
+        api_key=api_key,
+        api_base=api_base,
+        threads=threads,
+        **kwargs
+    )
+
+    df[output] = results
+
+    return df
