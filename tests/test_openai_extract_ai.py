@@ -28,25 +28,15 @@ class _Response:
         return self._body
 
 
-def test_extract_ai_uses_responses_structured_outputs(monkeypatch, caplog):
+def test_extract_ai_uses_responses_structured_outputs(
+    monkeypatch, caplog, openai_success_response
+):
     calls = []
-    body = {
-        "output": [
-            {
-                "type": "message",
-                "content": [
-                    {
-                        "type": "output_text",
-                        "text": '{"length":"25mm"}',
-                    }
-                ],
-            }
-        ]
-    }
+    response = openai_success_response({"length": "25mm"})
 
     def post(**kwargs):
         calls.append(kwargs)
-        return _Response(body)
+        return response
 
     monkeypatch.setattr(extract._openai_responses._requests, "post", post)
 
@@ -87,18 +77,14 @@ def test_extract_ai_uses_responses_structured_outputs(monkeypatch, caplog):
 
 
 @pytest.mark.parametrize("store", [None, False, True])
-def test_extract_ai_recipe_preserves_response_storage_override(monkeypatch, store):
+def test_extract_ai_recipe_preserves_response_storage_override(
+    monkeypatch, store, openai_success_response
+):
     calls = []
-    body = {
-        "output": [{
-            "type": "message",
-            "content": [{"type": "output_text", "text": '{"length":"25mm"}'}],
-        }]
-    }
     monkeypatch.setattr(
         extract._openai_responses._requests,
         "post",
-        lambda **kwargs: calls.append(kwargs) or _Response(body),
+        lambda **kwargs: calls.append(kwargs) or openai_success_response({"length": "25mm"}),
     )
     settings = {
         "input": "Description",

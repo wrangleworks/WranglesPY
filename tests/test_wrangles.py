@@ -5,6 +5,8 @@ from wrangles.train import train
 import os
 import logging
 
+pytestmark = [pytest.mark.integration, pytest.mark.live_wrangleworks, pytest.mark.live_ai]
+
 
 # Classify
 def test_classify():

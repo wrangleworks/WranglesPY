@@ -124,6 +124,8 @@ venv.bak/
 docs/*
 !docs/extract_ai_user_guide.md
 !docs/github-app-deployment.md
+!docs/testing-strategy.md
+!pytest-integration.ini
 .DS_Store
 
 # Spyder project settings
