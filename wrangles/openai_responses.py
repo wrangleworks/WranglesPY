@@ -269,7 +269,8 @@ def _provider_error_message(message, api_key=None):
 
 
 def _transport_error_message(error, api_key=None):
-    return _sanitize_error_text(str(error), api_key) or "OpenAI transport error."
+    message = _sanitize_error_text(str(error), api_key) or "Transport request failed."
+    return f"OpenAI API error | transport: {message}"
 
 
 def _incomplete_reason(body):

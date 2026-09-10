@@ -9,11 +9,12 @@ import logging
 import pytest
 import requests
 
-from wrangles import openai_responses
+from wrangles import ai_cache, extract, openai_responses
 
 
 @pytest.fixture(autouse=True)
 def _isolate_attempts(monkeypatch, caplog):
+    ai_cache.clear()
     openai_responses._SUCCESS_STATS.clear()
     monkeypatch.delenv("WRANGLES_OPENAI_LOG_METRICS", raising=False)
     monkeypatch.delenv("WRANGLES_OPENAI_LOG_RATE_LIMITS", raising=False)
@@ -21,6 +22,7 @@ def _isolate_attempts(monkeypatch, caplog):
     monkeypatch.setattr(openai_responses._random, "uniform", lambda *args: 0)
     caplog.set_level(logging.INFO, logger="wrangles.openai_responses")
     yield
+    ai_cache.clear()
     openai_responses._SUCCESS_STATS.clear()
 
 
@@ -286,8 +288,9 @@ def test_transport_attempts_are_logged_with_monotonic_elapsed_and_no_stale_respo
     if outcome == "timeout":
         assert result["count"] == "Timed Out"
     else:
+        assert result["count"].startswith("OpenAI API error | transport:")
         assert "[REDACTED]" in result["count"]
-        assert len(result["count"]) <= 512
+        assert len(result["count"]) <= 550
 
 
 @pytest.mark.parametrize("code,message,expected", [
@@ -807,3 +810,39 @@ def test_aggregate_partial_sums_include_per_count_missing_response_totals(
     assert last["cached_tokens_missing_responses"] == 1
     assert last["cache_hit_responses"] == 1
     assert last["usage_totals_partial"] is True
+
+
+@pytest.mark.parametrize("error", [
+    requests.exceptions.ConnectionError("Connection could not be established"),
+    requests.exceptions.SSLError("TLS negotiation failed"),
+    RuntimeError(""),
+])
+def test_public_extract_retries_uncached_transport_failures(monkeypatch, caplog, error):
+    calls = []
+
+    def post(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            raise error
+        return _response(_completed())
+
+    monkeypatch.setattr(openai_responses._requests, "post", post)
+    arguments = {
+        "input": "bolt",
+        "api_key": "synthetic-private-key",
+        "output": {"count": {"type": "integer"}},
+        "model": "gpt-4.1",
+        "threads": 1,
+        "retries": 0,
+        "cache": True,
+    }
+
+    first = extract.ai(**arguments)
+    second = extract.ai(**arguments)
+
+    assert first["count"].startswith("OpenAI API error | transport:")
+    assert second == {"count": 2}
+    assert len(calls) == 2
+    assert extract.ai(**arguments) == {"count": 2}
+    assert len(calls) == 2
+    assert [event["outcome"] for event in _events(caplog)] == ["transport_error", "success"]
