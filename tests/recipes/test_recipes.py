@@ -39,6 +39,8 @@ def test_recipe_from__recipe_file():
     )
     assert df.columns.tolist() == ['ID', 'Find2']
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 def test_recipe_from_url():
     """
     Testing reading a recipe from an https:// source
@@ -51,6 +53,8 @@ def test_recipe_from_url():
     )
     assert df.iloc[0]['out1'] == 'HELLO WORLD'
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 def test_recipe_from_url_not_found():
     """
     Test that if a user passes in a recipe as a URL and the 
@@ -95,6 +99,8 @@ def test_recipe_special_character():
     df = wrangles.recipe.run("tests/samples/recipe_special_character.wrgl.yml")
     assert df.iloc[0]['column'] == 'this is a ° symbol'
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 def test_recipe_model():
     """
     Test running a recipe using a model ID
@@ -105,6 +111,8 @@ def test_recipe_model():
         list(df.columns[:3]) == ["Part Number", "Description", "Brand"]
     )
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 def test_recipe_by_version_id():
     """
     Test running a recipe using a model ID and version ID
@@ -115,6 +123,8 @@ def test_recipe_by_version_id():
         list(df.columns) == ["header"]
     )
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 def test_recipe_by_version_tag():
     """
     Test running a recipe using a model ID and version tag
@@ -127,6 +137,8 @@ def test_recipe_by_version_tag():
     )
 
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 def test_recipe_by_production_version():
     """
     Test running a recipe using a model ID and production version
@@ -184,6 +196,8 @@ def test_recipe_by_production_semantic_version_falls_back_to_latest(
     assert "No production version exists, defaulting to latest version" in caplog.text
 
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 def test_recipe_by_version_latest():
     """
     Test running a recipe using a model ID and latest version
@@ -194,6 +208,8 @@ def test_recipe_by_version_latest():
         list(df.columns) == ["header"]
     )
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 def test_recipe_by_latest_version():
     """
     Test running a recipe using a model ID and latest version
@@ -204,6 +220,8 @@ def test_recipe_by_latest_version():
         list(df.columns) == ["header"]
     )
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 def test_recipe_wrong_model():
     """
     Test the error message when a model is incorrect type

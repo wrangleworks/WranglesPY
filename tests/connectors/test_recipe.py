@@ -1,5 +1,6 @@
 import wrangles
 import pandas as pd
+import pytest
 from wrangles.connectors import memory
 
 
@@ -277,6 +278,8 @@ def test_run():
     )
     assert memory.dataframes["recipe_run"]["data"][0][0] == "VALUE1"
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 def test_model_id():
     """
     Test reading a recipe with a model ID
@@ -293,6 +296,8 @@ def test_model_id():
         list(df.columns[:3]) == ["Part Number", "Description", "Brand"]
     )
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 def test_model_with_custom_functions():
     """
     Test a model that includes custom functions

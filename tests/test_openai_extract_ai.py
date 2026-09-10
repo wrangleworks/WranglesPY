@@ -108,7 +108,7 @@ def test_extract_ai_recipe_preserves_response_storage_override(
 
 @pytest.mark.parametrize("configured_store", [True, False, None])
 def test_extract_ai_storage_configuration_and_override_have_separate_caches(
-    monkeypatch, tmp_path, configured_store
+    monkeypatch, tmp_path, configured_store, openai_success_response
 ):
     config = ai_config.load()
     if configured_store is None:
@@ -121,16 +121,10 @@ def test_extract_ai_storage_configuration_and_override_have_separate_caches(
     ai_config.clear_cache()
 
     calls = []
-    body = {
-        "output": [{
-            "type": "message",
-            "content": [{"type": "output_text", "text": '{"length":"25mm"}'}],
-        }]
-    }
     monkeypatch.setattr(
         extract._openai_responses._requests,
         "post",
-        lambda **kwargs: calls.append(kwargs) or _Response(body),
+        lambda **kwargs: calls.append(kwargs) or openai_success_response({"length": "25mm"}),
     )
     arguments = {
         "input": "wrench 25mm",
@@ -224,22 +218,14 @@ def test_extract_ai_web_search_returns_metadata_sources_and_caches_them(monkeypa
     assert "authorized evidence in addition to DATA" in payload["instructions"]
 
 
-def test_extract_ai_web_search_preserves_expert_tool_settings(monkeypatch):
+def test_extract_ai_web_search_preserves_expert_tool_settings(
+    monkeypatch, openai_success_response
+):
     calls = []
-    body = {
-        "output": [{
-            "type": "message",
-            "content": [{
-                "type": "output_text",
-                "text": '{"manufacturer":"Acme"}',
-                "annotations": [],
-            }],
-        }]
-    }
     monkeypatch.setattr(
         extract._openai_responses._requests,
         "post",
-        lambda **kwargs: calls.append(kwargs) or _Response(body),
+        lambda **kwargs: calls.append(kwargs) or openai_success_response({"manufacturer": "Acme"}),
     )
 
     result = extract.ai(
@@ -303,15 +289,13 @@ def test_extract_ai_web_search_failure_still_returns_empty_sources(monkeypatch):
     assert result["output"].startswith("Invalid structured response")
 
 
-def test_extract_ai_malformed_response_json_returns_structured_failure(monkeypatch):
-    class MalformedResponse(_Response):
-        def json(self):
-            raise json.JSONDecodeError("Malformed response body", "", 0)
-
+def test_extract_ai_malformed_response_json_returns_structured_failure(
+    monkeypatch, malformed_json_response_factory
+):
     monkeypatch.setattr(
         extract._openai_responses._requests,
         "post",
-        lambda **kwargs: MalformedResponse(None),
+        lambda **kwargs: malformed_json_response_factory(),
     )
 
     result = extract.ai(
@@ -327,11 +311,9 @@ def test_extract_ai_malformed_response_json_returns_structured_failure(monkeypat
     assert result["web_search_sources"] == []
 
 
-def test_extract_ai_malformed_retry_does_not_reuse_prior_response_sources(monkeypatch):
-    class MalformedResponse(_Response):
-        def json(self):
-            raise json.JSONDecodeError("Malformed response body", "", 0)
-
+def test_extract_ai_malformed_retry_does_not_reuse_prior_response_sources(
+    monkeypatch, malformed_json_response_factory
+):
     responses = [
         _Response({
             "output": [
@@ -348,7 +330,7 @@ def test_extract_ai_malformed_retry_does_not_reuse_prior_response_sources(monkey
                 },
             ]
         }),
-        MalformedResponse(None),
+        malformed_json_response_factory(),
     ]
     monkeypatch.setattr(
         extract._openai_responses._requests,
