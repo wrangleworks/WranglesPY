@@ -150,49 +150,54 @@ def test_recipe_by_production_version():
     )
 
 
-def test_recipe_by_production_semantic_version(mocker):
+def test_recipe_by_production_semantic_version(monkeypatch):
     """
     Test running a recipe using the production semantic version
     """
-    mocker.patch(
-        "wrangles.data.model",
-        return_value={
+    monkeypatch.setattr(
+        wrangles.data,
+        "model",
+        lambda model_id: {
             "purpose": "recipe",
             "production_version_id": "production-version-id"
-        }
+        },
     )
-    model_content = mocker.patch(
-        "wrangles.data.model_content",
-        return_value={"recipe": "{}"}
-    )
+    calls = []
+
+    def model_content(model_id, version_id=None):
+        calls.append((model_id, version_id))
+        return {"recipe": "{}"}
+
+    monkeypatch.setattr(wrangles.data, "model_content", model_content)
 
     wrangles.recipe.run("e954717c-fb9c-4c47:production")
 
-    model_content.assert_called_once_with(
-        "e954717c-fb9c-4c47",
-        "production-version-id"
-    )
+    assert calls == [("e954717c-fb9c-4c47", "production-version-id")]
 
 
 def test_recipe_by_production_semantic_version_falls_back_to_latest(
-    mocker,
+    monkeypatch,
     caplog
 ):
     """
     Test the production semantic version falls back when none exists
     """
-    mocker.patch(
-        "wrangles.data.model",
-        return_value={"purpose": "recipe"}
+    monkeypatch.setattr(
+        wrangles.data,
+        "model",
+        lambda model_id: {"purpose": "recipe"},
     )
-    model_content = mocker.patch(
-        "wrangles.data.model_content",
-        return_value={"recipe": "{}"}
-    )
+    calls = []
+
+    def model_content(model_id, version_id=None):
+        calls.append((model_id, version_id))
+        return {"recipe": "{}"}
+
+    monkeypatch.setattr(wrangles.data, "model_content", model_content)
 
     wrangles.recipe.run("e954717c-fb9c-4c47:production")
 
-    model_content.assert_called_once_with("e954717c-fb9c-4c47", None)
+    assert calls == [("e954717c-fb9c-4c47", None)]
     assert "No production version exists, defaulting to latest version" in caplog.text
 
 

@@ -60,7 +60,7 @@ def test_run_recipe_connector():
   assert run(recipe) == None
 
 
-def test_function_sub_recipe():
+def test_function_sub_recipe(tmp_path):
     """
     Test that custom functions are able to
     be called by sub-recipes.
@@ -84,7 +84,7 @@ def test_function_sub_recipe():
         return df
         
     def write_1(df, type):
-        df.to_excel(f"tests/temp/excel.{type}")
+        df.to_excel(tmp_path / f"excel.{type}")
 
     df = wrangles.recipe.run(
         recipe=main_recipe,
