@@ -642,6 +642,11 @@ def _execute_wrangles(
                         'select.element',
                         'rename'
                     ]
+                    and not (
+                        wrangle == 'extract.ai'
+                        and params.get('attachments') is not None
+                        and params['input'] == []
+                    )
                 ):
                     # Expand out any wildcards or regex in column names
                     params['input'] = _wildcard_expansion(
@@ -889,6 +894,14 @@ def _execute_wrangles(
                         output_columns = _wildcard_expansion(df.columns, output_columns)
 
                         df = df[output_columns]
+
+                    elif wrangle == 'extract.ai' and params.get('attachments') is not None:
+                        # Saved-model outputs may overwrite existing columns unrelated to text input.
+                        df = df[[
+                            col for col in df.columns
+                            if col not in df_original.columns
+                            or not df[col].equals(df_original.loc[df.index, col])
+                        ]]
 
                     # Wrangle appears to have overwritten the input column(s)
                     elif list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):

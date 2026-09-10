@@ -1,0 +1,7 @@
+wrangles:
+  - extract.ai:
+      input: Description
+      api_key: test-openai-key
+      output:
+        length:
+          type: string

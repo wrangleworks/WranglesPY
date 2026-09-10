@@ -1,0 +1,1 @@
+{"version": 1, "extract_ai": {"provider": "openai", "model": "custom-model", "endpoints": {"responses": "https://api.openai.com/v1/responses", "chat_completions": "https://api.openai.com/v1/chat/completions"}, "prompt": {"instructions": "Extract the requested fields from the input."}, "default_concurrency": 4}}

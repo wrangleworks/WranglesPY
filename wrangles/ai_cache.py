@@ -240,6 +240,15 @@ def _maybe_log(policy: CachePolicy) -> None:
     _LOG.info(_json.dumps(payload, sort_keys=True))
 
 
+def _log_lookup(key: str, outcome: str, **details) -> None:
+    _LOG.info(_json.dumps({
+        "event": "extract_ai_cache_lookup",
+        "request_key": key,
+        "outcome": outcome,
+        **details,
+    }, sort_keys=True))
+
+
 def get_or_compute(
     key: str,
     compute: _Callable,
@@ -275,16 +284,19 @@ def get_or_compute(
                     _STATS["coalesced"] += 1
 
     if found:
+        _log_lookup(key, "hit")
         _maybe_log(policy)
         return cached
 
     if not owner:
+        _log_lookup(key, "coalesced")
         flight.event.wait()
         if flight.exception is not None:
             raise flight.exception
         _maybe_log(policy)
         return _copy.deepcopy(flight.result)
 
+    _log_lookup(key, "miss")
     try:
         result = compute()
         if cacheable(result):
@@ -333,6 +345,10 @@ def execute_batch(
         key = key_for(row)
         group = grouped.setdefault(key, {"row": row, "indices": []})
         group["indices"].append(index)
+
+    for key, group in grouped.items():
+        if len(group["indices"]) > 1:
+            _log_lookup(key, "batch_duplicate", reused_rows=len(group["indices"]) - 1)
 
     results = [None] * len(input_rows)
     worker_count = min(max_workers, len(grouped))

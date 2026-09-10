@@ -4,6 +4,12 @@ Use `extract.ai` when each input row should produce one or more consistently
 named attributes. You can define the attributes in an Excel saved model or
 directly in a recipe. Both routes compile to the same output contract.
 
+For original PDFs and images, use explicit
+[`attachments`](extract_ai_configuration.md#pdf-and-image-attachments) with a
+vision-capable Responses model. Text containing a file path alone does not send
+the file. The configuration guide includes Python/YAML examples, per-record
+association, limits, and usage-accounting guidance for longer visual requests.
+
 ## Start with the output
 
 Define the result you want before writing general instructions or examples.

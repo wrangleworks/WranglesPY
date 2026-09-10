@@ -1,0 +1,5 @@
+version: 1
+extract_ai:
+  provider: openai
+  protocol: responses
+  model: custom-model
