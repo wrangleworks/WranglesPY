@@ -141,16 +141,18 @@ def run(
             strategy=strategy,
             functions=functions
         ):
-            future = executor.submit(
-                _wrangles.recipe.run,
-                recipe={'run': {"on_start": run}},
-                variables=permutation,
-                functions=functions
+            futures.append(
+                executor.submit(
+                    _wrangles.recipe.run,
+                    recipe={'run': {"on_start": run}},
+                    variables=permutation,
+                    functions=functions
+                )
             )
 
-            # Wait for all futures to complete
-            for future in futures:
-                future.result()
+        # Wait for all futures to complete, raising any exceptions
+        for future in futures:
+            future.result()
 
 _schema['run'] = """
 type: object
@@ -323,17 +325,19 @@ def write(
             functions=functions,
             df=df
         ):
-            future = executor.submit(
-                _wrangles.recipe.run,
-                recipe={'write': write},
-                dataframe=df.copy(),
-                variables=permutation,
-                functions=functions
+            futures.append(
+                executor.submit(
+                    _wrangles.recipe.run,
+                    recipe={'write': write},
+                    dataframe=df.copy(),
+                    variables=permutation,
+                    functions=functions
+                )
             )
 
-            # Wait for all futures to complete
-            for future in futures:
-                future.result()
+        # Wait for all futures to complete, raising any exceptions
+        for future in futures:
+            future.result()
 
 _schema['write'] = """
 type: object
