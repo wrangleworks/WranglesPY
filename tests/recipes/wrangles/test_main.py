@@ -28,6 +28,8 @@ def assert_lookup_equal(a, b, score_tol=0.01):
     assert a == b
 
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 class TestClassify:
     """
     Test classify
@@ -907,12 +909,13 @@ class TestLog:
         wrangles.recipe.run(recipe, dataframe=data)
         assert caplog.messages[-1] == ': Dataframe ::\n\n            Col*\n0  WrangleWorks!\n'
 
-    def test_log_write(self):
+    def test_log_write(self, tmp_path):
         """
         Test using a connector as part of a log
         """
+        file_name = (tmp_path / "temp.csv").as_posix()
         wrangles.recipe.run(
-            """
+            f"""
             read:
               - test:
                   rows: 5
@@ -923,24 +926,25 @@ class TestLog:
               - log:
                   write:
                     - file:
-                        name: tests/temp/temp.csv
+                        name: {file_name}
             """
         )
         df = wrangles.recipe.run(
-            """
+            f"""
             read:
               - file:
-                  name: tests/temp/temp.csv
+                  name: {file_name}
             """
         )
         assert len(df) == 5 and df['header'][0] == 'value'
-
-    def test_log_write_multiple_files(self):
+    def test_log_write_multiple_files(self, tmp_path):
         """
         Test writing multiple files from a log
         """
+        file_name = (tmp_path / "temp.csv").as_posix()
+        file_name2 = (tmp_path / "temp2.csv").as_posix()
         wrangles.recipe.run(
-            """
+            f"""
             read:
               - test:
                   rows: 5
@@ -951,27 +955,26 @@ class TestLog:
               - log:
                   write:
                     - file:
-                        name: tests/temp/temp.csv
+                        name: {file_name}
                     - file:
-                        name: tests/temp/temp2.csv
+                        name: {file_name2}
             """
         )
         df = wrangles.recipe.run(
-            """
+            f"""
             read:
               - file:
-                  name: tests/temp/temp.csv
+                  name: {file_name}
             """
         )
         df2 = wrangles.recipe.run(
-            """
+            f"""
             read:
               - file:
-                  name: tests/temp/temp2.csv
+                  name: {file_name2}
             """
         )
         assert len(df) == 5 and df['header'][0] == 'value' and len(df2) == 5 and df2['header'][0] == 'value'
-
     def test_log_length(self, caplog):
         """
         Test default log
@@ -1164,10 +1167,12 @@ class TestLog:
         wrangles.recipe.run(recipe, dataframe=data, variables={'var': 'Col1'})
         assert caplog.messages[-1] == ': Dataframe ::\n\n      Col1\n0  Chicken\n'
 
-    def test_log_write_multiple_variable_files(self):
+    def test_log_write_multiple_variable_files(self, tmp_path):
         """
         Test writing multiple files using variables
         """
+        file_name = (tmp_path / "temp.csv").as_posix()
+        file_name2 = (tmp_path / "temp2.csv").as_posix()
         wrangles.recipe.run(
             """
             read:
@@ -1185,26 +1190,25 @@ class TestLog:
                         name: ${var2}
             """,
             variables = {
-                'var1': 'tests/temp/temp.csv',
-                'var2': 'tests/temp/temp2.csv',
+                'var1': file_name,
+                'var2': file_name2,
             }
         )
         df = wrangles.recipe.run(
-            """
+            f"""
             read:
               - file:
-                  name: tests/temp/temp.csv
+                  name: {file_name}
             """
         )
         df2 = wrangles.recipe.run(
-            """
+            f"""
             read:
               - file:
-                  name: tests/temp/temp2.csv
+                  name: {file_name2}
             """
         )
         assert len(df) == 5 and df['header'][0] == 'value' and len(df2) == 5 and df2['header'][0] == 'value'
-
 
 
 class TestRemoveWords:
@@ -2951,6 +2955,8 @@ class TestSimilarity:
         assert df.empty and df.columns.to_list() == ['col1', 'col2', 'Cos Sim']
 
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 class TestStandardize:
     """
     Test standardize
@@ -3574,6 +3580,8 @@ class TestReplace:
         assert df.iloc[1]['Not Dictionaries'] == {'So': 'is this'} and isinstance(df.iloc[0]['Not Dictionaries'], dict) == True
 
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 class TestTranslate:
     """
     Test translate
@@ -6301,6 +6309,8 @@ class TestBatch:
   
 
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 class TestLookup:
     """
     Test lookup wrangle
@@ -7571,6 +7581,8 @@ class TestMatrix:
                 """
             )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_extract_ai(self):
         """
         Test using extract.ai within a matrix

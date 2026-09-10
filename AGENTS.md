@@ -29,6 +29,31 @@
   production Python version; verify that repository before making production
   runtime claims.
 
+## Running tests locally
+
+- Use `.\scripts\test-local.ps1` for the default local verification run. It
+  clears live credentials and runs `pytest -c pytest-local.ini` with an isolated
+  temp root, so local and AI-agent runs do not accidentally call OpenAI,
+  WrangleWorks, AWS, Gemini, SerpAPI, or other live providers.
+- Use focused `python -m pytest -c pytest-local.ini <path-or-nodeid>` commands
+  while iterating. Do not use bare `pytest` as the default local command; it can
+  collect credentialed legacy tests that are intentionally outside the local
+  loop.
+- New AI-generated tests should be `unit` or `contract` tests unless the live
+  service behavior is the feature under test. Mock provider transports,
+  WrangleWorks model APIs, and credential lookups with `monkeypatch` or
+  `mocker` for unit/contract coverage.
+- Mark tests that need deployed services with the most specific pytest markers:
+  `integration`, plus `live_ai`, `live_wrangleworks`, `live_s3`, or `slow` as
+  applicable. Live tests must be opt-in and must not be added to
+  `pytest-local.ini` without mocking the external dependency.
+- Prefer `tmp_path` for new file-writing tests. Avoid adding new shared
+  `tests/temp` outputs unless compatibility with an existing recipe fixture
+  requires that path.
+- Any integration test that creates a model or external resource must register
+  it for cleanup immediately and delete it in a fixture finalizer or `finally`
+  block, even when assertions fail.
+
 ## Code Review Rules
 
 ### Make the required action explicit

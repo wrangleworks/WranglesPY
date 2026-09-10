@@ -2,6 +2,8 @@ import pandas as pd
 import wrangles
 import pytest
 
+pytestmark = [pytest.mark.integration, pytest.mark.live_wrangleworks]
+
 
 #
 # misc
