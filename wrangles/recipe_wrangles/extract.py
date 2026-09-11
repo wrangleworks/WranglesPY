@@ -288,6 +288,43 @@ def address(
     return df
 
 
+def _resolve_ai_attachments(df, attachments):
+    if not isinstance(attachments, list):
+        raise TypeError("attachments must be an ordered list of descriptors.")
+    if len(attachments) > 16:
+        raise ValueError("attachments supports at most 16 files per row.")
+
+    rows = [[] for _ in range(len(df))]
+    for attachment in attachments:
+        if not isinstance(attachment, dict):
+            raise TypeError("Each attachment must be a path or column descriptor.")
+        if set(attachment) - {"path", "column", "id", "detail"}:
+            raise ValueError("Attachment descriptors only accept path, column, id, and detail.")
+        if ("path" in attachment) == ("column" in attachment):
+            raise ValueError("Each attachment must specify exactly one of path or column.")
+
+        descriptor = dict(attachment)
+        if "column" in descriptor:
+            column = descriptor.pop("column")
+            if not isinstance(column, str) or not column:
+                raise ValueError("Attachment column must be a non-empty column name.")
+            matches = df.columns.tolist().count(column)
+            if matches == 0:
+                raise ValueError(f"Attachment column {column!r} does not exist.")
+            if matches > 1:
+                raise ValueError(f"Attachment column {column!r} is duplicated.")
+            paths = df[column].tolist()
+        else:
+            paths = [descriptor["path"]] * len(df)
+
+        for row, path in zip(rows, paths):
+            if not isinstance(path, str) or not path:
+                raise ValueError("Each attachment must resolve to a non-empty local path or s3://bucket/key string.")
+            row.append({**descriptor, "path": path})
+
+    return rows
+
+
 def ai(
     df: _pd.DataFrame,
     api_key: str,
@@ -299,6 +336,7 @@ def ai(
     char: str = ", ",
     web_search: bool = False,
     instructions: _Union[str, list] = None,
+    attachments: list = None,
     **kwargs
 ):
     """
@@ -323,8 +361,50 @@ def ai(
         description: >-
           Input column name, column index, or list of columns supplied together
           as DATA for each row. If omitted, all dataframe columns are supplied.
+          Use an empty list with attachments for attachment-only extraction.
         items:
           type: [string, integer]
+      attachments:
+        type: array
+        maxItems: 16
+        description: >-
+          Ordered local or S3 PDF, PNG, JPEG, or WebP attachments, at most 16 per row.
+          Use path for a literal file repeated for every row, or column for one
+          local path or s3://bucket/key string per row, independently of input.
+          S3 uses boto3's normal AWS credential chain, including IAM roles.
+          Input values are never implicitly opened. GIF, HTTP URLs, and provider file
+          IDs are not supported. Omitted IDs default to source-1, source-2, and
+          so on in attachment order. Explicit detail is for images only.
+          Limits are 20 MiB per file, 32 MiB per row, and 128 MiB of unique
+          file data per batch.
+        items:
+          type: object
+          additionalProperties: false
+          oneOf:
+            - required: [path]
+            - required: [column]
+          not:
+            required: [path, detail]
+            properties:
+              path:
+                pattern: '[.][pP][dD][fF]$'
+          properties:
+            path:
+              type: string
+              description: Explicit local path or s3://bucket/key; no S3 query strings or fragments.
+              pattern: '^(?:s3://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/[^?#\\r\\n]+|(?![A-Za-z][A-Za-z0-9+.-]*://).+)[.]([pP][dD][fF]|[pP][nN][gG]|[jJ][pP][eE]?[gG]|[wW][eE][bB][pP])$'
+            column:
+              type: string
+              minLength: 1
+              description: Exact unique dataframe column containing one local path or s3://bucket/key string per row.
+            id:
+              type: string
+              pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$'
+              description: Optional source ID, unique within the row; defaults by attachment order.
+            detail:
+              type: string
+              enum: [auto, low, high]
+              description: Image detail level. PDF attachments reject an explicit detail value.
       output:
         type: [object, string, array]
         description: >-
@@ -517,13 +597,22 @@ def ai(
       threads:
         type: integer
         minimum: 1
-        description: Maximum number of row-level requests sent in parallel. The configured default is 32.
+        description: >-
+          Maximum number of row-level requests sent in parallel. The configured
+          default is 32. Visual work can require fewer concurrent threads.
       timeout:
         type: number
         exclusiveMinimum: 0
         description: >-
           Network timeout in seconds for each HTTP attempt. The configured
-          default is 12. Each retry uses the same timeout.
+          default is 12. Each retry uses the same timeout. Visual work can
+          require a larger timeout.
+      max_output_tokens:
+        type: integer
+        minimum: 1
+        description: >-
+          Maximum Responses output token budget. Reasoning tokens consume this
+          budget too, so allow room for both reasoning and the extracted data.
       retries:
         type: integer
         minimum: 0
@@ -657,6 +746,9 @@ def ai(
             f"Column {_WEB_SEARCH_SOURCES_KEY!r} is reserved when web_search is enabled."
         )
 
+    if attachments is not None:
+        kwargs["attachments"] = _resolve_ai_attachments(df, attachments)
+
     # If input is provided, extract only those columns
     # Otherwise, provide the whole dataframe
     if input is not None:
@@ -665,6 +757,12 @@ def ai(
         df_temp = df[input]
     else:
         df_temp = df
+
+    input_records = (
+        [None] * len(df)
+        if attachments is not None and input == []
+        else df_temp.to_dict(orient='records')
+    )
     
     # Target columns will contain a list of column names
     # to insert to created results into
@@ -722,7 +820,7 @@ def ai(
         )
 
     results = _extract.ai(
-        df_temp.to_dict(orient='records'),
+        input_records,
         api_key=api_key,
         output=output,
         model_id=model_id,

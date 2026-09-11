@@ -274,11 +274,14 @@ Operational environment controls:
 | `WRANGLES_EXTRACT_AI_CACHE_MAX_ENTRIES` | Bound warm-process entry count; `0` disables |
 | `WRANGLES_EXTRACT_AI_CACHE_MAX_VALUE_BYTES` | Bound individual result size; `0` disables |
 | `WRANGLES_EXTRACT_AI_CACHE_SINGLE_FLIGHT` | Enable concurrent duplicate suppression |
-| `WRANGLES_EXTRACT_AI_CACHE_LOG_EVERY` | Emit aggregate counters every N lookups; `0` disables logs |
+| `WRANGLES_EXTRACT_AI_CACHE_LOG_EVERY` | Emit aggregate counters every N lookups; `0` disables aggregate logs |
 
-Cache telemetry contains only aggregate counters and sizes. It does not log
-cache keys or values. `wrangles.ai_cache.stats()` returns the current counters,
-and `wrangles.ai_cache.clear()` clears the warm-process cache.
+Cache telemetry contains aggregate counters and sizes plus INFO-level
+`extract_ai_cache_lookup` events. Lookup events contain a hashed `request_key`
+and an outcome (`miss`, `hit`, `coalesced`, or `batch_duplicate`), never input
+values or credentials. `wrangles.ai_cache.stats()` returns the current counters,
+and `wrangles.ai_cache.clear()` clears the warm-process cache. Set the
+`wrangles.ai_cache` logger to WARNING to suppress per-lookup events.
 
 ## Dynamic object schemas
 
@@ -287,3 +290,301 @@ Fixed object definitions use strict structured outputs. An object with
 named properties is treated as a dynamic dictionary. Dynamic definitions use
 non-strict provider mode and are validated locally so unknown keys can be
 preserved without opening the top-level response object.
+
+## PDF and image attachments
+
+`extract.ai` can send the original PDF pages or images to a vision-capable
+OpenAI model through the **Responses** protocol. No Docling, image conversion,
+local GPU, or separate API client is required. The model must support both
+visual input and structured output (for example, `gpt-4.1` or `gpt-5.4`).
+Choose the actual model ID available to your OpenAI project, not an application
+display name. Known incompatible legacy/text/audio-only models are rejected
+locally; other model IDs, account access, document validity, and context-window
+limits are checked by the provider. A rejected visual request is never retried
+as text-only. Chat Completions, other providers, streaming, and background
+Responses are not supported for this attachment contract.
+
+### Explicit input contract
+
+For a **single Python input**, pass an ordered `attachments` list:
+
+```python
+[{"path": "/data/specification.pdf", "id": "datasheet"},
+ {"path": "/data/photo.png", "id": "photo", "detail": "high"}]
+```
+
+- `path`: local filesystem path (`str` or Python `Path`) or an explicit
+  `s3://bucket/key` **string**. Relative local paths are relative to the process
+  working directory, **not the recipe file**.
+- `id`: optional unique identifier within the record; defaults to `source-1`,
+  `source-2`, etc., in attachment order. Use 1–64 letters, digits, dots,
+  underscores, or hyphens, starting with a letter or digit.
+- `detail`: images only, `auto` (default), `low`, or `high`. Higher image detail
+  can use more tokens. Do not supply it for PDFs.
+- Supported formats: PDF, PNG, JPEG (`.jpg`/`.jpeg`), and WebP. The extension and
+  file signature must agree; full decoding/validation remains provider-side.
+  GIF, raw bytes, Base64/data URLs, HTTP URLs, and provider file IDs are not
+  supported in this first slice.
+
+Use `input=None` for attachment-only extraction, or supply text/a record for
+context. Omitting `attachments` preserves the original text-only request.
+Ordinary strings containing paths or URLs—and ordinary dictionaries containing
+a `path` key—are **never** automatically opened or uploaded.
+
+A Python **input list still means separate extractions**. When supplying
+attachments, provide a list of attachment lists with exactly the same length,
+in the same order. Use `[]` for a text-only record. There is no implicit
+broadcasting in Python. Return shapes, structured schemas, saved definitions,
+and configuration precedence are unchanged.
+
+```python
+import os
+import wrangles
+
+fields = {
+    "summary": "Summarize the explicitly visible product information",
+    "source_id": "ID of the attachment supporting the summary",
+    "page": {"type": "integer", "description": "PDF page, starting at 1; null for an image"},
+    "quote": "Short supporting quote, or null when no text is visible",
+}
+options = dict(
+    api_key=os.environ["OPENAI_API_KEY"],
+    model="gpt-5.4",
+    output=fields,
+    timeout=180,
+    threads=1,
+    retries=0,
+    reasoning={"effort": "medium"},
+    max_output_tokens=16000,
+    store=False,
+)
+
+# PDF only
+document = wrangles.extract.ai(
+    None, attachments=[{"path": "/data/specification.pdf", "id": "datasheet"}],
+    **options,
+)
+
+# Standalone image, then a separate record combining text and an image
+records = wrangles.extract.ai(
+    [None, "Read the rating label; do not infer hidden values."],
+    attachments=[
+        [{"path": "/data/diagram.png", "id": "diagram"}],
+        [{"path": "/data/photo.jpg", "id": "label", "detail": "high"}],
+    ],
+    **options,
+)
+```
+
+To combine multiple attachments in one extraction, use the first list above
+with scalar input, not as the `input` argument.
+
+### Normal YAML recipes
+
+Recipes use the same ordered descriptor list. A literal `path` attaches that
+file to **each selected row**. Alternatively, use `column` instead of `path`
+to take one local path or S3 URI string from that column in each row. Column names are
+exact, not wildcard selections; do not supply both `path` and `column`.
+Attachment columns are resolved independently of text `input` selection.
+Null/empty attachment paths fail validation; filter such rows first or use
+separate recipe steps for records with different attachment sets.
+
+For a dataframe containing multiple `Context` and `Image Path` rows (image
+paths can be local or, for example, `s3://product-documents/photos/item.jpg`):
+
+```yaml
+wrangles:
+  - extract.ai:
+      input: Context
+      attachments:
+        - column: Image Path
+          id: photo
+          detail: high
+        - path: s3://product-documents/reference.pdf
+          id: reference
+      api_key: ${OPENAI_API_KEY}
+      model: gpt-5.4
+      timeout: 180
+      threads: 1
+      retries: 0
+      reasoning:
+        effort: medium
+      max_output_tokens: 16000
+      store: false
+      output:
+        summary: Describe the visible product and compare it with the reference
+        source_id: ID of the source supporting the description
+```
+
+This creates one extraction per row, pairing that row's context and photo with
+the reference PDF. `input: []` explicitly omits text for attachment-only rows;
+omitted `input` still sends all dataframe columns as text. Existing `where`,
+row order, output formats, and saved-model output mapping remain intact.
+Environment variables, recipe variables, and existing model/group-scoped
+credential resolution still supply `api_key`; attachment code does not select
+credentials or modify global client state.
+
+### S3 objects
+
+Use the same descriptor with an S3 URI; local and remote attachments can be
+combined in a single request:
+
+```python
+document = wrangles.extract.ai(
+    "Compare the product photo with the datasheet.",
+    attachments=[
+        {"path": "s3://product-documents/datasheets/specification.pdf", "id": "datasheet"},
+        {"path": "/data/photo.png", "id": "photo", "detail": "high"},
+    ],
+    **options,  # Model, OpenAI key, schema and budgets from the Python example above
+)
+```
+
+The library uses the existing **boto3** dependency to read the original bytes,
+not `s3.read`, which parses tabular data. No public object URL, presigned URL,
+temporary local file, or additional dependency is needed. Only explicit
+attachment descriptors trigger S3 reads; an S3 URI in ordinary text stays text.
+
+- Use a bucket name and the exact literal key after `s3://bucket/`. Keys are not
+  URL-decoded (`%20` means those three characters, not a space). Query strings,
+  fragments, embedded credentials, access-point ARNs, and version-ID parameters
+  are not supported. The key must end in a supported file extension.
+- AWS authentication follows boto3's standard credential chain: environment
+  credentials (including `AWS_SESSION_TOKEN`), shared profiles/`AWS_PROFILE`,
+  or workload IAM roles. Grant `s3:GetObject` and any necessary `kms:Decrypt`
+  permission. AWS authentication is independent of the OpenAI `api_key`; recipe
+  variables containing AWS secrets are **not** automatically passed to boto3.
+- Each unique S3 object is read with a fresh session; the library does not
+  replace boto3's global session or change environment credentials. For explicit
+  per-run AWS credentials or a custom S3 endpoint, use the existing
+  `s3.download_files` run connector first, then attach its local `save_as` path.
+  That connector already accepts `aws_access_key_id`, `aws_secret_access_key`,
+  `aws_session_token`, and `endpoint_url`. Do not switch process environment
+  credentials between concurrent callers.
+- S3 downloads use a 10-second connect timeout, 30-second read timeout, and
+  standard SDK request retries (at most three attempts). These are separate
+  from `extract.ai`'s model-request timeout/retries and are not a whole-batch
+  deadline. A failed streaming read aborts preparation; rerun the call after
+  resolving connectivity. Downloads happen before model requests, not inside
+  model-worker threads. Streams and clients are closed on success and failure.
+- The same attachment count, per-file, per-record, and combined batch byte
+  limits apply across local and S3 files. Object size is checked before reading
+  the body; the read itself is bounded even if the reported size is wrong.
+  Missing objects, access denial, missing credentials, and download failures
+  raise actionable errors without logging AWS error bodies or binary payloads.
+
+One `(bucket, key)` is downloaded only once per invocation, even when repeated
+across rows. Every **new invocation** reads it again before consulting the local
+result cache, so replaced content invalidates results and lost S3 access is not
+bypassed by a warm cache hit. Identical authorized bytes can still reuse the
+model result. This means a local result-cache hit may incur an S3 GET/transfer,
+but no new model call. Model retries reuse the in-memory snapshot, not another
+S3 download. S3 URIs and AWS credentials are not sent as file locations to
+OpenAI; the bytes are sent inline under the supplied source ID. As with local
+paths, explicitly selected text columns are still sent as text.
+
+### Limits, memory, time, and storage
+
+The library imposes conservative limits (MiB = 1,048,576 bytes):
+
+| Limit | Value |
+| --- | --- |
+| Attachments per record | 16 |
+| Individual decoded file | 20 MiB |
+| Combined decoded attachments per record | 32 MiB |
+| Unique local-file and S3-object snapshots per Python call/recipe step | 128 MiB |
+
+Reduce batch size or split documents when these limits are reached. All files
+are checked before submitting the batch. Each unique resolved local path or S3 object is read
+once per invocation; requests and retries use that same immutable snapshot.
+Base64 encoding adds roughly one-third to the file size and request/HTTP
+serialization adds memory overhead. Multiple workers can hold encoded requests
+at once: start with `threads: 1` for large documents.
+
+Files are sent inline in the Responses request. There are **no separate Files
+API uploads or file IDs to clean up**. Input content goes to the configured
+endpoint with the resolved credential. Existing `store: true` defaults also
+apply to attachments; use `store: false` when appropriate and follow your
+provider/project retention policy. File snapshots are not persisted by the
+library; the result cache stores only successful extracted values.
+
+Cache identity includes ordered source IDs, content hashes, media types, image
+detail, text association, and existing model/schema/prompt/options/credential
+settings. Replacing bytes at the same local path or S3 URI invalidates the result even if size
+and timestamps are unchanged. A file changed during an invocation is seen by
+the **next** invocation, not halfway through retries.
+
+Visual inputs can take substantially longer and cost more than short text.
+Text-only runtime defaults are unchanged: 12 seconds per attempt, 32 workers,
+and 1 retry. Set `timeout`, `threads`, `retries`, reasoning, and
+`max_output_tokens` explicitly for trials. The output budget includes reasoning
+tokens; it is not just the final JSON size. An incomplete attempt may already
+be billable. Retries repeat the same request and budget—they do not
+automatically increase it. Start with `retries: 0`, inspect diagnostics, then
+adjust the budget deliberately. The timeout is per attempt, not a whole-batch
+deadline. These examples are not a claim that a long-running visual call fits
+WranglesXL's request window or the deployed Lambda's resource limits.
+
+See OpenAI's [PDF inputs](https://developers.openai.com/api/docs/guides/file-inputs)
+and [images and vision](https://developers.openai.com/api/docs/guides/images-vision)
+for provider-side requirements and limitations.
+
+### Attempt accounting and source references
+
+Enable INFO logging for `wrangles.openai_responses` to retain JSON
+`openai_request_attempt` events. Each event includes a local `call_id`,
+1-based `attempt`, hashed `request_key`, requested and returned model,
+response/request IDs, HTTP/response status, outcome, elapsed request seconds,
+and provider usage. Attachment source IDs and hashes associate the attempt
+with the original inputs without logging binary content. Retries share a
+`call_id`; a later new model call receives a new one.
+
+Events cover successful, failed, incomplete, invalid structured, and transport
+attempts—even when the wrangle ultimately raises. Missing usage/counts are
+unknown (`null`), not zero. Cached-input, cache-write, and reasoning breakdowns
+are retained when returned. Reasoning is already part of provider output
+tokens: **do not add it again**. Sum input/output counts across actual attempt
+events for accounting; apply your own model-specific prices and effective
+dates. Unknown usage (including a timed-out request that may still be running
+at the provider) makes the total incomplete. No price table is built in.
+
+`extract_ai_cache_lookup` events distinguish local hits and duplicate
+suppression from misses. Their hash matches the attempt's `request_key`.
+A local hit makes no model-provider call and emits no new attempt usage
+(explicit S3 attachments are still downloaded to check content and access). OpenAI's
+reported cached-input tokens instead describe **provider prompt-cache** reuse
+on a new request. Neither diagnostic stream changes extraction return shapes
+or enables an external tracing exporter. Capture these logs in the caller's
+normal logging destination; disabling INFO means the local attempt record is
+not retained. Normal diagnostic events exclude full text, paths, binary/
+Base64 payloads, API keys, and arbitrary metadata values.
+
+Each PDF is sent with an ID-based filename; each image/PDF has an adjacent
+source-ID label in the model input. Use those IDs in caller-defined schemas
+and prompts requesting page numbers, quotes, or image references, as above.
+They are **model-produced claims requiring validation**, not trusted native
+citations. This slice does not compute bounding boxes, crop locations, table
+coordinates, or highlights.
+
+### Validation and downstream handoff
+
+Offline tests generate a tiny synthetic PDF and PNG, mock Responses, and check
+payload bytes, source/row association, cache identity, credential isolation,
+limits, schema compatibility, and incomplete-attempt accounting. They do
+**not** measure extraction accuracy. S3 tests also mock AWS downloads and errors,
+checking bounded reads, cleanup, URI/row semantics, and cache invalidation.
+Live S3-to-OpenAI validation remains outstanding; use an authorized object and
+AWS/OpenAI credentials to run the S3 example before deployment.
+
+Live validation and the RSGroup SF_AMF60 integration check remain outstanding:
+the implementation sandbox has no OpenAI credentials or RSGroup source PDF,
+frozen checks, or local prototype/report. Before release, run the PDF-only,
+standalone-image, and mixed text/image trials above with authorized inputs,
+`cache=False`, explicit budgets, and INFO attempt logging. Retain every
+attempt's usage/timing/IDs, including incomplete attempts; do not report only
+the successful retry's cost. Run SF_AMF60 discovery/mapping and the 30 frozen
+source checks in RSGroup, record the actual selected model/settings, and
+review remaining extraction errors explicitly. The issue's prototype results
+are motivation, not validation of this implementation. Product mapping,
+Excel presentation, provenance matching, deployment, and UI exposure remain
+downstream responsibilities.
