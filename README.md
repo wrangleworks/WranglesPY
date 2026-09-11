@@ -211,3 +211,44 @@ write:
   - file:
       name: file.xlsx
 ```
+
+#### Mutable runtime variables
+
+Recipes can now create and mutate runtime variables during a single run.
+
+- Set/update values with the `variables` run action.
+- Capture any run action return value with `result_variable`.
+- Reference current runtime values at execution time with `${runtime.variable}` (or dotted paths like `${runtime.upload_ref.file_id}`).
+- Escape a runtime template literal with `\${runtime.variable}`.
+
+```yaml
+run:
+  on_start:
+    - custom.build_reference:
+        result_variable: upload_ref
+    - variables:
+        update:
+          upload_ref:
+            status: ready
+        inspect:
+          - upload_ref.file_id
+          - upload_ref.status
+
+read:
+  - test:
+      rows: 1
+      values:
+        product: A100
+
+wrangles:
+  - create.column:
+      output: reference_id
+      value: ${runtime.upload_ref.file_id}
+  - log:
+      runtime_variables:
+        - upload_ref.status
+      log_data: false
+```
+
+Runtime variables are isolated per `wrangles.recipe.run()` invocation. Nested recipes inherit a snapshot by default; to export selected runtime variables back to the parent recipe, set `export_runtime_variables` on the `recipe` connector. Parallel branches (`concurrent`, `matrix`) run with isolated runtime copies unless exported explicitly.
+Static `${variable}` templates are still resolved when the recipe loads. Use `${runtime.variable}` for mutable values that must resolve immediately before each step. Protected names (`row_count`, `column_count`, `columns`, `df`, `recipe_variables`, `applied_permission_group`) cannot be reassigned.
