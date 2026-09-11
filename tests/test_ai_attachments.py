@@ -1,5 +1,6 @@
 """Offline multimodal contract tests; fixtures contain only synthetic data."""
 import base64
+from contextlib import closing
 from copy import deepcopy
 import hashlib
 import io
@@ -8,7 +9,7 @@ import logging
 import os
 import struct
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock, call
+from unittest.mock import Mock, call
 import zlib
 
 import boto3
@@ -16,6 +17,7 @@ from botocore.exceptions import (
     ClientError, NoCredentialsError, PartialCredentialsError, ReadTimeoutError,
 )
 from botocore.response import StreamingBody
+from botocore.stub import Stubber
 import pytest
 import requests
 
@@ -94,24 +96,17 @@ def s3_store(monkeypatch):
             raise entry
         entry = {"data": entry} if isinstance(entry, bytes) else entry
         raw = io.BytesIO(entry["data"])
-        # ContentLength can disagree with the stream, just as an unreliable server
-        # can. StreamingBody's length is omitted for bounded partial-read tests.
-        body = StreamingBody(raw, None)
+        size = entry.get("size", len(entry["data"]))
+        # A bounded, nonempty read does not make StreamingBody verify this size.
+        body = StreamingBody(raw, size)
         body.read = Mock(wraps=body.read, side_effect=entry.get("read_error"))
         body.close = Mock(wraps=body.close)
         state.streams.append((body, raw))
-        return {"Body": body, "ContentLength": entry.get("size", len(entry["data"]))}
+        return {"Body": body, "ContentLength": size}
 
     def session_factory():
-        client = MagicMock()
-        client.get_object.side_effect = get_object
-        client.__enter__.return_value = client
-
-        def exit_client(*args):
-            client.close()
-            return False
-
-        client.__exit__.side_effect = exit_client
+        # Match botocore clients: close() exists, context-manager methods do not.
+        client = SimpleNamespace(get_object=Mock(side_effect=get_object), close=Mock())
         session = SimpleNamespace(client=Mock(return_value=client))
         state.sessions.append(session)
         state.clients.append(client)
@@ -519,6 +514,62 @@ def test_s3_uses_fresh_sessions_standard_credentials_and_bounded_config(
     assert dict(os.environ) == environment_before, "AWS configuration must not mutate the environment"
 
 
+@pytest.mark.parametrize("truncated", [False, True], ids=["complete", "truncated-valid-pdf"])
+def test_s3_real_botocore_client_stubber_reads_and_closes_without_context_manager(
+    files, transport, monkeypatch, tmp_path, truncated,
+):
+    for name in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"):
+        monkeypatch.setenv(name, "synthetic-test-value")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
+    monkeypatch.setenv("AWS_CONFIG_FILE", str(tmp_path / "unused-aws-config"))
+    monkeypatch.setenv("AWS_SHARED_CREDENTIALS_FILE", str(tmp_path / "unused-aws-credentials"))
+    monkeypatch.delenv("AWS_PROFILE", raising=False)
+    monkeypatch.delenv("AWS_DEFAULT_PROFILE", raising=False)
+    environment_before = dict(os.environ)
+    default_session_before = boto3.DEFAULT_SESSION
+    # Construct real SDK objects through the standard environment credential chain;
+    # Stubber intercepts GetObject before any network request or request signing.
+    session = boto3.Session()
+    client = session.client("s3")
+    monkeypatch.setattr(client, "close", Mock(wraps=client.close))
+    monkeypatch.setattr(session, "client", Mock(return_value=client))
+    factory = Mock(return_value=session)
+    monkeypatch.setattr(boto3, "Session", factory)
+    data = files[0].read_bytes()
+    raw = io.BytesIO(data[:-8] if truncated else data)
+    body = StreamingBody(raw, len(data))
+    body.close = Mock(wraps=body.close)
+
+    # Outer closers protect test cleanup even if an assertion fails. Assertions
+    # inside this block verify production closed both resources first.
+    with closing(client), closing(body), Stubber(client) as stubber:
+        stubber.add_response(
+            "get_object",
+            {"Body": body, "ContentLength": len(data)},
+            {"Bucket": "specimens", "Key": "literal%20key.pdf"},
+        )
+
+        if truncated:
+            with pytest.raises(ValueError, match="download size did not match"):
+                run(attachments=[{"path": "s3://specimens/literal%20key.pdf"}])
+            assert transport == [], "Truncated content must not reach OpenAI"
+        else:
+            assert run(attachments=[{"path": "s3://specimens/literal%20key.pdf"}]) == {"color": "red"}
+            part = transport[0]["json"]["input"][0]["content"][1]
+            assert base64.b64decode(part["file_data"].split(",", 1)[1]) == data
+
+        stubber.assert_no_pending_responses()
+        client.close.assert_called_once_with()
+        body.close.assert_called_once_with()
+        assert raw.closed, "Production must close the real SDK response stream"
+        factory.assert_called_once_with()
+        assert session.get_credentials().method == "env"
+        assert session.get_credentials().token == "synthetic-test-value"
+        assert boto3.DEFAULT_SESSION is default_session_before
+        assert dict(os.environ) == environment_before
+
+
 @pytest.mark.parametrize("path", [
     "https://example.test/file.pdf", "http://example.test/file.png",
     "file:///local/file.pdf", "ftp://example.test/file.pdf", "data:application/pdf;base64,AAAA",
@@ -555,17 +606,21 @@ def test_s3_invalid_content_length_closes_body_and_client(size, s3_store, transp
     assert transport == []
 
 
-@pytest.mark.parametrize("size_delta", [-1, 1], ids=["more-than-header", "less-than-header"])
+@pytest.mark.parametrize("truncated", [True, False], ids=["truncated-valid-pdf", "too-small-header"])
 def test_s3_download_size_mismatch_closes_resources_and_rejects_partial_data(
-    size_delta, files, s3_store, transport,
+    truncated, files, s3_store, transport,
 ):
     data = files[0].read_bytes()
-    s3_store.objects[("specimens", "file.pdf")] = {"data": data, "size": len(data) + size_delta}
+    s3_store.objects[("specimens", "file.pdf")] = {
+        "data": data[:-8] if truncated else data,
+        "size": len(data) if truncated else len(data) - 1,
+    }
 
     with pytest.raises(ValueError, match="download size did not match"):
         run(attachments=[{"path": "s3://specimens/file.pdf"}])
 
     body, raw = s3_store.streams[0]
+    body.read.assert_called_once_with(ai_attachments.MAX_FILE_BYTES + 1)
     body.close.assert_called_once_with()
     assert raw.closed
     s3_store.clients[0].close.assert_called_once_with()

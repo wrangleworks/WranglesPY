@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import runpy
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock, call
+from unittest.mock import Mock, call
 
 import boto3
 from botocore.response import StreamingBody
@@ -498,9 +498,7 @@ def test_recipe_s3_paths_filter_rows_deduplicate_and_send_exact_bytes(
         raw_streams.append(raw)
         return {"Body": StreamingBody(raw, len(objects[Key])), "ContentLength": len(objects[Key])}
 
-    client = MagicMock()
-    client.__enter__.return_value = client
-    client.get_object.side_effect = get_object
+    client = SimpleNamespace(get_object=Mock(side_effect=get_object), close=Mock())
     session_factory = Mock(return_value=SimpleNamespace(client=Mock(return_value=client)))
     monkeypatch.setattr(boto3, "Session", session_factory)
     monkeypatch.setattr(boto3, "client", Mock(side_effect=AssertionError("global AWS client used")))
@@ -541,6 +539,7 @@ def test_recipe_s3_paths_filter_rows_deduplicate_and_send_exact_bytes(
     ], "Repeated S3 literals and resolved columns must share invocation snapshots"
     assert len(payloads) == 2, "Unselected rows must not reach the model"
     assert all(raw.closed for raw in raw_streams)
+    assert client.close.call_count == 2, "Each S3 download must close its client explicitly"
     for index, payload in enumerate(payloads):
         parts = payload["input"][0]["content"]
         visuals = [part for part in parts if part["type"] in {"input_image", "input_file"}]
