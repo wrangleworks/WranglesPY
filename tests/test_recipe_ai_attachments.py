@@ -1,12 +1,15 @@
 import base64
 from copy import deepcopy
+import io
 import json
 import os
 from pathlib import Path
 import runpy
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock, call
 
+import boto3
+from botocore.response import StreamingBody
 import jsonschema
 import pandas as pd
 import pytest
@@ -195,7 +198,7 @@ def test_invalid_attachment_descriptors_fail_before_extraction(
 def test_column_must_resolve_to_one_path_string(extract_ai, path):
     data = pd.DataFrame({"Description": ["first"], "PDF Path": [path]})
 
-    with pytest.raises(ValueError, match="local path string"):
+    with pytest.raises(ValueError, match="non-empty local path or s3://bucket/key string"):
         _run(data, input="Description", attachments=[{"column": "PDF Path"}])
 
     extract_ai.assert_not_called()
@@ -379,6 +382,9 @@ def test_generated_schema_accepts_attachments_and_output_budget(generated_schema
     for attachments in (
         [],
         [{"path": local_files["pdf"], "id": "datasheet"}],
+        [{"path": "s3://specimens/drawings/data%20sheet.PDF", "id": "datasheet"}],
+        [{"path": "s3://specimens/nested//./red%23%3F.png", "detail": "high"}],
+        [{"column": "PDF Path"}, {"path": "s3://specimens/red.png", "detail": "low"}],
         [{"column": "PDF Path"}, {"path": local_files["png"], "detail": "high"}],
         [{"path": local_files["png"], "id": f"source-{index}", "detail": "auto"} for index in range(16)],
         [{"path": local_files["png"], "id": "a" * 64, "detail": "low"}],
@@ -400,6 +406,19 @@ def test_generated_schema_accepts_attachments_and_output_budget(generated_schema
     [{"path": "/local/file.gif"}],
     [{"path": "https://example.test/file.pdf"}],
     [{"path": "file:///local/file.pdf"}],
+    [{"path": "s3://specimens/file.gif"}],
+    [{"path": "s3://specimens/file.pdf", "detail": "auto"}],
+    [{"path": "s3:///file.pdf"}],
+    [{"path": "s3://specimens/"}],
+    [{"path": "s3://specimens"}],
+    [{"path": "s3://user@specimens/file.pdf"}],
+    [{"path": "s3://specimens:443/file.pdf"}],
+    [{"path": "s3://specimens/file.pdf?versionId=private"}],
+    [{"path": "s3://specimens/file.pdf#fragment"}],
+    [{"path": "s3://specimens/file.pdf?versionId=other.pdf"}],
+    [{"path": "s3://specimens/file.pdf#other.pdf"}],
+    [{"path": "s3://specimens/line\nbreak.pdf"}],
+    [{"path": "s3://UPPERCASE/file.pdf"}],
     [{"path": "file-provider"}],
     [{"path": "/local/file.pdf", "detail": "auto"}],
     [{"path": "/local/file.PDF", "detail": "high"}],
@@ -457,6 +476,83 @@ def test_recipe_loads_row_attachments_for_mocked_responses(monkeypatch, local_fi
     for payload, path in zip(calls, data["PDF Path"]):
         assert payload["max_output_tokens"] == 4096
         assert base64.b64encode(Path(path).read_bytes()).decode() in json.dumps(payload["input"])
+
+
+@pytest.mark.parametrize("selected_input", [[], "Description"], ids=["attachment-only", "text-and-attachment"])
+@pytest.mark.parametrize("use_column", [False, True], ids=["literal", "column"])
+def test_recipe_s3_paths_filter_rows_deduplicate_and_send_exact_bytes(
+    monkeypatch, local_files, selected_input, use_column,
+):
+    pdf_uri = "s3://specimens/datasheet.pdf"
+    png_uri = "s3://specimens/red%20image.png"
+    objects = {
+        "datasheet.pdf": Path(local_files["pdf"]).read_bytes(),
+        "red%20image.png": Path(local_files["png"]).read_bytes(),
+    }
+    raw_streams = []
+    payloads = []
+
+    def get_object(Bucket, Key):
+        assert Bucket == "specimens", "Recipe paths must preserve their explicit bucket"
+        raw = io.BytesIO(objects[Key])
+        raw_streams.append(raw)
+        return {"Body": StreamingBody(raw, len(objects[Key])), "ContentLength": len(objects[Key])}
+
+    client = MagicMock()
+    client.__enter__.return_value = client
+    client.get_object.side_effect = get_object
+    session_factory = Mock(return_value=SimpleNamespace(client=Mock(return_value=client)))
+    monkeypatch.setattr(boto3, "Session", session_factory)
+    monkeypatch.setattr(boto3, "client", Mock(side_effect=AssertionError("global AWS client used")))
+
+    def post(**kwargs):
+        payloads.append(deepcopy(kwargs["json"]))
+        return SimpleNamespace(
+            ok=True,
+            status_code=200,
+            headers={},
+            json=lambda: {"output_text": '{"result":"extracted"}', "status": "completed"},
+        )
+
+    monkeypatch.setattr(extract._openai_responses._requests, "post", post)
+    data = pd.DataFrame({
+        "Description": ["first", "skip", "third"],
+        # A malformed URI in the excluded row must never be validated or loaded.
+        "PDF Path": [pdf_uri, "s3://specimens/never-read.pdf?invalid", png_uri],
+        "Selected": [1, 0, 1],
+    }, index=[83, 12, 57])
+    descriptors = [
+        {"column": "PDF Path", "id": "document"} if use_column else {"path": pdf_uri, "id": "document"},
+        {"path": png_uri, "id": "photo", "detail": "high"},
+    ]
+    original = deepcopy(descriptors)
+
+    result = _run(
+        data, input=selected_input, where="Selected = 1",
+        attachments=descriptors, threads=1, cache=False,
+    )
+
+    assert result.index.tolist() == [83, 12, 57], "Filtering must preserve original row order"
+    assert result["result"].tolist() == ["extracted", "", "extracted"]
+    assert descriptors == original, "Recipe resolution must not mutate descriptors"
+    assert client.get_object.call_args_list == [
+        call(Bucket="specimens", Key="datasheet.pdf"),
+        call(Bucket="specimens", Key="red%20image.png"),
+    ], "Repeated S3 literals and resolved columns must share invocation snapshots"
+    assert len(payloads) == 2, "Unselected rows must not reach the model"
+    assert all(raw.closed for raw in raw_streams)
+    for index, payload in enumerate(payloads):
+        parts = payload["input"][0]["content"]
+        visuals = [part for part in parts if part["type"] in {"input_image", "input_file"}]
+        first_key = "red%20image.png" if use_column and index == 1 else "datasheet.pdf"
+        assert [
+            base64.b64decode(part.get("file_data", part.get("image_url")).split(",", 1)[1])
+            for part in visuals
+        ] == [objects[first_key], objects["red%20image.png"]]
+        assert visuals[-1]["detail"] == "high"
+        assert len(parts) == (5 if selected_input else 4)
+        if selected_input:
+            assert ["first", "third"][index] in parts[0]["text"]
 
 
 def test_saved_recipe_group_credentials_isolate_attachment_cache(monkeypatch, local_files):

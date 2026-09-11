@@ -232,10 +232,11 @@ def ai(
     :param cache_ttl: (Optional) Override the result-cache TTL in seconds for this call.
     :param web_search: (Optional) Enable native Responses web search. Each result then includes a
         web_search_sources list containing source titles and URLs. Defaults to False.
-    :param attachments: (Optional) Explicit local PDF/PNG/JPEG/WebP file descriptors:
+    :param attachments: (Optional) Explicit local or S3 PDF/PNG/JPEG/WebP file descriptors:
         [{"path": "/data/document.pdf", "id": "datasheet"}]. Image descriptors also accept
         detail: auto, low, or high. For list input, provide one attachment list per input
         record (use [] for text-only rows). Use input=None for attachment-only extraction.
+        S3 paths use s3://bucket/key with boto3's normal AWS credential chain.
         Requires a vision-capable OpenAI Responses model. Paths in ordinary input remain text.
     :return: Extracted information. When web_search is true, returns a dictionary (or list of
         dictionaries) containing web_search_sources, including for single-field output.

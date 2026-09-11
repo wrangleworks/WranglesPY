@@ -2,11 +2,20 @@
 import base64
 from copy import deepcopy
 import hashlib
+import io
 import json
 import logging
+import os
 import struct
+from types import SimpleNamespace
+from unittest.mock import MagicMock, Mock, call
 import zlib
 
+import boto3
+from botocore.exceptions import (
+    ClientError, NoCredentialsError, PartialCredentialsError, ReadTimeoutError,
+)
+from botocore.response import StreamingBody
 import pytest
 import requests
 
@@ -73,12 +82,63 @@ def run(input=None, **kwargs):
     return extract.ai(input, kwargs.pop("api_key", "test-tenant"), output={"color": "Color"}, **kwargs)
 
 
-def test_text_paths_urls_and_dicts_are_never_loaded(transport):
-    values = ["/missing/file.pdf", "https://example.test/image.png", {"path": "/missing/file.pdf"}]
-    assert run(values) == [{"color": "red"}] * 3
+@pytest.fixture
+def s3_store(monkeypatch):
+    """Fake only AWS transport; real StreamingBody enforces its read contract."""
+    state = SimpleNamespace(objects={}, requests=[], clients=[], sessions=[], streams=[])
+
+    def get_object(**kwargs):
+        state.requests.append(kwargs)
+        entry = state.objects[(kwargs["Bucket"], kwargs["Key"])]
+        if isinstance(entry, Exception):
+            raise entry
+        entry = {"data": entry} if isinstance(entry, bytes) else entry
+        raw = io.BytesIO(entry["data"])
+        # ContentLength can disagree with the stream, just as an unreliable server
+        # can. StreamingBody's length is omitted for bounded partial-read tests.
+        body = StreamingBody(raw, None)
+        body.read = Mock(wraps=body.read, side_effect=entry.get("read_error"))
+        body.close = Mock(wraps=body.close)
+        state.streams.append((body, raw))
+        return {"Body": body, "ContentLength": entry.get("size", len(entry["data"]))}
+
+    def session_factory():
+        client = MagicMock()
+        client.get_object.side_effect = get_object
+        client.__enter__.return_value = client
+
+        def exit_client(*args):
+            client.close()
+            return False
+
+        client.__exit__.side_effect = exit_client
+        session = SimpleNamespace(client=Mock(return_value=client))
+        state.sessions.append(session)
+        state.clients.append(client)
+        return session
+
+    state.factory = Mock(side_effect=session_factory)
+    state.default_session = boto3.DEFAULT_SESSION
+    monkeypatch.setattr(boto3, "Session", state.factory)
+    monkeypatch.setattr(boto3, "client", Mock(side_effect=AssertionError("global boto3 client used")))
+    monkeypatch.setattr(
+        boto3, "setup_default_session",
+        Mock(side_effect=AssertionError("global boto3 session changed")),
+    )
+    return state
+
+
+def test_text_paths_urls_and_dicts_are_never_loaded(transport, s3_store):
+    values = [
+        "/missing/file.pdf", "https://example.test/image.png",
+        {"path": "/missing/file.pdf"}, "s3://specimens/missing.pdf",
+        {"path": "s3://specimens/missing.png"},
+    ]
+    assert run(values) == [{"color": "red"}] * len(values)
     assert all(isinstance(call["json"]["input"][0]["content"], str) for call in transport)
     assert run(None, attachments=[]) == {"color": "red"}
     assert transport[-1]["json"]["input"][0]["content"] == "DATA:\nNone"
+    s3_store.factory.assert_not_called()
 
 
 @pytest.mark.parametrize("file_index", [0, 1])
@@ -315,3 +375,379 @@ def test_retry_keeps_snapshot_and_logs_usage_once_per_attempt(files, monkeypatch
     assert sum(attempt["usage"]["output_tokens"] for attempt in attempts) == 160
     run(attachments=[{"path": path}], retries=1)
     assert len(calls) == 3
+
+
+@pytest.mark.parametrize("file_index, key, field, media_type", [
+    (0, "nested/literal%2Fname%20with space.PDF", "file_data", "application/pdf"),
+    (1, "nested//./red%23%3F.png", "image_url", "image/png"),
+])
+def test_s3_attachment_sends_exact_inline_bytes_and_literal_key(
+    files, s3_store, transport, file_index, key, field, media_type,
+):
+    data = files[file_index].read_bytes()
+    s3_store.objects[("specimens", key)] = data
+    descriptor = {"path": f"s3://specimens/{key}", "id": "specimen"}
+    original = deepcopy(descriptor)
+
+    result = run(attachments=[descriptor])
+
+    assert result == {"color": "red"}, "S3 attachments must preserve scalar results"
+    assert s3_store.requests == [{"Bucket": "specimens", "Key": key}]
+    parts = transport[0]["json"]["input"][0]["content"]
+    assert parts[1][field] == f"data:{media_type};base64,{base64.b64encode(data).decode()}"
+    assert json.loads(parts[0]["text"].removeprefix("DATA source: ")) == {
+        "id": "specimen", "media_type": media_type,
+    }
+    assert "s3://" not in json.dumps(parts), "Source locations must not be sent to OpenAI"
+    assert descriptor == original, "Preparation must not mutate descriptors"
+    body, raw = s3_store.streams[0]
+    body.read.assert_called_once_with(ai_attachments.MAX_FILE_BYTES + 1)
+    body.close.assert_called_once_with()
+    assert raw.closed, "Downloaded stream must be closed after success"
+    s3_store.clients[0].close.assert_called_once_with()
+
+
+def test_s3_mixed_batch_preserves_order_and_deduplicates_bucket_key(
+    files, s3_store, transport, monkeypatch,
+):
+    pdf, image = files
+    s3_store.objects[("specimens", "red.png")] = image.read_bytes()
+    s3_store.objects[("other-bucket", "red.png")] = image.read_bytes()
+    monkeypatch.setattr(
+        ai_attachments, "MAX_BATCH_BYTES",
+        len(pdf.read_bytes()) + 2 * len(image.read_bytes()),
+    )
+    remote = {"path": "s3://specimens/red.png", "id": "remote"}
+    groups = [
+        [{"path": pdf, "id": "local"}, remote],
+        [{**remote, "id": "again", "detail": "high"}, {"path": pdf, "id": "local"}],
+        [{"path": "s3://other-bucket/red.png", "id": "other"}],
+    ]
+
+    result = run(["first", "second", "third"], attachments=groups, threads=1)
+
+    assert result == [{"color": "red"}] * 3
+    assert s3_store.requests == [
+        {"Bucket": "specimens", "Key": "red.png"},
+        {"Bucket": "other-bucket", "Key": "red.png"},
+    ], "Snapshots must deduplicate the bucket/key pair, not just the key"
+    expected = [
+        [pdf.read_bytes(), image.read_bytes()],
+        [image.read_bytes(), pdf.read_bytes()],
+        [image.read_bytes()],
+    ]
+    for index, (request, expected_bytes) in enumerate(zip(transport, expected)):
+        parts = request["json"]["input"][0]["content"]
+        assert parts[0]["text"] == f"DATA:\n{['first', 'second', 'third'][index]}"
+        visual = parts[2::2]
+        assert [
+            base64.b64decode(part.get("file_data", part.get("image_url")).split(",", 1)[1])
+            for part in visual
+        ] == expected_bytes, "Mixed local and S3 attachment order must match each row"
+    assert transport[1]["json"]["input"][0]["content"][2]["detail"] == "high"
+
+
+def test_s3_cache_rereads_and_changed_bytes_create_new_request_key(
+    files, s3_store, transport, caplog,
+):
+    before = files[0].read_bytes()
+    after = before.replace(b"RED", b"TAN")
+    s3_store.objects[("specimens", "same.pdf")] = before
+    descriptor = {"path": "s3://specimens/same.pdf"}
+
+    with caplog.at_level(logging.INFO):
+        run("same", attachments=[descriptor])
+        run("same", attachments=[descriptor])
+        s3_store.objects[("specimens", "same.pdf")] = after
+        run("same", attachments=[descriptor])
+
+    assert len(s3_store.requests) == 3, "Every invocation must GET even with a warm result cache"
+    assert len(transport) == 2, "Only unchanged attachment bytes may reuse a result"
+    events = [json.loads(record.message) for record in caplog.records if record.message.startswith("{")]
+    lookups = [event for event in events if event["event"] == "extract_ai_cache_lookup"]
+    assert [event["outcome"] for event in lookups] == ["miss", "hit", "miss"]
+    assert lookups[0]["request_key"] == lookups[1]["request_key"]
+    assert lookups[0]["request_key"] != lookups[2]["request_key"]
+    assert base64.b64decode(
+        transport[1]["json"]["input"][0]["content"][2]["file_data"].split(",", 1)[1]
+    ) == after
+
+
+def test_s3_access_revoked_after_cache_warmup_does_not_reuse_result(files, s3_store, transport):
+    s3_store.objects[("specimens", "same.pdf")] = files[0].read_bytes()
+    descriptor = {"path": "s3://specimens/same.pdf"}
+    run(attachments=[descriptor])
+    s3_store.objects[("specimens", "same.pdf")] = ClientError(
+        {"Error": {"Code": "AccessDenied", "Message": "private service detail"}}, "GetObject",
+    )
+
+    with pytest.raises(ValueError, match="S3 access denied"):
+        run(attachments=[descriptor])
+
+    assert len(s3_store.requests) == 2
+    assert len(transport) == 1, "Denied access must not reach the model or return a cached result"
+    assert all(client.close.call_count == 1 for client in s3_store.clients)
+
+
+def test_s3_uses_fresh_sessions_standard_credentials_and_bounded_config(
+    files, s3_store, monkeypatch,
+):
+    for name in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"):
+        monkeypatch.setenv(name, "synthetic-test-value")
+    monkeypatch.setenv("AWS_PROFILE", "synthetic-profile")
+    environment_before = dict(os.environ)
+    s3_store.objects[("specimens", "same.png")] = files[1].read_bytes()
+
+    for _ in range(2):
+        run(attachments=[{"path": "s3://specimens/same.png"}])
+
+    assert s3_store.factory.call_args_list == [call(), call()], (
+        "The standard AWS credential chain must receive no explicit session credentials"
+    )
+    assert s3_store.sessions[0] is not s3_store.sessions[1]
+    for session in s3_store.sessions:
+        args, kwargs = session.client.call_args
+        assert args == ("s3",)
+        assert set(kwargs) == {"config"}, "AWS credentials must not be overridden on the client"
+        configuration = kwargs["config"]
+        assert configuration.connect_timeout == 10
+        assert configuration.read_timeout == 30
+        assert configuration.retries == {"mode": "standard", "total_max_attempts": 3}
+    assert boto3.DEFAULT_SESSION is s3_store.default_session
+    boto3.client.assert_not_called()
+    boto3.setup_default_session.assert_not_called()
+    assert dict(os.environ) == environment_before, "AWS configuration must not mutate the environment"
+
+
+@pytest.mark.parametrize("path", [
+    "https://example.test/file.pdf", "http://example.test/file.png",
+    "file:///local/file.pdf", "ftp://example.test/file.pdf", "data:application/pdf;base64,AAAA",
+    "s3://", "s3:///file.pdf", "s3://specimens/", "s3://specimens",
+    "s3://user@specimens/file.pdf", "s3://specimens:443/file.pdf",
+    "s3://specimens/file.pdf?versionId=private", "s3://specimens/file.pdf#fragment",
+    "s3://specimens/file.pdf?versionId=other.pdf", "s3://specimens/file.pdf#other.pdf",
+    "s3://specimens/line\nbreak.pdf", "s3://specimens/null\x00.pdf",
+    "s3://specimens/control\x7f.pdf", "s3://UPPERCASE/file.pdf",
+    pytest.param("s3://specimens/" + "a" * 1021 + ".pdf", id="key-exceeds-1024-ascii-bytes"),
+    pytest.param("s3://specimens/" + "é" * 511 + ".pdf", id="key-exceeds-1024-utf8-bytes"),
+    "s3://specimens/file.gif", "s3://specimens/file", "S3://specimens/file.pdf",
+])
+def test_s3_invalid_or_unsupported_paths_fail_before_boto_calls(path, s3_store, transport):
+    with pytest.raises(ValueError):
+        run(attachments=[{"path": path}])
+
+    s3_store.factory.assert_not_called()
+    assert transport == [], "Invalid attachment locations must never call the model"
+
+
+@pytest.mark.parametrize("size", [None, -1, True, "10"])
+def test_s3_invalid_content_length_closes_body_and_client(size, s3_store, transport, files):
+    s3_store.objects[("specimens", "file.pdf")] = {"data": files[0].read_bytes(), "size": size}
+
+    with pytest.raises(ValueError, match="invalid object size"):
+        run(attachments=[{"path": "s3://specimens/file.pdf"}])
+
+    body, raw = s3_store.streams[0]
+    body.read.assert_not_called()
+    body.close.assert_called_once_with()
+    assert raw.closed
+    s3_store.clients[0].close.assert_called_once_with()
+    assert transport == []
+
+
+@pytest.mark.parametrize("size_delta", [-1, 1], ids=["more-than-header", "less-than-header"])
+def test_s3_download_size_mismatch_closes_resources_and_rejects_partial_data(
+    size_delta, files, s3_store, transport,
+):
+    data = files[0].read_bytes()
+    s3_store.objects[("specimens", "file.pdf")] = {"data": data, "size": len(data) + size_delta}
+
+    with pytest.raises(ValueError, match="download size did not match"):
+        run(attachments=[{"path": "s3://specimens/file.pdf"}])
+
+    body, raw = s3_store.streams[0]
+    body.close.assert_called_once_with()
+    assert raw.closed
+    s3_store.clients[0].close.assert_called_once_with()
+    assert transport == [], "A partial or inconsistent download must never reach the model"
+
+
+@pytest.mark.parametrize("header_oversize", [True, False], ids=["header", "actual-bytes"])
+def test_s3_file_limit_checks_header_and_bounded_actual_bytes(
+    files, s3_store, transport, monkeypatch, header_oversize,
+):
+    data = files[0].read_bytes()
+    limit = len(data) - 1
+    monkeypatch.setattr(ai_attachments, "MAX_FILE_BYTES", limit)
+    s3_store.objects[("specimens", "file.pdf")] = {
+        "data": data, "size": len(data) if header_oversize else limit,
+    }
+
+    with pytest.raises(ValueError, match="file exceeds"):
+        run(attachments=[{"path": "s3://specimens/file.pdf"}])
+
+    body, raw = s3_store.streams[0]
+    if header_oversize:
+        body.read.assert_not_called()
+    else:
+        body.read.assert_called_once_with(limit + 1)
+    body.close.assert_called_once_with()
+    assert raw.closed
+    s3_store.clients[0].close.assert_called_once_with()
+    assert transport == []
+
+
+@pytest.mark.parametrize("remote_first", [False, True])
+@pytest.mark.parametrize("limit_name, message", [
+    ("MAX_RECORD_BYTES", "per-record"),
+    ("MAX_BATCH_BYTES", "batch snapshot"),
+])
+def test_s3_and_local_files_share_record_and_batch_limits(
+    files, s3_store, transport, monkeypatch, remote_first, limit_name, message,
+):
+    pdf, image = files
+    s3_store.objects[("specimens", "red.png")] = image.read_bytes()
+    groups = [{"path": pdf}, {"path": "s3://specimens/red.png"}]
+    if remote_first:
+        groups.reverse()
+    monkeypatch.setattr(ai_attachments, limit_name, pdf.stat().st_size + image.stat().st_size - 1)
+
+    with pytest.raises(ValueError, match=message):
+        if limit_name == "MAX_BATCH_BYTES":
+            run([None, None], attachments=[[descriptor] for descriptor in groups])
+        else:
+            run(attachments=groups)
+
+    assert transport == [], "All mixed-source limits must be checked before any model call"
+    assert all(raw.closed for _, raw in s3_store.streams)
+    assert all(client.close.call_count == 1 for client in s3_store.clients)
+
+
+def test_s3_actual_bytes_respect_remaining_mixed_batch_budget(
+    files, s3_store, transport, monkeypatch,
+):
+    pdf, image = files
+    remaining = image.stat().st_size - 1
+    monkeypatch.setattr(ai_attachments, "MAX_BATCH_BYTES", pdf.stat().st_size + remaining)
+    s3_store.objects[("specimens", "red.png")] = {"data": image.read_bytes(), "size": remaining}
+
+    with pytest.raises(ValueError, match="batch snapshot"):
+        run([None, None], attachments=[[{"path": pdf}], [{"path": "s3://specimens/red.png"}]])
+
+    body, raw = s3_store.streams[0]
+    body.read.assert_called_once_with(remaining + 1)
+    assert raw.closed
+    s3_store.clients[0].close.assert_called_once_with()
+    assert transport == []
+
+
+def test_s3_exact_limits_and_repeated_rows_share_one_snapshot_and_result(
+    files, s3_store, transport, monkeypatch,
+):
+    data = files[0].read_bytes()
+    key = "a" * 1020 + ".pdf"
+    s3_store.objects[("specimens", key)] = data
+    for limit in ("MAX_FILE_BYTES", "MAX_RECORD_BYTES", "MAX_BATCH_BYTES"):
+        monkeypatch.setattr(ai_attachments, limit, len(data))
+    descriptor = {"path": f"s3://specimens/{key}"}
+
+    result = run([None, None, None], attachments=[[descriptor]] * 3, threads=1)
+
+    assert result == [{"color": "red"}] * 3
+    assert s3_store.requests == [{"Bucket": "specimens", "Key": key}]
+    assert len(transport) == 1, "Duplicate rows must reuse the result as well as downloaded bytes"
+    s3_store.streams[0][0].read.assert_called_once_with(len(data) + 1)
+
+
+def test_s3_duplicate_snapshot_still_counts_each_attachment_against_record_limit(
+    files, s3_store, transport, monkeypatch,
+):
+    data = files[1].read_bytes()
+    s3_store.objects[("specimens", "red.png")] = data
+    monkeypatch.setattr(ai_attachments, "MAX_RECORD_BYTES", len(data))
+    descriptors = [
+        {"path": "s3://specimens/red.png", "id": "first"},
+        {"path": "s3://specimens/red.png", "id": "second"},
+    ]
+
+    with pytest.raises(ValueError, match="per-record"):
+        run(attachments=descriptors)
+
+    assert len(s3_store.requests) == 1, "The snapshot is unique even when attached more than once"
+    assert transport == [], "Repeated attachment bytes must still count toward a record's limit"
+
+
+@pytest.mark.parametrize("data, message", [(b"", "empty"), (b"not a PDF", "contents do not match")])
+def test_s3_empty_or_wrong_format_fails_and_closes_resources(data, message, s3_store, transport):
+    s3_store.objects[("specimens", "file.pdf")] = data
+
+    with pytest.raises(ValueError, match=message):
+        run(attachments=[{"path": "s3://specimens/file.pdf"}])
+
+    assert s3_store.streams[0][1].closed
+    s3_store.clients[0].close.assert_called_once_with()
+    assert transport == []
+
+
+@pytest.mark.parametrize("error, message, during_read", [
+    (ClientError({"Error": {"Code": "AccessDenied", "Message": "private service detail"}}, "GetObject"), "access denied", False),
+    (ClientError({"Error": {"Code": "NoSuchKey", "Message": "private service detail"}}, "GetObject"), "missing", False),
+    (ClientError({"Error": {"Code": "NoSuchBucket", "Message": "private service detail"}}, "GetObject"), "missing", False),
+    (ClientError({"Error": {"Code": "InvalidAccessKeyId", "Message": "private service detail"}}, "GetObject"), "request failed", False),
+    (NoCredentialsError(), "credentials are missing or incomplete", False),
+    (PartialCredentialsError(provider="private service detail", cred_var="private service detail"), "credentials are missing or incomplete", False),
+    (ReadTimeoutError(endpoint_url="https://private-service-detail.test"), "unable to read S3 object", True),
+    (OSError("private service detail"), "unable to read S3 object", True),
+])
+def test_s3_errors_are_safe_close_resources_and_never_call_model(
+    error, message, during_read, files, s3_store, transport, caplog,
+):
+    s3_store.objects[("specimens", "private-object.pdf")] = (
+        {"data": files[0].read_bytes(), "read_error": error} if during_read else error
+    )
+
+    with caplog.at_level(logging.INFO), pytest.raises(ValueError, match=message) as caught:
+        run(attachments=[{"path": "s3://specimens/private-object.pdf"}])
+
+    exposed = str(caught.value) + caplog.text
+    assert "private service detail" not in exposed
+    assert "private-service-detail" not in exposed
+    assert "private-object.pdf" not in exposed
+    assert "Record 0, attachment 1" in str(caught.value)
+    assert caught.value.__suppress_context__, "Raw AWS exceptions must not leak through tracebacks"
+    s3_store.clients[0].close.assert_called_once_with()
+    if during_read:
+        body, raw = s3_store.streams[0]
+        body.close.assert_called_once_with()
+        assert raw.closed
+    assert transport == []
+
+
+def test_s3_model_retries_reuse_original_snapshot(files, s3_store, monkeypatch):
+    before = files[0].read_bytes()
+    s3_store.objects[("specimens", "file.pdf")] = before
+    calls = []
+
+    def post(**kwargs):
+        calls.append(deepcopy(kwargs))
+        body = {"status": "completed", "output_text": '{"color":"red"}'}
+        if len(calls) == 1:
+            body.update(status="incomplete", incomplete_details={"reason": "max_output_tokens"})
+            s3_store.objects[("specimens", "file.pdf")] = before.replace(b"RED", b"TAN")
+        response = requests.Response()
+        response.status_code = 200
+        response._content = json.dumps(body).encode()
+        return response
+
+    monkeypatch.setattr(extract._openai_responses._requests, "post", post)
+    monkeypatch.setattr(extract._openai_responses, "_sleep_for_retry", lambda *args: None)
+
+    result = run(attachments=[{"path": "s3://specimens/file.pdf"}], retries=1)
+
+    assert result == {"color": "red"}
+    assert len(calls) == 2
+    assert calls[0]["json"] == calls[1]["json"], "Model retries must use an immutable byte snapshot"
+    assert base64.b64decode(
+        calls[1]["json"]["input"][0]["content"][1]["file_data"].split(",", 1)[1]
+    ) == before
+    assert len(s3_store.requests) == 1, "A model retry must not download the object again"

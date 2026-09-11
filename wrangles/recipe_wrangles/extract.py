@@ -319,7 +319,7 @@ def _resolve_ai_attachments(df, attachments):
 
         for row, path in zip(rows, paths):
             if not isinstance(path, str) or not path:
-                raise ValueError("Each attachment must resolve to a non-empty local path string.")
+                raise ValueError("Each attachment must resolve to a non-empty local path or s3://bucket/key string.")
             row.append({**descriptor, "path": path})
 
     return rows
@@ -368,10 +368,11 @@ def ai(
         type: array
         maxItems: 16
         description: >-
-          Ordered local PDF, PNG, JPEG, or WebP attachments, at most 16 per row.
+          Ordered local or S3 PDF, PNG, JPEG, or WebP attachments, at most 16 per row.
           Use path for a literal file repeated for every row, or column for one
-          local path string per row from the dataframe, independently of input.
-          Input values are never implicitly opened. GIF, URLs, and provider file
+          local path or s3://bucket/key string per row, independently of input.
+          S3 uses boto3's normal AWS credential chain, including IAM roles.
+          Input values are never implicitly opened. GIF, HTTP URLs, and provider file
           IDs are not supported. Omitted IDs default to source-1, source-2, and
           so on in attachment order. Explicit detail is for images only.
           Limits are 20 MiB per file, 32 MiB per row, and 128 MiB of unique
@@ -390,12 +391,12 @@ def ai(
           properties:
             path:
               type: string
-              description: Explicit local PDF, PNG, JPEG, or WebP file path.
-              pattern: '^(?![A-Za-z][A-Za-z0-9+.-]*://).+[.]([pP][dD][fF]|[pP][nN][gG]|[jJ][pP][eE]?[gG]|[wW][eE][bB][pP])$'
+              description: Explicit local path or s3://bucket/key; no S3 query strings or fragments.
+              pattern: '^(?:s3://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/[^?#\\r\\n]+|(?![A-Za-z][A-Za-z0-9+.-]*://).+)[.]([pP][dD][fF]|[pP][nN][gG]|[jJ][pP][eE]?[gG]|[wW][eE][bB][pP])$'
             column:
               type: string
               minLength: 1
-              description: Exact unique dataframe column containing one local path string per row.
+              description: Exact unique dataframe column containing one local path or s3://bucket/key string per row.
             id:
               type: string
               pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$'

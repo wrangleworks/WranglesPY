@@ -313,8 +313,9 @@ For a **single Python input**, pass an ordered `attachments` list:
  {"path": "/data/photo.png", "id": "photo", "detail": "high"}]
 ```
 
-- `path`: local filesystem path (`str` or Python `Path`); relative paths are
-  relative to the process working directory, **not the recipe file**.
+- `path`: local filesystem path (`str` or Python `Path`) or an explicit
+  `s3://bucket/key` **string**. Relative local paths are relative to the process
+  working directory, **not the recipe file**.
 - `id`: optional unique identifier within the record; defaults to `source-1`,
   `source-2`, etc., in attachment order. Use 1–64 letters, digits, dots,
   underscores, or hyphens, starting with a letter or digit.
@@ -382,13 +383,14 @@ with scalar input, not as the `input` argument.
 
 Recipes use the same ordered descriptor list. A literal `path` attaches that
 file to **each selected row**. Alternatively, use `column` instead of `path`
-to take one local path string from that column in each row. Column names are
+to take one local path or S3 URI string from that column in each row. Column names are
 exact, not wildcard selections; do not supply both `path` and `column`.
 Attachment columns are resolved independently of text `input` selection.
 Null/empty attachment paths fail validation; filter such rows first or use
 separate recipe steps for records with different attachment sets.
 
-For a dataframe containing multiple `Context` and `Image Path` rows:
+For a dataframe containing multiple `Context` and `Image Path` rows (image
+paths can be local or, for example, `s3://product-documents/photos/item.jpg`):
 
 ```yaml
 wrangles:
@@ -398,7 +400,7 @@ wrangles:
         - column: Image Path
           id: photo
           detail: high
-        - path: /data/reference.pdf
+        - path: s3://product-documents/reference.pdf
           id: reference
       api_key: ${OPENAI_API_KEY}
       model: gpt-5.4
@@ -422,6 +424,65 @@ Environment variables, recipe variables, and existing model/group-scoped
 credential resolution still supply `api_key`; attachment code does not select
 credentials or modify global client state.
 
+### S3 objects
+
+Use the same descriptor with an S3 URI; local and remote attachments can be
+combined in a single request:
+
+```python
+document = wrangles.extract.ai(
+    "Compare the product photo with the datasheet.",
+    attachments=[
+        {"path": "s3://product-documents/datasheets/specification.pdf", "id": "datasheet"},
+        {"path": "/data/photo.png", "id": "photo", "detail": "high"},
+    ],
+    **options,  # Model, OpenAI key, schema and budgets from the Python example above
+)
+```
+
+The library uses the existing **boto3** dependency to read the original bytes,
+not `s3.read`, which parses tabular data. No public object URL, presigned URL,
+temporary local file, or additional dependency is needed. Only explicit
+attachment descriptors trigger S3 reads; an S3 URI in ordinary text stays text.
+
+- Use a bucket name and the exact literal key after `s3://bucket/`. Keys are not
+  URL-decoded (`%20` means those three characters, not a space). Query strings,
+  fragments, embedded credentials, access-point ARNs, and version-ID parameters
+  are not supported. The key must end in a supported file extension.
+- AWS authentication follows boto3's standard credential chain: environment
+  credentials (including `AWS_SESSION_TOKEN`), shared profiles/`AWS_PROFILE`,
+  or workload IAM roles. Grant `s3:GetObject` and any necessary `kms:Decrypt`
+  permission. AWS authentication is independent of the OpenAI `api_key`; recipe
+  variables containing AWS secrets are **not** automatically passed to boto3.
+- Each unique S3 object is read with a fresh session; the library does not
+  replace boto3's global session or change environment credentials. For explicit
+  per-run AWS credentials or a custom S3 endpoint, use the existing
+  `s3.download_files` run connector first, then attach its local `save_as` path.
+  That connector already accepts `aws_access_key_id`, `aws_secret_access_key`,
+  `aws_session_token`, and `endpoint_url`. Do not switch process environment
+  credentials between concurrent callers.
+- S3 downloads use a 10-second connect timeout, 30-second read timeout, and
+  standard SDK request retries (at most three attempts). These are separate
+  from `extract.ai`'s model-request timeout/retries and are not a whole-batch
+  deadline. A failed streaming read aborts preparation; rerun the call after
+  resolving connectivity. Downloads happen before model requests, not inside
+  model-worker threads. Streams and clients are closed on success and failure.
+- The same attachment count, per-file, per-record, and combined batch byte
+  limits apply across local and S3 files. Object size is checked before reading
+  the body; the read itself is bounded even if the reported size is wrong.
+  Missing objects, access denial, missing credentials, and download failures
+  raise actionable errors without logging AWS error bodies or binary payloads.
+
+One `(bucket, key)` is downloaded only once per invocation, even when repeated
+across rows. Every **new invocation** reads it again before consulting the local
+result cache, so replaced content invalidates results and lost S3 access is not
+bypassed by a warm cache hit. Identical authorized bytes can still reuse the
+model result. This means a local result-cache hit may incur an S3 GET/transfer,
+but no new model call. Model retries reuse the in-memory snapshot, not another
+S3 download. S3 URIs and AWS credentials are not sent as file locations to
+OpenAI; the bytes are sent inline under the supplied source ID. As with local
+paths, explicitly selected text columns are still sent as text.
+
 ### Limits, memory, time, and storage
 
 The library imposes conservative limits (MiB = 1,048,576 bytes):
@@ -431,10 +492,10 @@ The library imposes conservative limits (MiB = 1,048,576 bytes):
 | Attachments per record | 16 |
 | Individual decoded file | 20 MiB |
 | Combined decoded attachments per record | 32 MiB |
-| Unique local-file snapshots per Python call/recipe step | 128 MiB |
+| Unique local-file and S3-object snapshots per Python call/recipe step | 128 MiB |
 
 Reduce batch size or split documents when these limits are reached. All files
-are checked before submitting the batch. Each unique resolved path is read
+are checked before submitting the batch. Each unique resolved local path or S3 object is read
 once per invocation; requests and retries use that same immutable snapshot.
 Base64 encoding adds roughly one-third to the file size and request/HTTP
 serialization adds memory overhead. Multiple workers can hold encoded requests
@@ -444,12 +505,12 @@ Files are sent inline in the Responses request. There are **no separate Files
 API uploads or file IDs to clean up**. Input content goes to the configured
 endpoint with the resolved credential. Existing `store: true` defaults also
 apply to attachments; use `store: false` when appropriate and follow your
-provider/project retention policy. Local snapshots are not persisted by the
+provider/project retention policy. File snapshots are not persisted by the
 library; the result cache stores only successful extracted values.
 
 Cache identity includes ordered source IDs, content hashes, media types, image
 detail, text association, and existing model/schema/prompt/options/credential
-settings. Replacing bytes at the same path invalidates the result even if size
+settings. Replacing bytes at the same local path or S3 URI invalidates the result even if size
 and timestamps are unchanged. A file changed during an invocation is seen by
 the **next** invocation, not halfway through retries.
 
@@ -489,7 +550,8 @@ at the provider) makes the total incomplete. No price table is built in.
 
 `extract_ai_cache_lookup` events distinguish local hits and duplicate
 suppression from misses. Their hash matches the attempt's `request_key`.
-A local hit makes no provider call and emits no new attempt usage. OpenAI's
+A local hit makes no model-provider call and emits no new attempt usage
+(explicit S3 attachments are still downloaded to check content and access). OpenAI's
 reported cached-input tokens instead describe **provider prompt-cache** reuse
 on a new request. Neither diagnostic stream changes extraction return shapes
 or enables an external tracing exporter. Capture these logs in the caller's
@@ -509,7 +571,10 @@ coordinates, or highlights.
 Offline tests generate a tiny synthetic PDF and PNG, mock Responses, and check
 payload bytes, source/row association, cache identity, credential isolation,
 limits, schema compatibility, and incomplete-attempt accounting. They do
-**not** measure extraction accuracy.
+**not** measure extraction accuracy. S3 tests also mock AWS downloads and errors,
+checking bounded reads, cleanup, URI/row semantics, and cache invalidation.
+Live S3-to-OpenAI validation remains outstanding; use an authorized object and
+AWS/OpenAI credentials to run the S3 example before deployment.
 
 Live validation and the RSGroup SF_AMF60 integration check remain outstanding:
 the implementation sandbox has no OpenAI credentials or RSGroup source PDF,
