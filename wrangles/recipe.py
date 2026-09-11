@@ -17,6 +17,7 @@ import contextvars as _contextvars
 import time as _time
 import pandas as _pandas
 import requests as _requests
+from urllib.parse import urlsplit as _urlsplit, parse_qsl as _parse_qsl, urlunsplit as _urlunsplit
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
 from . import data as _data
@@ -51,6 +52,337 @@ _RECIPE_RUN_CONTEXT = _contextvars.ContextVar(
     'wrangles_recipe_run_context',
     default=None
 )
+
+_RUNTIME_SECRET_VARIABLES_KEY = "__runtime_secret_variables__"
+_RUNTIME_INTERNAL_KEYS = {_RUNTIME_SECRET_VARIABLES_KEY}
+_RUNTIME_PROTECTED_NAMES = {
+    "recipe_variables",
+    "row_count",
+    "column_count",
+    "columns",
+    "df",
+    "applied_permission_group",
+    *_RUNTIME_INTERNAL_KEYS
+}
+_RUNTIME_REFERENCE_PATTERN = _re.compile(r"(?<!\\)\$\{runtime\.([A-Za-z0-9_\.]+)\}")
+_RUNTIME_REFERENCE_FULL_PATTERN = _re.compile(r"(?<!\\)\$\{runtime\.([A-Za-z0-9_\.]+)\}$")
+_RUNTIME_DEFER_KEYS = {"if", "run", "read", "write", "wrangles", "wrangle", "sources"}
+
+
+def _clone_runtime_value(value):
+    """
+    Clone common mutable runtime values to keep recipe runs isolated
+    without forcing deepcopy on unsupported handles.
+    """
+    if isinstance(value, dict):
+        return {k: _clone_runtime_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_clone_runtime_value(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_clone_runtime_value(v) for v in value)
+    if isinstance(value, set):
+        return {_clone_runtime_value(v) for v in value}
+    return value
+
+
+def _runtime_assignable_variables(variables: dict) -> dict:
+    return {
+        key: value
+        for key, value in variables.items()
+        if key not in _RUNTIME_INTERNAL_KEYS and key != "recipe_variables"
+    }
+
+
+def _refresh_recipe_variables(variables: dict) -> None:
+    variables["recipe_variables"] = _clone_runtime_value(_runtime_assignable_variables(variables))
+
+
+def _build_runtime_variables_view(
+    variables: dict,
+    df: _pandas.DataFrame = None
+) -> dict:
+    variable_view = _clone_runtime_value(_runtime_assignable_variables(variables))
+
+    if isinstance(df, _pandas.DataFrame):
+        variable_view.update({
+            "row_count": len(df),
+            "column_count": len(df.columns),
+            "columns": df.columns.tolist(),
+            "df": df
+        })
+
+    variable_view["recipe_variables"] = {
+        key: value
+        for key, value in variable_view.items()
+        if key != "recipe_variables"
+    }
+
+    return variable_view
+
+
+def _resolve_runtime_path(path: str, variables: dict):
+    current = variables
+    for segment in path.split("."):
+        if not isinstance(current, dict) or segment not in current:
+            raise ValueError(f"Runtime variable '${{runtime.{path}}}' was not found.")
+        current = current[segment]
+    return current
+
+
+def _resolve_runtime_references(
+    recipe_object: _typing.Any,
+    variables: dict,
+    defer_keys: set = None
+) -> _typing.Any:
+    if defer_keys is None:
+        defer_keys = set()
+
+    if isinstance(recipe_object, list):
+        return [
+            _resolve_runtime_references(item, variables, defer_keys)
+            for item in recipe_object
+        ]
+
+    if isinstance(recipe_object, dict):
+        resolved = {}
+        for key, value in recipe_object.items():
+            resolved_key = _resolve_runtime_references(key, variables, defer_keys)
+            if isinstance(resolved_key, str) and resolved_key in defer_keys:
+                resolved[resolved_key] = value
+            else:
+                resolved[resolved_key] = _resolve_runtime_references(value, variables, defer_keys)
+        return resolved
+
+    if isinstance(recipe_object, str):
+        escaped_marker = "__WRANGLES_ESCAPED_RUNTIME_TEMPLATE__"
+        templated = recipe_object.replace(r"\${runtime.", f"{escaped_marker}")
+
+        if _RUNTIME_REFERENCE_FULL_PATTERN.fullmatch(templated):
+            runtime_key = _RUNTIME_REFERENCE_FULL_PATTERN.fullmatch(templated).group(1)
+            return _resolve_runtime_path(runtime_key, variables)
+
+        def _replace_runtime_variable(match):
+            runtime_key = match.group(1)
+            return str(_resolve_runtime_path(runtime_key, variables))
+
+        templated = _RUNTIME_REFERENCE_PATTERN.sub(_replace_runtime_variable, templated)
+        return templated.replace(escaped_marker, "${runtime.")
+
+    return recipe_object
+
+
+def _resolve_runtime_condition(statement: str, variables: dict) -> str:
+    if not isinstance(statement, str):
+        return statement
+
+    escaped_marker = "__WRANGLES_ESCAPED_RUNTIME_TEMPLATE__"
+    statement = statement.replace(r"\${runtime.", f"{escaped_marker}")
+
+    def _replace_runtime_variable(match):
+        runtime_key = match.group(1)
+        return repr(_resolve_runtime_path(runtime_key, variables))
+
+    statement = _RUNTIME_REFERENCE_PATTERN.sub(_replace_runtime_variable, statement)
+    return statement.replace(escaped_marker, "${runtime.")
+
+
+def _validate_runtime_variable_name(name: str) -> None:
+    if not isinstance(name, str) or not _re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+        raise ValueError(
+            f"Runtime variable name '{name}' is invalid. "
+            "Use letters, numbers and underscores, starting with a letter or underscore."
+        )
+    if name in _RUNTIME_PROTECTED_NAMES:
+        raise ValueError(f"Runtime variable '{name}' is protected and cannot be assigned.")
+
+
+def _deep_merge_dicts(original: dict, updates: dict) -> dict:
+    merged = _clone_runtime_value(original)
+    for key, value in updates.items():
+        if isinstance(merged.get(key), dict) and isinstance(value, dict):
+            merged[key] = _deep_merge_dicts(merged[key], value)
+        else:
+            merged[key] = _clone_runtime_value(value)
+    return merged
+
+
+def _apply_runtime_variable_updates(
+    variables: dict,
+    set_values: dict = None,
+    update_values: dict = None,
+    mark_secret: list = None
+) -> None:
+    prepared_assignments = {}
+
+    if set_values is not None:
+        if not isinstance(set_values, dict):
+            raise ValueError("set must be a dictionary of runtime variable assignments.")
+        for key, value in set_values.items():
+            _validate_runtime_variable_name(key)
+            prepared_assignments[key] = _clone_runtime_value(value)
+
+    if update_values is not None:
+        if not isinstance(update_values, dict):
+            raise ValueError("update must be a dictionary of runtime variable updates.")
+        for key, patch in update_values.items():
+            _validate_runtime_variable_name(key)
+            if key not in variables:
+                raise ValueError(f"Runtime variable '{key}' was not found for update.")
+            if not isinstance(variables[key], dict) or not isinstance(patch, dict):
+                raise ValueError(
+                    f"Runtime variable '{key}' can only be updated with a dictionary patch."
+                )
+            prepared_assignments[key] = _deep_merge_dicts(variables[key], patch)
+
+    prepared_mark_secret = set()
+    if mark_secret is not None:
+        if isinstance(mark_secret, str):
+            mark_secret = [mark_secret]
+        if not isinstance(mark_secret, list) or not all(isinstance(v, str) for v in mark_secret):
+            raise ValueError("mark_secret must be a string or list of strings.")
+        for variable_name in mark_secret:
+            _validate_runtime_variable_name(variable_name)
+            prepared_mark_secret.add(variable_name)
+
+    if prepared_assignments:
+        variables.update(prepared_assignments)
+        _refresh_recipe_variables(variables)
+
+    if prepared_mark_secret:
+        existing = variables.get(_RUNTIME_SECRET_VARIABLES_KEY, set())
+        if not isinstance(existing, set):
+            existing = set(existing) if isinstance(existing, list) else set()
+        variables[_RUNTIME_SECRET_VARIABLES_KEY] = existing.union(prepared_mark_secret)
+
+
+def _looks_like_sensitive_name(name: str) -> bool:
+    if not isinstance(name, str):
+        return False
+    lowered = name.lower()
+    return any(
+        key in lowered
+        for key in [
+            "password", "secret", "token", "api_key", "apikey", "access_key",
+            "authorization", "credential", "signature", "signed", "private_key"
+        ]
+    )
+
+
+def _redact_string(value: str) -> str:
+    if not isinstance(value, str):
+        return value
+    try:
+        parsed = _urlsplit(value)
+        if parsed.scheme and parsed.netloc and parsed.query:
+            sensitive_query_keys = {
+                "x-amz-signature", "x-amz-credential", "x-amz-security-token",
+                "x-amz-algorithm", "x-amz-date", "signature", "sig", "token",
+                "access_key", "awsaccesskeyid"
+            }
+            query_keys = {key.lower() for key, _ in _parse_qsl(parsed.query, keep_blank_values=True)}
+            if query_keys.intersection(sensitive_query_keys):
+                return _urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "[REDACTED]", parsed.fragment))
+    except Exception:
+        pass
+    return value
+
+
+def _sanitize_runtime_value(
+    value,
+    *,
+    key_hint: str = None,
+    max_depth: int = 4,
+    max_items: int = 20,
+    max_string_length: int = 400,
+    secret_variables: set = None,
+    depth: int = 0
+):
+    if secret_variables is None:
+        secret_variables = set()
+
+    if key_hint in secret_variables or _looks_like_sensitive_name(key_hint):
+        return "[REDACTED]"
+
+    if depth >= max_depth:
+        return "<truncated>"
+
+    if isinstance(value, _pandas.DataFrame):
+        return f"<DataFrame rows={len(value)} columns={len(value.columns)}>"
+    if isinstance(value, (bytes, bytearray)):
+        return f"<binary {len(value)} bytes>"
+    if isinstance(value, str):
+        value = _redact_string(value)
+        if len(value) > max_string_length:
+            return value[:max_string_length] + "... <truncated>"
+        return value
+    if isinstance(value, dict):
+        keys = list(value.keys())
+        sanitized = {}
+        for key in keys[:max_items]:
+            sanitized[key] = _sanitize_runtime_value(
+                value[key],
+                key_hint=str(key),
+                max_depth=max_depth,
+                max_items=max_items,
+                max_string_length=max_string_length,
+                secret_variables=secret_variables,
+                depth=depth + 1
+            )
+        if len(keys) > max_items:
+            sanitized["..."] = f"{len(keys) - max_items} more item(s)"
+        return sanitized
+    if isinstance(value, list):
+        sanitized = [
+            _sanitize_runtime_value(
+                item,
+                key_hint=key_hint,
+                max_depth=max_depth,
+                max_items=max_items,
+                max_string_length=max_string_length,
+                secret_variables=secret_variables,
+                depth=depth + 1
+            )
+            for item in value[:max_items]
+        ]
+        if len(value) > max_items:
+            sanitized.append(f"... {len(value) - max_items} more item(s)")
+        return sanitized
+    return value
+
+
+def inspect_runtime_variables(
+    variables: dict,
+    include: _typing.Union[list, str, None] = None,
+    df: _pandas.DataFrame = None,
+    max_items: int = 20
+) -> dict:
+    variable_view = _build_runtime_variables_view(variables, df)
+    secret_variables = variables.get(_RUNTIME_SECRET_VARIABLES_KEY, set())
+    if not isinstance(secret_variables, set):
+        secret_variables = set(secret_variables) if isinstance(secret_variables, list) else set()
+
+    if include is None:
+        return {}
+    if isinstance(include, str):
+        include = [include]
+    if not isinstance(include, list):
+        raise ValueError("runtime_variables must be a string or list of strings.")
+
+    selected = {}
+    for selector in include:
+        if not isinstance(selector, str):
+            raise ValueError("runtime_variables entries must be strings.")
+        if selector == "recipe_variables":
+            value = variable_view.get("recipe_variables")
+        else:
+            value = _resolve_runtime_path(selector, variable_view)
+        selected[selector] = _sanitize_runtime_value(
+            value,
+            key_hint=selector.split(".")[0],
+            max_items=max_items,
+            secret_variables=secret_variables
+        )
+    return selected
 
 
 # Suppress pandas performance warnings
@@ -258,12 +590,9 @@ def _load_recipe(
 
     recipe_object = _yaml.safe_load(recipe_string)
 
-    # Add variables to variables
-    variables['recipe_variables'] = {
-        key: value
-        for key, value in variables.items()
-        if key != 'recipe_variables'
-    }
+    if _RUNTIME_SECRET_VARIABLES_KEY not in variables:
+        variables[_RUNTIME_SECRET_VARIABLES_KEY] = set()
+    _refresh_recipe_variables(variables)
 
     # Keep a copy of the raw recipe string for line lookups.
     #
@@ -307,7 +636,10 @@ def _load_recipe(
                 break
 
     # Check if there are any templated valued to update
-    recipe_object = _replace_templated_values(recipe_object, variables)
+    recipe_object = _replace_templated_values(
+        recipe_object,
+        _build_runtime_variables_view(variables)
+    )
 
     return recipe_object, functions
 
@@ -417,18 +749,61 @@ def _run_actions(
 
         for action_type, params in action.items():
             try:
+                if params is None:
+                    params = {}
+                params = _resolve_runtime_references(
+                    _clone_runtime_value(params),
+                    _build_runtime_variables_view(variables),
+                    _RUNTIME_DEFER_KEYS
+                )
+
                 # If the action is conditional, check if it should be run
                 if (
                     "if" in params and
-                    not _evaluate_conditional(params["if"], variables)
+                    not _evaluate_conditional(
+                        _resolve_runtime_condition(
+                            params["if"],
+                            _build_runtime_variables_view(variables)
+                        ),
+                        _build_runtime_variables_view(variables)
+                    )
                 ):
                     continue
+
+                result_variable = params.pop("result_variable", None)
+                set_values = params.pop("set", None) if action_type == "variables" else None
+                update_values = params.pop("update", None) if action_type == "variables" else None
+                mark_secret = params.pop("mark_secret", None) if action_type == "variables" else None
+                inspect_values = params.pop("inspect", None) if action_type == "variables" else None
+                inspect_max_items = params.pop("max_items", 20) if action_type == "variables" else 20
                 
                 common_params = {}
                 # Add to common_params dict and remove from params
                 for key in ['if']:
                     if key in params.keys():
                         common_params[key] = params.pop(key)
+
+                if action_type == "variables":
+                    _apply_runtime_variable_updates(
+                        variables,
+                        set_values=set_values,
+                        update_values=update_values,
+                        mark_secret=mark_secret
+                    )
+                    result = None
+                    if inspect_values is not None:
+                        result = inspect_runtime_variables(
+                            variables=variables,
+                            include=inspect_values,
+                            max_items=inspect_max_items
+                        )
+                        _logging.info(f": Runtime Variables :: {result}")
+                    if result_variable is not None:
+                        _apply_runtime_variable_updates(
+                            variables,
+                            set_values={result_variable: result}
+                        )
+                    continue
 
                 func = _get_nested_function(action_type, _connectors, functions, 'run')
                 if action_type == "matrix":
@@ -439,7 +814,13 @@ def _run_actions(
                 _validate_function_args(func, args, action_type)
 
                 # Execute the function
-                func(**args)
+                result = func(**args)
+
+                if result_variable is not None:
+                    _apply_runtime_variable_updates(
+                        variables,
+                        set_values={result_variable: result}
+                    )
             except Exception as e:
                 # Wrap with enhanced error information
                 _wrap_and_raise('ACTION', action_type, None, e)
@@ -476,10 +857,24 @@ def _read_data(
             
         for read_type, read_params in read.items():
             try:
+                if read_params is None:
+                    read_params = {}
+                read_params = _resolve_runtime_references(
+                    _clone_runtime_value(read_params),
+                    _build_runtime_variables_view(variables, input_dataframe),
+                    _RUNTIME_DEFER_KEYS
+                )
+
                 # If the action is conditional, check if it should be run
                 if (
                     "if" in read_params and
-                    not _evaluate_conditional(read_params["if"], variables)
+                    not _evaluate_conditional(
+                        _resolve_runtime_condition(
+                            read_params["if"],
+                            _build_runtime_variables_view(variables, input_dataframe)
+                        ),
+                        _build_runtime_variables_view(variables, input_dataframe)
+                    )
                 ):
                     return None
 
@@ -598,7 +993,13 @@ def _execute_wrangles(
 
         for wrangle, params in step.items():
             try:
-                if params is None: params = {}
+                if params is None:
+                    params = {}
+                params = _resolve_runtime_references(
+                    _clone_runtime_value(params),
+                    _build_runtime_variables_view(variables, df),
+                    _RUNTIME_DEFER_KEYS
+                )
                 # Replace any conflicting reserved words with a safe alternative
                 wrangle = _reserved_word_replacements.get(wrangle, wrangle)
 
@@ -614,16 +1015,11 @@ def _execute_wrangles(
                 if (
                     "if" in params and
                     not _evaluate_conditional(
-                        params["if"],
-                        {
-                            **variables,
-                            **{
-                                "row_count": len(df),
-                                "column_count": len(df.columns),
-                                "columns": df.columns.tolist(),
-                                "df": df
-                            }
-                        }
+                        _resolve_runtime_condition(
+                            params["if"],
+                            _build_runtime_variables_view(variables, df)
+                        ),
+                        _build_runtime_variables_view(variables, df)
                     )
                 ):
                     _logging.info(f": Wrangling :: {wrangle} skipped due to not passing the if statement.")
@@ -1101,6 +1497,14 @@ def _write_data(
 
         for export_type, params in export.items():
             try:
+                if params is None:
+                    params = {}
+                params = _resolve_runtime_references(
+                    _clone_runtime_value(params),
+                    _build_runtime_variables_view(variables, df),
+                    _RUNTIME_DEFER_KEYS
+                )
+
                 # Filter the dataframe as requested before passing
                 # to the desired write function
                 df_temp = _filter_dataframe(df, **params)
@@ -1109,16 +1513,11 @@ def _write_data(
                 if (
                     "if" in params and
                     not _evaluate_conditional(
-                        params["if"],
-                        {
-                            **variables,
-                            **{
-                                "row_count": len(df_temp),
-                                "column_count": len(df_temp.columns),
-                                "columns": df_temp.columns.tolist(),
-                                "df": df_temp
-                            }
-                        }
+                        _resolve_runtime_condition(
+                            params["if"],
+                            _build_runtime_variables_view(variables, df)
+                        ),
+                        _build_runtime_variables_view(variables, df_temp)
                     )
                 ):
                     continue
@@ -1237,7 +1636,8 @@ def run(
     variables: dict = None,
     dataframe: _pandas.DataFrame = None,
     functions: _Union[_types.FunctionType, list, dict] = [],
-    timeout: float = None
+    timeout: float = None,
+    _return_runtime_variables: list = None
 ) -> _pandas.DataFrame:
     """
     Execute a Wrangles Recipe. Recipes are written in YAML and allow 
@@ -1257,7 +1657,7 @@ def run(
     """
     if variables is None:
         variables = {}
-    variables = variables.copy()
+    variables = _clone_runtime_value(variables)
 
     parent_context = _RECIPE_RUN_CONTEXT.get()
     run_context = {
@@ -1287,7 +1687,23 @@ def run(
                     dataframe,
                     functions
                 )
-                return future.result(timeout)
+                result_df = future.result(timeout)
+                if _return_runtime_variables is not None:
+                    if isinstance(_return_runtime_variables, str):
+                        _return_runtime_variables = [_return_runtime_variables]
+                    if not isinstance(_return_runtime_variables, list):
+                        raise ValueError("_return_runtime_variables must be a string or list of strings.")
+                    exported = {}
+                    runtime_values = _runtime_assignable_variables(variables)
+                    for variable_name in _return_runtime_variables:
+                        _validate_runtime_variable_name(variable_name)
+                        if variable_name not in runtime_values:
+                            raise ValueError(
+                                f"Runtime variable '{variable_name}' was requested for export but was not found."
+                            )
+                        exported[variable_name] = _clone_runtime_value(runtime_values[variable_name])
+                    return result_df, exported
+                return result_df
 
             except _futures.TimeoutError as e:
                 try:

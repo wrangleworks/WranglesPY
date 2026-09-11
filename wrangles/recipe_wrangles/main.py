@@ -844,6 +844,8 @@ def log(
     error: str = None,
     warning: str = None,
     info: str = None,
+    runtime_variables: _Union[str, list] = None,
+    runtime_max_items: int = 20,
     log_data: bool = None,
     **kwargs
 ):
@@ -870,12 +872,21 @@ def log(
       info:
         type: string
         description: Log info to the console
+      runtime_variables:
+        type:
+          - string
+          - array
+        description: Runtime variable names or dotted paths to inspect and log in redacted form.
+      runtime_max_items:
+        type: integer
+        minimum: 1
+        description: Maximum list/dictionary entries to include per inspected runtime variable.
       log_data:
         type: boolean
         description: Whether to log a sample of the contents of the dataframe. Default True if not logging to a write, error, warning or info. Default False otherwise.
     """
-    variables = kwargs.pop('variables', {})
-    variables = _delayed_variable_interpretation(df, variables)
+    runtime_values = kwargs.pop('variables', {})
+    variables = _delayed_variable_interpretation(df, runtime_values)
 
     # Handle variable interpretation for all parameters
     columns, write, error, warning, info = [
@@ -927,6 +938,15 @@ def log(
             {'write': write},
             dataframe=df
         )
+
+    if runtime_variables:
+        runtime_snapshot = _recipe.inspect_runtime_variables(
+            variables=runtime_values,
+            include=runtime_variables,
+            df=df,
+            max_items=runtime_max_items
+        )
+        _logging.info(f": Runtime Variables :: {runtime_snapshot}")
 
     if log_data == None and not any([error, warning, info, write]): log_data = True
         
