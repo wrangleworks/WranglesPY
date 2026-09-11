@@ -4,6 +4,10 @@ Use `extract.ai` when each input row should produce one or more consistently
 named attributes. You can define the attributes in an Excel saved model or
 directly in a recipe. Both routes compile to the same output contract.
 
+For original PDFs and images, pass explicit `attachments`. A plain text value
+that happens to look like a file path remains text; files are opened only when
+they are listed under `attachments`.
+
 ## Start with the output
 
 Define the result you want before writing general instructions or examples.
@@ -143,6 +147,75 @@ reasoning effort.
 The Excel settings panel currently offers reasoning effort `none` (default) and
 `low`. It stores this as `ReasoningEffort` and the runtime maps it to the
 Responses API reasoning setting.
+
+### PDF and Image Attachments
+
+Use attachments when the model needs to inspect the original PDF or image,
+optionally alongside row text. This is supported only by OpenAI Responses calls
+with models that can accept visual/file input. Supported local file formats are
+PDF, PNG, JPEG, and WebP. Each file is snapshotted before requests are sent, and
+the result cache includes the exact file bytes and attachment order.
+
+Python scalar input uses one ordered descriptor list:
+
+```python
+wrangles.extract.ai(
+    "Extract the voltage rating and cite the source.",
+    api_key=api_key,
+    model="gpt-5.6-luna",
+    attachments=[
+        {"path": "data/specification.pdf", "id": "datasheet"},
+        {"path": "data/front-label.png", "id": "label", "detail": "high"},
+    ],
+    output={
+        "voltage": {"type": "string"},
+        "source_id": {"type": "string"},
+        "page": {"type": "integer"},
+    },
+)
+```
+
+Python batch input uses one attachment list per input record:
+
+```python
+wrangles.extract.ai(
+    [{"sku": "A1"}, {"sku": "B2"}],
+    api_key=api_key,
+    attachments=[
+        [{"path": "data/a1.pdf", "id": "datasheet"}],
+        [{"path": "data/b2.pdf", "id": "datasheet"}],
+    ],
+    output={"voltage": {"type": "string"}},
+)
+```
+
+Recipes can repeat one literal path for every row, or read one path per row from
+a dataframe column. Use `input: []` for attachment-only extraction.
+
+```yaml
+wrangles:
+  - extract.ai:
+      input:
+        - Description
+      api_key: ${OPENAI_API_KEY}
+      model: gpt-5.6-luna
+      attachments:
+        - path: data/common-spec.pdf
+          id: datasheet
+        - column: Label Image
+          id: label
+          detail: high
+      output:
+        voltage:
+          type: string
+        source_id:
+          type: string
+```
+
+Invalid paths, unsupported formats, empty files, file contents that do not match
+the extension, PDF `detail`, and non-Responses protocols fail before any model
+request is sent. Current limits are 16 attachments per record, 20 MiB per file,
+32 MiB per record, and 128 MiB of unique file bytes per invocation.
 
 ## Defining the schema in a recipe
 

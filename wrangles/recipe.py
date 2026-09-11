@@ -642,6 +642,11 @@ def _execute_wrangles(
                         'select.element',
                         'rename'
                     ]
+                    and not (
+                        wrangle == 'extract.ai'
+                        and params.get('attachments') is not None
+                        and params['input'] == []
+                    )
                 ):
                     # Expand out any wildcards or regex in column names
                     params['input'] = _wildcard_expansion(

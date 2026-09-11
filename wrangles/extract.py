@@ -13,6 +13,7 @@ from . import openai_responses as _openai_responses
 from . import ai_config as _ai_config
 from . import ai_definition as _ai_definition
 from . import ai_cache as _ai_cache
+from . import ai_attachments as _ai_attachments
 
 _LOG = _logging.getLogger(__name__)
 
@@ -182,6 +183,7 @@ def ai(
     web_search: bool = False,
     instructions: _Union[str, list] = None,
     metadata: dict = None,
+    attachments: list = None,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -226,6 +228,10 @@ def ai(
         Available recipe name and Wrangles user are added automatically. Explicit
         labels override those defaults; an empty dict disables automatic labels.
         Labels are separate from model instructions and do not enable tracing.
+    :param attachments: (Optional) Explicit local PDF/image attachments. For a scalar input,
+        provide a list of attachment descriptors. For a list input, provide one descriptor
+        list per input record. Each descriptor supports path, optional id, and optional
+        image detail. Text paths are never opened unless passed here.
     :param cache: (Optional) Use the bounded warm-instance result cache. Defaults to True.
     :param cache_ttl: (Optional) Override the result-cache TTL in seconds for this call.
     :param web_search: (Optional) Enable native Responses web search. Each result then includes a
@@ -328,6 +334,18 @@ def ai(
     _needs_remap = compiled.needs_remap
     root_schema = compiled.root_schema
     example_guidance = _ai_definition.render_example_guidance(compiled)
+
+    if attachments is not None:
+        _ai_attachments.validate_model(protocol)
+        if kwargs.get("stream") or kwargs.get("background"):
+            raise ValueError("attachments require synchronous Responses; stream and background must be false.")
+        input = _ai_attachments.prepare(
+            input,
+            attachments,
+            input_was_scalar,
+            _openai_responses.format_input_data,
+        )
+
     if (
         web_search
         and _openai_responses.WEB_SEARCH_SOURCES_KEY in compiled.output
@@ -430,6 +448,12 @@ def ai(
             "payload": payload,
             "cache_ttl_seconds": cache_policy.ttl_seconds,
         }
+        def request_data(row):
+            return (
+                row.identity()
+                if isinstance(row, _ai_attachments.PreparedRecord)
+                else _openai_responses.format_input_data(row)
+            )
         results = _ai_cache.execute_batch(
             input,
             key_for=lambda row: _ai_cache.make_key(
@@ -438,7 +462,7 @@ def ai(
                 protocol=protocol,
                 tenant_secret=api_key,
                 static_request=static_request,
-                data=_openai_responses.format_input_data(row),
+                data=request_data(row),
             ),
             compute=lambda row: _openai_responses.call_structured(
                 row,
