@@ -21,6 +21,8 @@ from pydantic import Field as _Field
 from pydantic import ValidationError as _ValidationError
 from pydantic import create_model as _create_model
 
+from . import ai_attachments as _ai_attachments
+
 
 _LOG = _logging.getLogger(__name__)
 _LOCK = _threading.Lock()
@@ -721,7 +723,11 @@ def call_structured(
     request_payload["input"] = [
         {
             "role": "user",
-            "content": f"DATA:\n{format_input_data(data)}",
+            "content": (
+                data.content()
+                if isinstance(data, _ai_attachments.PreparedRecord)
+                else f"DATA:\n{format_input_data(data)}"
+            ),
         }
     ]
     include_web_search_sources = _uses_web_search(request_payload)
