@@ -26,13 +26,12 @@ from . import openai
 from . import ai_config
 from . import ai_definition
 from . import ai_cache
-from .clients import serp_api as search
+from . import search
 
 from . import data
 from .train import train
 from . import select
 from . import compare
 from . import generate
-
 
 
