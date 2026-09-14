@@ -9,6 +9,7 @@ import re as _re
 
 import yaml as _yaml
 
+from .ai_settings import merge_general_instructions as _merge_general_instructions
 from .ai_definition import (
     _JSON_TYPES,
     _TYPE_ALIASES,
@@ -129,8 +130,7 @@ def _boolean(value):
 
 
 def merge_settings(existing: dict | None = None, overrides: dict | None = None) -> dict:
-    """Copy content-level settings, replacing only explicitly supplied keys."""
-    result = {}
+    """Copy settings, applying explicit overrides and normalizing instruction aliases."""
     for settings in (existing, overrides):
         if settings is None:
             continue
@@ -140,7 +140,7 @@ def merge_settings(existing: dict | None = None, overrides: dict | None = None) 
             _validate_json_tree(settings)
         except ValueError as exc:
             raise ValueError(f"Extract-AI Settings: {exc}.") from exc
-        result.update(_copy.deepcopy(settings))
+    result = _merge_general_instructions(existing, overrides)
     if "variant" in result and result["variant"] != "extract-ai":
         raise ValueError("Extract-AI Settings.variant must be 'extract-ai'.")
     return result

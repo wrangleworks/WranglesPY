@@ -123,7 +123,9 @@ def test_update_preserves_content_settings_and_explicit_overrides(service, setti
     method, params, payload = service["writes"][0]
     assert method == "PUT"
     assert params == {"type": "extract", "model_id": MODEL_ID}
-    assert payload["Settings"] == {**original["Settings"], **(settings or {})}
+    expected = {**original["Settings"], **(settings or {})}
+    expected["GeneralInstructions"] = expected["AdditionalMessages"]
+    assert payload["Settings"] == expected
     assert payload["Data"] == [["New attribute"]]
     assert service["content"] == original
     assert service["reads"] == ["metadata", "content"]
@@ -143,7 +145,9 @@ def test_read_write_round_trip_preserves_xl_table_and_settings(service):
     service["content"] = copy.deepcopy(content)
     frame = connector.extract.read(MODEL_ID)
     connector.extract.write(frame, model_id=MODEL_ID)
-    assert service["writes"][0][2] == content
+    expected = copy.deepcopy(content)
+    expected["Settings"]["GeneralInstructions"] = content["Settings"]["AdditionalMessages"]
+    assert service["writes"][0][2] == expected
     assert service["content"] == content
 
 
@@ -244,6 +248,9 @@ def test_sdk_full_content_and_connector_share_authoring_validation(service):
 def test_connector_schema_and_recipe_support_new_arguments(service):
     schema = yaml.safe_load(connector.extract._schema["write"])
     assert schema["properties"]["settings"]["type"] == "object"
+    instructions = schema["properties"]["settings"]["properties"]["GeneralInstructions"]
+    assert instructions["title"] == "General Instructions"
+    assert instructions["type"] == ["string", "array", "null"]
     assert schema["properties"]["variant"]["enum"] == ["pattern", "ai"]
     wrangles.recipe.run("""
 write:
@@ -252,8 +259,13 @@ write:
       variant: ai
       settings:
         ReasoningEffort: none
+        GeneralInstructions: Extract the primary product only.
 """, dataframe=pd.DataFrame({"Find": ["Voltage"], "Type": ["number"]}))
-    assert service["writes"][0][2]["Settings"] == {"ReasoningEffort": "none"}
+    assert service["writes"][0][2]["Settings"] == {
+        "ReasoningEffort": "none",
+        "GeneralInstructions": "Extract the primary product only.",
+        "AdditionalMessages": "Extract the primary product only.",
+    }
 
 
 @pytest.mark.parametrize("row", [
@@ -324,9 +336,59 @@ def test_sdk_dictionary_update_copies_settings_without_mutating_input(service):
     original = copy.deepcopy(content)
     response = wrangles.train.extract(content, model_id=MODEL_ID, variant="extract-ai")
     assert response.status_code == 202
-    assert service["writes"][0][2]["Settings"] == {**service["content"]["Settings"], **original["Settings"]}
+    assert service["writes"][0][2]["Settings"] == {
+        **service["content"]["Settings"], **original["Settings"],
+        "GeneralInstructions": "Updated",
+    }
     assert content == original
     assert service["reads"] == ["content"]
+
+
+@pytest.mark.parametrize("settings,value", [
+    ({"GeneralInstructions": "Primary product only."}, "Primary product only."),
+    ({"AdditionalMessages": "Legacy guidance."}, "Legacy guidance."),
+    ({"general instructions": ["First rule.", "Second rule."]}, ["First rule.", "Second rule."]),
+    ({"instructions": "Recipe-style alias."}, "Recipe-style alias."),
+    ({"messages": ["Legacy list."]}, ["Legacy list."]),
+    ({"GeneralInstructions": "New", "AdditionalMessages": "Old"}, "New"),
+    ({"GeneralInstructions": "Same", "AdditionalMessages": "Same"}, "Same"),
+    ({"GeneralInstructions": "", "AdditionalMessages": "Stale", "messages": "Stale"}, ""),
+    ({"GeneralInstructions": None, "AdditionalMessages": "Stale"}, None),
+    ({"GeneralInstructions": [], "instructions": "Stale"}, []),
+])
+def test_create_normalizes_instruction_aliases_for_old_and_new_readers(service, settings, value):
+    settings = {**settings, "FutureSetting": {"enabled": False}}
+    original = copy.deepcopy(settings)
+    connector.extract.write(
+        pd.DataFrame({"Find": ["Voltage"]}), name="Instruction compatibility",
+        variant="ai", settings=settings,
+    )
+    assert service["writes"][0][2]["Settings"] == {
+        "GeneralInstructions": value, "AdditionalMessages": value,
+        "FutureSetting": {"enabled": False},
+    }
+    assert settings == original
+
+
+@pytest.mark.parametrize("key", ["GeneralInstructions", "AdditionalMessages", "instructions", "messages", "ADDITIONAL Messages"])
+@pytest.mark.parametrize("value", ["Updated guidance.", "", None, []])
+def test_explicit_instruction_alias_overrides_existing_canonical_setting(service, key, value):
+    service["content"]["Settings"].update({
+        "GeneralInstructions": "Previous canonical value.",
+        "instructions": "Stale alias.",
+        "messages": "Another stale alias.",
+    })
+    original = copy.deepcopy(service["content"])
+    settings = {key: value}
+    connector.extract.write(
+        pd.DataFrame({"Find": ["Voltage"]}), model_id=MODEL_ID, settings=settings,
+    )
+    assert service["writes"][0][2]["Settings"] == {
+        "variant": "extract-ai", "GPTModel": "gpt-5.4-mini", "ReasoningEffort": "low",
+        "GeneralInstructions": value, "AdditionalMessages": value,
+    }
+    assert service["content"] == original
+    assert settings == {key: value}
 
 
 def test_blank_defaults_are_materialized_only_when_compiling(service):

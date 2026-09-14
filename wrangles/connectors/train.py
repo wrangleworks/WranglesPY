@@ -240,6 +240,16 @@ class extract():
           settings:
             type: object
             description: Extract-AI content settings; supplied keys override existing settings on updates
+            properties:
+              GeneralInstructions:
+                title: General Instructions
+                type: [string, array, 'null']
+                items:
+                  type: string
+                description: >-
+                  Guidance applied to every extraction. Use an empty string, null,
+                  or an empty list to clear saved instructions. AdditionalMessages
+                  remains a supported legacy alias.
         """
 
 

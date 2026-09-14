@@ -161,7 +161,30 @@ def test_saved_and_recipe_definitions_compile_to_the_same_schema(caplog):
     ]
     assert from_saved.reasoning == {"effort": "low"}
     assert "model_id.settings.gptmodel mapped to model" in caplog.text
-    assert "model_id.settings.additionalmessages mapped to messages" in caplog.text
+    assert "model_id.settings.additionalmessages mapped to GeneralInstructions" in caplog.text
+
+
+@pytest.mark.parametrize("settings,expected", [
+    ({}, []),
+    ({"AdditionalMessages": "Legacy guidance."}, ["Legacy guidance."]),
+    ({"GeneralInstructions": "Current guidance."}, ["Current guidance."]),
+    ({"general instructions": "Normalized spelling."}, ["Normalized spelling."]),
+    ({"instructions": ["First.", "Second."]}, ["First.", "Second."]),
+    ({"messages": "Legacy runtime alias."}, ["Legacy runtime alias."]),
+    ({"GeneralInstructions": "Same", "AdditionalMessages": "Same"}, ["Same"]),
+    ({"GeneralInstructions": "Current", "AdditionalMessages": "Stale"}, ["Current"]),
+    ({"GeneralInstructions": "", "AdditionalMessages": "Stale"}, []),
+    ({"GeneralInstructions": None, "AdditionalMessages": "Stale"}, []),
+    ({"GeneralInstructions": [], "messages": "Stale"}, []),
+    ({"AdditionalMessages": "", "instructions": "Stale"}, []),
+])
+def test_saved_general_instructions_precedence_and_clearing(settings, expected):
+    saved = _saved_model(["Voltage"], settings=settings, columns=["Find"])
+    compiled = ai_definition.compile_definition(
+        None, saved_model_content=saved, messages="Call-specific guidance.",
+        model="gpt-5.4-mini",
+    )
+    assert compiled.messages == expected + ["Call-specific guidance."]
 
 
 def test_saved_model_rejects_unknown_populated_columns():
@@ -946,12 +969,13 @@ def test_dynamic_dictionary_flows_through_yaml_recipe(monkeypatch):
     }
 
 
-def test_saved_model_without_inline_output_flows_through_yaml_recipe(monkeypatch):
+@pytest.mark.parametrize("setting_key", ["GeneralInstructions", "AdditionalMessages"])
+def test_saved_model_without_inline_output_flows_through_yaml_recipe(monkeypatch, setting_key):
     saved = _saved_model(
         ["Color", "Named color", "string", "", "", "", "", ""],
         settings={
             "GPTModel": "gpt-5-mini",
-            "AdditionalMessages": "Return the explicit color.",
+            setting_key: "Return the explicit color.",
         },
     )
     calls = []
@@ -976,13 +1000,15 @@ def test_saved_model_without_inline_output_flows_through_yaml_recipe(monkeypatch
             model_id: saved-model
             api_key: dummy
             threads: 1
+            instructions: Use primary product evidence.
         """,
         dataframe=pd.DataFrame({"Description": ["yellow square"]}),
     )
 
     assert result["Color"].tolist() == ["yellow"]
     assert calls[0]["model"] == "gpt-5-mini"
-    assert "Return the explicit color." in calls[0]["instructions"]
+    assert calls[0]["instructions"].count("Return the explicit color.") == 1
+    assert calls[0]["instructions"].count("Use primary product evidence.") == 1
 
 
 def test_field_and_record_examples_flow_through_yaml_recipe(monkeypatch):

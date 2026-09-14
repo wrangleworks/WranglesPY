@@ -579,12 +579,13 @@ def ai(
           Maximum age in seconds for a cached result used by this call. Applies
           to extracted values and web_search_sources together.
       instructions:
-        title: Instructions
+        title: General Instructions
         type:
           - string
           - array
         description: >-
-          Additional guidance applied to every input row. Use this for decision
+          General instructions applied to every input row, in addition to any
+          GeneralInstructions in the saved model. Use this for decision
           rules, evidence priorities, normalization requirements, or other
           behavior that applies to the complete extraction.
         items:

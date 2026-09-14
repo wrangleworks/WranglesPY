@@ -14,6 +14,8 @@ from typing import Any as _Any
 
 import yaml as _yaml
 
+from .ai_settings import find_general_instructions as _find_general_instructions
+
 try:
     from yaml import CSafeLoader as _SafeLoader
 except ImportError:
@@ -1170,12 +1172,13 @@ class _Compiler:
                 if key != "model":
                     self.migration(f"model_id.settings.{key} mapped to model.")
                 break
-        for key in ("additionalmessages", "generalinstructions", "instructions", "messages"):
-            if normalized_settings.get(key) not in (None, ""):
-                saved_messages = normalized_settings[key]
-                if key != "messages":
-                    self.migration(f"model_id.settings.{key} mapped to messages.")
-                break
+        instruction_key, instruction_value = _find_general_instructions(settings)
+        if instruction_key is not None:
+            saved_messages = instruction_value
+            if instruction_key != "generalinstructions":
+                self.migration(
+                    f"model_id.settings.{instruction_key} mapped to GeneralInstructions."
+                )
 
         reasoning_effort = normalized_settings.get("reasoningeffort")
         if reasoning_effort not in (None, ""):
