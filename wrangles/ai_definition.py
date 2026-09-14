@@ -150,7 +150,7 @@ def _validate_json_tree(value: _Any) -> _Any:
     return value
 
 
-def _load_json_like(value: str) -> _Any:
+def _load_json_like(value: str, *, json_first: bool = True) -> _Any:
     stripped = value.strip()
     if len(stripped) > _MAX_HUMAN_VALUE_LENGTH:
         raise ValueError(
@@ -161,9 +161,14 @@ def _load_json_like(value: str) -> _Any:
             raise ValueError("YAML anchors and aliases are not supported")
         if isinstance(token, _yaml.tokens.TagToken):
             raise ValueError("explicit YAML tags are not supported")
-    try:
-        parsed = _json.loads(stripped)
-    except (TypeError, ValueError):
+    if json_first:
+        try:
+            parsed = _json.loads(stripped)
+        except (TypeError, ValueError):
+            parsed = _yaml.load(stripped, Loader=_JSONLikeLoader)
+    else:
+        # XL authoring uses YAML for JSON-shaped cells too. The runtime keeps
+        # its existing JSON-first interpretation unless explicitly requested.
         parsed = _yaml.load(stripped, Loader=_JSONLikeLoader)
     return _validate_json_tree(parsed)
 

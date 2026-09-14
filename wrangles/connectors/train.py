@@ -1,9 +1,20 @@
 import logging as _logging
 import pandas as _pd
+import numpy as _np
 from ..train import train as _train
 from .. import data as _data
 from ..utils import wildcard_expansion as _wildcard_expansion
 from ..data import model as _model
+
+
+def _extract_ai_cell(value):
+    """Convert dataframe scalar cells to JSON values without changing containers."""
+    if _pd.api.types.is_scalar(value) and _pd.isna(value):
+        return None
+    if isinstance(value, _np.generic):
+        return value.item()
+    return value
+
 
 class classify():
     _schema = {}
@@ -127,7 +138,8 @@ class extract():
         columns: list = None,
         name: str = None,
         model_id: str = None,
-        variant: str = None
+        variant: str = None,
+        settings: dict = None
     ) -> None:
         """
         Train a new or existing extract wrangle
@@ -136,6 +148,9 @@ class extract():
         :param columns: Subset of columns to use from the DataFrame
         :param name: Name to give to a new Wrangle that will be created
         :param model_id: Model to be updated. Either this or name must be provided
+        :param variant: 'ai' or 'pattern' for creation; inferred for updates.
+        :param settings: AI content settings to set or override. Updates retain
+            existing settings whose keys are not supplied.
         """
         _logging.info(f": Training Extract Wrangle")
 
@@ -168,6 +183,23 @@ class extract():
         if variant is None and model_id:
             variant = _model(model_id).get('variant') or 'pattern'
 
+        if variant == 'extract-ai':
+            content = {
+                'Columns': df.columns.tolist(),
+                'Data': [
+                    [_extract_ai_cell(value) for value in row]
+                    for row in df.to_numpy(dtype=object).tolist()
+                ],
+                'Settings': settings,
+            }
+            _train.extract(content, name, model_id, variant)
+            return
+
+        if settings is not None:
+            raise ValueError("Settings are supported only for Extract-AI models.")
+        if variant != 'pattern':
+            raise ValueError(f"Unsupported extract model variant: {variant!r}.")
+
         if variant == 'pattern':
             versions = [
                 {'columns': ['Find', 'Output', 'Notes'], 'version': 'pattern 3.0'},
@@ -182,9 +214,6 @@ class extract():
             except:
                 required_columns = ['Find', 'Output', 'Notes']
             col_len = 3
-        elif variant == 'extract-ai':
-            required_columns = ['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']
-            col_len = 7
         if not required_columns == list(df.columns[:col_len]):
             raise ValueError(f"The columns {', '.join(required_columns)} must be provided for train.extract.")
 
@@ -204,6 +233,13 @@ class extract():
           columns:
             type: array
             description: Columns to submit
+          variant:
+            type: string
+            enum: [pattern, ai]
+            description: Variant for a new model; inferred from model_id on updates
+          settings:
+            type: object
+            description: Extract-AI content settings; supplied keys override existing settings on updates
         """
 
 
