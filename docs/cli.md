@@ -85,8 +85,8 @@ A runtime warning can identify the affected data row without printing its data.
 | 2 | Usage, input file, JSON, or authoring-validation error |
 | 3 | Authentication/access failure |
 | 4 | Service/network failure or uncertain submission outcome |
-| 5 | Reserved for model-operation deadline exceeded |
-| 6 | Reserved for saved-content verification mismatch |
+| 5 | Waiting deadline exceeded; the model may still complete |
+| 6 | Saved-content verification mismatch |
 | 130 | Model operation interrupted by the user |
 
 ## Create, update, inspect, and export
@@ -125,7 +125,7 @@ writes a separate UTF-8 JSON document suitable for validation/update. It replace
 an existing destination only after the complete file has been written. The parent
 directory must exist. Export status stays on stdout; it is never appended to the file.
 
-Successful create/update returns `outcome: "accepted"` and the model ID, with
+Without `--wait` or `--verify`, successful create/update returns `outcome: "accepted"` and the model ID, with
 `readiness` and `verification` both `"not_checked"`. HTTP acceptance or a status
 observed before update does not establish that this submission is Ready. Inspect
 and export use `outcome: "success"`; inspecting a Ready status is only a metadata
@@ -139,8 +139,66 @@ a repeated creation. Reconcile with the service before retrying: if an ID is
 known, inspect/export it; if none was returned, recover the ID through the service.
 A user interruption also does not prove a submitted write was rolled back.
 
-Waiting and saved-content verification will be added in the next step. No live
-service run is implied by the offline test results.
+## Wait and verify
+
+```powershell
+$created = wrangles model create --type extract-ai --file definition.json --name "Power Supply" --wait --verify --wait-timeout 300 --json | ConvertFrom-Json
+wrangles model verify $created.model_id --file definition.json --json
+wrangles model update $created.model_id --file revised.json --verify --json
+```
+
+`--wait` polls status after successful submission. `--verify` implies waiting and
+compares readback against the effective submitted document, including merged
+update settings. `--wait-timeout` defaults to 300 seconds and must be finite and
+positive. The Python helper also accepts `poll_interval` (default 2 seconds).
+These options are validated before submission. The waiting deadline starts after
+acceptance and is separate from recipe execution timeouts.
+
+Each waiting HTTP request, including authentication, receives at most the
+remaining deadline budget. An isolated daemon transport worker lets the caller
+stop waiting at the deadline even if a response is still arriving. The worker
+owns/closes its Session and discards a late response; no subsequent polling
+request is issued. The in-flight request may finish on the server. Waiting does
+not cancel server processing, roll back a write, or repeat a submission.
+
+Creation can report `readiness: "ready"` after observing Ready for its newly
+returned ID. Updates report `readiness: "unconfirmed"`: the current SDK/API
+contract does not provide a confirmed submission-to-version link. A pre-existing
+Ready status, a production recipe version ID, or a processing transition is not
+proof that this particular update is ready.
+
+For updates, Ready with mismatching readback continues polling. Once readback
+matches, the result includes `freshness.readback_matches: true` and an explicit
+version-correlation limitation. `--wait` alone returns `outcome: "accepted"` in
+this case; `--verify` returns `outcome: "verified"` and `verification: "passed"`,
+while readiness stays unconfirmed. Identical-content updates have the same
+limitation. After an observed processing-to-Ready transition, a mismatching
+`--verify` readback returns exit 6, still without claiming version readiness.
+Stale Ready with mismatching content until the deadline returns exit 5.
+
+Standalone `model verify MODEL_ID --file FILE` is read-only. It compares the full
+expected authoring document (normalized through the shared authoring contract)
+against the saved document, without waiting for Ready or merging existing
+settings into the expected file. For that reason, supply the full expected
+settings when verifying an earlier update that preserved settings. Omitted
+expected Settings means the authoring contract's empty settings, not a wildcard.
+
+Comparison ignores object-key order and retains array order, missing versus
+null, boolean versus number, blank versus false, nested values, unknown fields,
+and numeric type differences (for example integer 1 versus floating-point 1.0).
+It does not drop server fields to force a match. The shared authoring preparation
+normalizes expected instruction aliases; no further service transformations are
+silently normalized on readback. Storage verification does not measure extraction
+accuracy or exercise the Excel UI.
+
+Results may add `freshness` and `comparison`. Comparison reports at most 20
+field paths and difference kinds (`missing`, `unexpected`, `type`, `value`), plus
+`differences_truncated`; it never includes the compared values. Paths use JSON
+bracket notation, such as `$["Data"][0][1]`. Errors retain a known model ID.
+`verification` can be `passed`, `failed`, `pending` (the deadline was reached
+before readback could be confirmed within budget), or `not_checked`. Readiness may be `ready`, `failed`, `unconfirmed`, or
+`not_checked`. A processing failure returns exit 4; interruption returns 130.
+No live service run is implied by offline test results.
 
 ## Python helpers
 
@@ -152,11 +210,13 @@ result = client.create(definition, name="Power Supply")
 model_id = result["model_id"]
 metadata = client.inspect(model_id)
 exported = client.export_definition(model_id)
-result = client.update(model_id, revised_definition)
+result = client.update(model_id, revised_definition, verify=True, wait_timeout=300)
+comparison = client.verify(model_id, result["submitted_content"])
 ```
 
 Submission results also contain `submitted_content`: the effective payload after
 settings rules, for subsequent Python verification. The CLI excludes it from the
 status envelope. `ModelOperationError` exposes a safe message, `code`, `exit_code`,
-`outcome`, and `model_id` when known. Existing `wrangles.train.extract` signatures
+`outcome`, and `model_id` when known, plus readiness, verification, freshness,
+and comparison diagnostics when applicable. Existing `wrangles.train.extract` signatures
 and HTTP response return values are unchanged.

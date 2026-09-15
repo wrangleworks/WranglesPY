@@ -478,3 +478,377 @@ def test_cli_interruption_or_unexpected_failure_keeps_update_id(service, tmp_pat
     assert envelope['error']['code'] == error_code
     assert 'SECRET' not in captured.out + captured.err
     assert len(service['calls']) == 3
+
+class FakeClock:
+    def __init__(self):
+        self.now = 100.0
+        self.sleeps = []
+    def monotonic(self):
+        return self.now
+    def sleep(self, seconds):
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    timer = FakeClock()
+    monkeypatch.setattr(operations, 'time', timer)
+    monkeypatch.setattr(utils, '_time', timer)
+    return timer
+
+
+def submission():
+    return {'outcome': 'accepted', 'model_id': MODEL_ID,
+            'submitted_content': {'Columns': ['Find'], 'Data': [['New']], 'Settings': {}}}
+
+
+@pytest.mark.parametrize('expected,actual,kind', [
+    ({'a': None}, {}, 'missing'), ({}, {'a': None}, 'unexpected'),
+    (False, 0, 'type'), (False, '', 'type'), (0, None, 'type'), (1, 1.0, 'type'),
+    ([1, 2], [2, 1], 'value'), ({'x': {'y': 'SECRET-ONE'}}, {'x': {'y': 'SECRET-TWO'}}, 'value'),
+    (['Find', 'Type'], ['Type', 'Find'], 'value'),
+])
+def test_content_comparison_preserves_meaningful_differences(expected, actual, kind):
+    result = operations.compare_content(expected, actual)
+    assert result['matches'] is False
+    assert result['differences'][0]['kind'] == kind
+    assert 'SECRET' not in json.dumps(result)
+
+
+def test_content_comparison_ignores_only_object_key_order():
+    result = operations.compare_content({'a': False, 'b': [0, None, 'Напруга']}, {'b': [0, None, 'Напруга'], 'a': False})
+    assert result == {'matches': True, 'differences': [], 'differences_truncated': False}
+
+
+def test_content_comparison_limits_diagnostics():
+    result = operations.compare_content(list(range(30)), list(range(1, 31)), max_differences=3)
+    assert result['matches'] is False
+    assert result['differences'] == [{'path': '$[0]', 'kind': 'value'}, {'path': '$[1]', 'kind': 'value'}, {'path': '$[2]', 'kind': 'value'}]
+    assert result['differences_truncated'] is True
+
+
+@pytest.mark.parametrize('status', ['Processing', 'Accepted', 'Queued'])
+def test_create_waits_until_ready_without_readback_when_not_verifying(monkeypatch, clock, status):
+    client = operations.SavedModelClient()
+    request = Mock(return_value=response({'model_id': MODEL_ID}, 202))
+    monkeypatch.setattr(client, '_request', request)
+    metadata = Mock(side_effect=[{'status': status}, {'status': 'Ready'}])
+    monkeypatch.setattr(client, '_metadata', metadata)
+    read = Mock()
+    monkeypatch.setattr(client, 'read_content', read)
+    result = client.create(submission()['submitted_content'], name='Synthetic', wait=True, wait_timeout=10)
+    assert result['outcome'] == 'ready'
+    assert result['readiness'] == 'ready'
+    assert result['verification'] == 'not_checked'
+    assert clock.sleeps == [2]
+    assert metadata.call_count == 2
+    request.assert_called_once()
+    assert request.call_args.args[0] == 'POST'
+    read.assert_not_called()
+    assert operations._DEADLINE.get() is None
+
+
+def test_create_verify_implies_wait_and_compares_effective_content(monkeypatch, clock):
+    client = operations.SavedModelClient()
+    monkeypatch.setattr(client, '_request', Mock(return_value=response({'id': MODEL_ID}, 202)))
+    monkeypatch.setattr(client, '_metadata', Mock(side_effect=[{'status': 'Processing'}, {'status': 'Ready'}]))
+    effective = operations.ai_saved_model.prepare_content(CONTENT)
+    read = Mock(return_value=effective)
+    monkeypatch.setattr(client, 'read_content', read)
+    result = client.create(CONTENT, name='Synthetic', verify=True)
+    assert result['outcome'] == 'verified'
+    assert result['verification'] == 'passed'
+    assert result['readiness'] == 'ready'
+    assert result['submitted_content'] == effective
+    read.assert_called_once_with(MODEL_ID)
+    assert clock.sleeps == [2]
+
+
+def test_standalone_verify_is_read_only_and_keeps_readiness_unchecked(service):
+    service['content'] = operations.ai_saved_model.prepare_content(CONTENT)
+    result = operations.SavedModelClient(7).verify(MODEL_ID, CONTENT)
+    assert result['outcome'] == 'verified'
+    assert result['verification'] == 'passed'
+    assert result['readiness'] == 'not_checked'
+    assert [call[0] for call in service['calls']] == ['GET', 'GET']
+
+
+def test_standalone_verify_reports_safe_field_differences(service):
+    service['content'] = operations.ai_saved_model.prepare_content(CONTENT)
+    service['content']['Data'][0][1] = 'SECRET'
+    with pytest.raises(operations.ModelOperationError) as error:
+        operations.SavedModelClient(7).verify(MODEL_ID, CONTENT)
+    assert error.value.exit_code == 6
+    assert error.value.model_id == MODEL_ID
+    assert error.value.verification == 'failed'
+    assert error.value.differences['differences'] == [{'path': '$["Data"][0][1]', 'kind': 'type'}]
+    assert 'SECRET' not in str(error.value) + json.dumps(error.value.differences)
+    assert [call[0] for call in service['calls']] == ['GET', 'GET']
+
+
+def test_update_skips_stale_ready_and_verifies_effective_settings(monkeypatch, clock):
+    client = operations.SavedModelClient()
+    metadata = {'purpose': 'extract', 'variant': 'extract-ai', 'status': 'Ready'}
+    monkeypatch.setattr(client, '_metadata', Mock(side_effect=[metadata, metadata, {'status': 'Processing'}, metadata]))
+    old = {'Columns': ['Find'], 'Data': [['Old']], 'Settings': {'keep': False}}
+    effective = {'Columns': ['Find'], 'Data': [['New']], 'Settings': {'keep': False}}
+    read = Mock(side_effect=[old, old, effective])
+    monkeypatch.setattr(client, 'read_content', read)
+    request = Mock(return_value=response(None, 204))
+    monkeypatch.setattr(client, '_request', request)
+    result = client.update(MODEL_ID, {'Columns': ['Find'], 'Data': [['New']]}, verify=True, wait_timeout=10)
+    assert result['outcome'] == 'verified'
+    assert result['verification'] == 'passed'
+    assert result['readiness'] == 'unconfirmed'
+    assert result['freshness']['readback_matches'] is True
+    assert result['freshness']['status_transition_observed'] is True
+    assert 'version' in result['freshness']['limitation']
+    assert request.call_args.kwargs['json'] == effective
+    request.assert_called_once()
+    assert clock.sleeps == [2, 2]
+
+
+def test_identical_update_never_claims_version_specific_ready(monkeypatch, clock):
+    client = operations.SavedModelClient()
+    monkeypatch.setattr(client, '_metadata', Mock(return_value={'status': 'Ready'}))
+    monkeypatch.setattr(client, 'read_content', Mock(return_value=submission()['submitted_content']))
+    result = client.wait_for_submission(submission(), update=True)
+    assert result['outcome'] == 'accepted'
+    assert result['readiness'] == 'unconfirmed'
+    assert result['freshness']['submission_version'] == 'unavailable'
+    assert result['freshness']['status_transition_observed'] is False
+    assert result['freshness']['readback_matches'] is True
+
+
+def test_stale_ready_until_deadline_preserves_id_and_last_readback(monkeypatch, clock):
+    client = operations.SavedModelClient()
+    metadata = Mock(return_value={'status': 'Ready'})
+    monkeypatch.setattr(client, '_metadata', metadata)
+    monkeypatch.setattr(client, 'read_content', Mock(return_value={'Columns': ['Find'], 'Data': [['Old']], 'Settings': {}}))
+    with pytest.raises(operations.ModelOperationError) as error:
+        client.wait_for_submission(submission(), update=True, verify=True, wait_timeout=5, poll_interval=2)
+    assert error.value.exit_code == 5
+    assert error.value.model_id == MODEL_ID
+    assert error.value.readiness == 'unconfirmed'
+    assert error.value.verification == 'pending'
+    assert error.value.differences['matches'] is False
+    assert clock.sleeps == [2, 2, 1]
+    assert metadata.call_count == 3
+    assert operations._DEADLINE.get() is None
+
+
+@pytest.mark.parametrize('update', [False, True])
+def test_ready_readback_mismatch_has_exit_six(monkeypatch, clock, update):
+    client = operations.SavedModelClient()
+    monkeypatch.setattr(client, '_metadata', Mock(side_effect=[{'status': 'Processing'}, {'status': 'Ready'}]))
+    monkeypatch.setattr(client, 'read_content', Mock(return_value={'Columns': ['Find'], 'Data': [['Other']], 'Settings': {}}))
+    with pytest.raises(operations.ModelOperationError) as error:
+        client.wait_for_submission(submission(), update=update, verify=True)
+    assert error.value.exit_code == 6
+    assert error.value.model_id == MODEL_ID
+    assert error.value.verification == 'failed'
+    assert error.value.readiness == ('unconfirmed' if update else 'ready')
+    assert error.value.differences['differences'] == [{'path': '$["Data"][0][0]', 'kind': 'value'}]
+
+
+@pytest.mark.parametrize('status,code', [('Failed', 'processing_failed'), ('Error', 'processing_failed'), (None, 'malformed_status'), ('unexpected', 'malformed_status')])
+def test_wait_processing_failures_and_malformed_status(monkeypatch, clock, status, code):
+    client = operations.SavedModelClient()
+    monkeypatch.setattr(client, '_metadata', Mock(return_value={'status': status}))
+    with pytest.raises(operations.ModelOperationError) as error:
+        client.wait_for_submission(submission())
+    assert error.value.exit_code == 4
+    assert error.value.code == code
+    assert error.value.model_id == MODEL_ID
+    assert clock.sleeps == []
+
+
+@pytest.mark.parametrize('failure,code', [(KeyboardInterrupt(), 130), (RuntimeError('SECRET'), 1)])
+def test_wait_failures_after_create_retain_new_id(monkeypatch, clock, failure, code):
+    client = operations.SavedModelClient()
+    monkeypatch.setattr(client, '_request', Mock(return_value=response({'model_id': MODEL_ID}, 202)))
+    monkeypatch.setattr(client, '_metadata', Mock(side_effect=failure))
+    with pytest.raises(operations.ModelOperationError) as error:
+        client.create(CONTENT, name='Synthetic', wait=True)
+    assert error.value.exit_code == code
+    assert error.value.model_id == MODEL_ID
+    assert 'SECRET' not in str(error.value)
+    assert operations._DEADLINE.get() is None
+
+
+@pytest.mark.parametrize('timeout', [0, -1, float('nan'), float('inf')])
+def test_invalid_wait_options_fail_before_submission(service, timeout):
+    with pytest.raises(operations.ModelOperationError) as error:
+        operations.SavedModelClient(7).create(CONTENT, name='Synthetic', wait=True, wait_timeout=timeout)
+    assert error.value.exit_code == 2
+    assert service['calls'] == []
+
+
+def test_deadline_caps_requests_and_rejects_late_response(monkeypatch, clock):
+    seen = []
+    result = Mock()
+    def request(session, method, url, **kwargs):
+        seen.append(kwargs['timeout'])
+        clock.now += 6
+        return result
+    monkeypatch.setattr(requests.Session, 'request', request)
+    with pytest.raises(utils.RequestDeadlineExceeded):
+        with utils.bounded_requests(30, deadline=105):
+            utils.request_retries('GET', 'https://example.test')
+    assert seen == [5]
+    result.close.assert_called_once()
+    assert utils._REQUEST_DEADLINE.get() is None
+
+
+def test_expired_deadline_prevents_request(monkeypatch, clock):
+    request = Mock()
+    monkeypatch.setattr(requests.Session, 'request', request)
+    with pytest.raises(utils.RequestDeadlineExceeded):
+        with utils.bounded_requests(30, deadline=100):
+            utils.request_retries('GET', 'https://example.test')
+    request.assert_not_called()
+
+
+def test_wait_rejects_readback_arriving_after_deadline(monkeypatch, clock):
+    client = operations.SavedModelClient()
+    monkeypatch.setattr(client, '_metadata', Mock(return_value={'status': 'Ready'}))
+    def late_read(model_id):
+        clock.now += 10
+        return submission()['submitted_content']
+    monkeypatch.setattr(client, 'read_content', late_read)
+    with pytest.raises(operations.ModelOperationError) as error:
+        client.wait_for_submission(submission(), verify=True, wait_timeout=5)
+    assert error.value.exit_code == 5
+    assert error.value.model_id == MODEL_ID
+
+
+def test_deadline_returns_while_transport_is_still_blocked(monkeypatch):
+    from threading import Event
+    import time
+    started, release, finished = Event(), Event(), Event()
+    result = Mock()
+    result.close.side_effect = finished.set
+    def request(session, method, url, **kwargs):
+        started.set()
+        assert release.wait(5)
+        return result
+    monkeypatch.setattr(requests.Session, 'request', request)
+    try:
+        with pytest.raises(utils.RequestDeadlineExceeded):
+            with utils.bounded_requests(30, deadline=time.monotonic() + 0.1):
+                utils.request_retries('GET', 'https://example.test')
+        assert started.is_set()
+        assert not release.is_set()
+    finally:
+        release.set()
+        assert finished.wait(5)
+    assert result.close.called
+
+
+def test_wait_network_deadline_has_model_id(monkeypatch, clock):
+    monkeypatch.setattr(auth, 'get_access_token', lambda: 'synthetic')
+    def request(session, method, url, **kwargs):
+        assert kwargs['timeout'] == 5
+        clock.now += 6
+        raise requests.Timeout('SECRET')
+    monkeypatch.setattr(requests.Session, 'request', request)
+    with pytest.raises(operations.ModelOperationError) as error:
+        operations.SavedModelClient(30).wait_for_submission(submission(), wait_timeout=5)
+    assert error.value.exit_code == 5
+    assert error.value.model_id == MODEL_ID
+    assert 'SECRET' not in str(error.value)
+
+
+def test_cli_verify_json_is_read_only(service, tmp_path, capsys):
+    service['content'] = operations.ai_saved_model.prepare_content(CONTENT)
+    expected = tmp_path / 'expected.json'
+    expected.write_text(json.dumps(CONTENT), encoding='utf-8')
+    console.main(['model', 'verify', MODEL_ID, '--file', str(expected), '--json', '--request-timeout', '7'])
+    output = capsys.readouterr()
+    result = json.loads(output.out)
+    assert result['command'] == 'model.verify'
+    assert result['outcome'] == 'verified'
+    assert result['verification'] == 'passed'
+    assert result['readiness'] == 'not_checked'
+    assert result['comparison']['matches'] is True
+    assert 'extraction accuracy' in output.err
+    assert [call[0] for call in service['calls']] == ['GET', 'GET']
+
+
+@pytest.mark.parametrize('failure', [False, True])
+def test_cli_create_verify_forwards_options_and_retains_new_id(monkeypatch, tmp_path, capsys, failure):
+    path = tmp_path / 'model.json'
+    path.write_text(json.dumps(submission()['submitted_content']), encoding='utf-8')
+    client = Mock(target='https://example.test')
+    if failure:
+        client.create.side_effect = operations.ModelOperationError('deadline', 'Timed out.', exit_code=5, model_id=MODEL_ID, readiness='unconfirmed')
+    else:
+        client.create.return_value = {**submission(), 'outcome': 'verified', 'readiness': 'ready', 'verification': 'passed'}
+    monkeypatch.setattr(console._models, 'SavedModelClient', Mock(return_value=client))
+    args = ['model', 'create', '--file', str(path), '--name', 'Synthetic', '--type', 'extract-ai', '--verify', '--wait-timeout', '12', '--json']
+    if failure:
+        with pytest.raises(SystemExit) as error:
+            console.main(args)
+        assert error.value.code == 5
+    else:
+        console.main(args)
+    client.create.assert_called_once_with(submission()['submitted_content'], name='Synthetic', model_type='extract-ai', wait=False, verify=True, wait_timeout=12)
+    output = capsys.readouterr()
+    result = json.loads(output.out)
+    assert result['model_id'] == MODEL_ID
+    assert result['readiness'] == ('unconfirmed' if failure else 'ready')
+    assert result['verification'] == ('not_checked' if failure else 'passed')
+    assert len(output.out.splitlines()) == 1
+
+
+def test_cli_mismatch_reports_paths_without_values(service, tmp_path, capsys):
+    service['content'] = submission()['submitted_content']
+    expected = tmp_path / 'expected.json'
+    expected.write_text(json.dumps({'Columns': ['Find'], 'Data': [['SECRET']]}), encoding='utf-8')
+    with pytest.raises(SystemExit) as error:
+        console.main(['model', 'verify', MODEL_ID, '--file', str(expected), '--json', '--request-timeout', '7'])
+    assert error.value.code == 6
+    output = capsys.readouterr()
+    result = json.loads(output.out)
+    assert result['verification'] == 'failed'
+    assert result['comparison']['differences'] == [{'path': '$["Data"][0][0]', 'kind': 'value'}]
+    assert '$["Data"][0][0]' in output.err
+    assert 'SECRET' not in output.out + output.err
+
+
+def test_cli_wait_timeout_validation_prevents_creation(service, tmp_path, capsys):
+    with pytest.raises(SystemExit) as error:
+        console.main(['model', 'create', '--type', 'extract-ai', '--file', 'not-needed.json', '--name', 'X', '--wait-timeout', '0', '--json'])
+    assert error.value.code == 2
+    assert json.loads(capsys.readouterr().out)['error']['code'] == 'usage'
+    assert service['calls'] == []
+
+
+def test_cli_update_forwards_wait_and_verify(monkeypatch, tmp_path, capsys):
+    path = tmp_path / 'expected.json'
+    path.write_text(json.dumps(submission()['submitted_content']), encoding='utf-8')
+    client = Mock(target='https://example.test')
+    client.update.return_value = {**submission(), 'outcome': 'verified', 'readiness': 'unconfirmed', 'verification': 'passed',
+                                 'freshness': {'limitation': 'No submission version evidence.'}}
+    monkeypatch.setattr(console._models, 'SavedModelClient', Mock(return_value=client))
+    console.main(['model', 'update', MODEL_ID, '--file', str(path), '--wait', '--verify', '--wait-timeout', '22', '--json'])
+    client.update.assert_called_once_with(MODEL_ID, submission()['submitted_content'], wait=True, verify=True, wait_timeout=22)
+    output = capsys.readouterr()
+    result = json.loads(output.out)
+    assert result['readiness'] == 'unconfirmed'
+    assert result['verification'] == 'passed'
+    assert result['freshness']['limitation'] in output.err
+
+
+def test_deadline_budget_is_recomputed_after_authentication(monkeypatch, clock):
+    def authenticate():
+        clock.now += 3
+        return 'synthetic'
+    monkeypatch.setattr(auth, 'get_access_token', authenticate)
+    request = Mock(return_value=response({'status': 'Ready'}))
+    monkeypatch.setattr(requests.Session, 'request', request)
+    result = operations.SavedModelClient(30).wait_for_submission(submission(), wait_timeout=5)
+    assert result['readiness'] == 'ready'
+    assert request.call_args.kwargs['timeout'] == 2
+    assert utils._REQUEST_DEADLINE.get() is None
