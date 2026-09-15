@@ -14,6 +14,8 @@ from typing import Any as _Any
 
 import yaml as _yaml
 
+from .ai_settings import find_general_instructions as _find_general_instructions
+
 try:
     from yaml import CSafeLoader as _SafeLoader
 except ImportError:
@@ -150,7 +152,7 @@ def _validate_json_tree(value: _Any) -> _Any:
     return value
 
 
-def _load_json_like(value: str) -> _Any:
+def _load_json_like(value: str, *, json_first: bool = True) -> _Any:
     stripped = value.strip()
     if len(stripped) > _MAX_HUMAN_VALUE_LENGTH:
         raise ValueError(
@@ -161,9 +163,14 @@ def _load_json_like(value: str) -> _Any:
             raise ValueError("YAML anchors and aliases are not supported")
         if isinstance(token, _yaml.tokens.TagToken):
             raise ValueError("explicit YAML tags are not supported")
-    try:
-        parsed = _json.loads(stripped)
-    except (TypeError, ValueError):
+    if json_first:
+        try:
+            parsed = _json.loads(stripped)
+        except (TypeError, ValueError):
+            parsed = _yaml.load(stripped, Loader=_JSONLikeLoader)
+    else:
+        # XL authoring uses YAML for JSON-shaped cells too. The runtime keeps
+        # its existing JSON-first interpretation unless explicitly requested.
         parsed = _yaml.load(stripped, Loader=_JSONLikeLoader)
     return _validate_json_tree(parsed)
 
@@ -1165,12 +1172,13 @@ class _Compiler:
                 if key != "model":
                     self.migration(f"model_id.settings.{key} mapped to model.")
                 break
-        for key in ("additionalmessages", "generalinstructions", "instructions", "messages"):
-            if normalized_settings.get(key) not in (None, ""):
-                saved_messages = normalized_settings[key]
-                if key != "messages":
-                    self.migration(f"model_id.settings.{key} mapped to messages.")
-                break
+        instruction_key, instruction_value = _find_general_instructions(settings)
+        if instruction_key is not None:
+            saved_messages = instruction_value
+            if instruction_key != "generalinstructions":
+                self.migration(
+                    f"model_id.settings.{instruction_key} mapped to GeneralInstructions."
+                )
 
         reasoning_effort = normalized_settings.get("reasoningeffort")
         if reasoning_effort not in (None, ""):

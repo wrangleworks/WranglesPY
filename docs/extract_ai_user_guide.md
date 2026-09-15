@@ -144,6 +144,160 @@ The Excel settings panel currently offers reasoning effort `none` (default) and
 `low`. It stores this as `ReasoningEffort` and the runtime maps it to the
 Responses API reasoning setting.
 
+## Saving AI definitions from Python or recipes
+
+The `train.extract` write connector accepts the same optional schema columns as
+Excel. Use `variant: ai` when creating an AI model by name:
+
+```python
+import pandas as pd
+import wrangles
+
+definition = pd.DataFrame({
+    "Find": ["Voltage"],
+    "Type": ["object"],
+    "Properties": ["value: number | uom: string"],
+})
+
+wrangles.connectors.train.extract.write(
+    definition,
+    name="Voltage schema",
+    variant="ai",
+    settings={"GPTModel": "gpt-5.4-mini", "ReasoningEffort": "none"},
+)
+```
+
+Only `Find` is universally required. Existing seven-column models, models with
+paired examples instead of `Examples`, reordered columns, and smaller valid
+subsets are supported. An object can omit the `Properties` column for legacy
+compatibility, but when that column is present its object cells must be populated.
+
+Native dictionaries, lists, booleans, and numbers are preserved. For example,
+this table combines a closed object, an enum, and an array:
+
+```python
+definition = pd.DataFrame([
+    {
+        "Find": "OutputVoltage",
+        "Type": "object",
+        "Properties": {
+            "value": {"type": "number", "nullable": False},
+            "uom": {"type": "string", "enum": ["VAC", "VDC", "V"]},
+        },
+        "Required": ["value", "uom"],
+        "Additional Properties": False,
+        "Example - Input": "Output: 24 VDC",
+        "Example - Output": {"value": 24, "uom": "VDC"},
+    },
+    {"Find": "PlugType", "Type": "string", "Enum": "Type A | Type B | Other"},
+    {"Find": "StandardsApprovals", "Type": "array", "Items": "string"},
+])
+
+wrangles.connectors.train.extract.write(
+    definition, name="Power Supply example", variant="ai",
+)
+```
+
+Missing dataframe cells (`NaN`, `pd.NA`, and `NaT`) become JSON null cells,
+without changing the input dataframe or replacing false/zero with blanks.
+An intentionally null example should use the text `null` in the example cell;
+a native null cell is blank for the paired-example requirement. Nested schema
+values must be JSON-compatible; malformed structured cells and non-finite
+nested numbers fail with a row/column error before submission.
+
+To update an existing model, use `model_id` and omit `variant`. The connector
+reads the existing variant and preserves its content-level AI settings,
+including `GPTModel`, `ReasoningEffort`, and `GeneralInstructions`. Supplied
+settings replace individual keys; omitted settings or `{}` preserve existing
+keys. Explicit blank, false, zero, or null setting values are sent as overrides,
+and must be valid for the particular setting. This is a shallow settings merge,
+not an implicit clear or a merge of schema rows. General Instructions aliases
+are treated as one setting, as described below.
+
+```yaml
+read:
+  - file:
+      name: revised-definition.xlsx
+write:
+  - train.extract:
+      model_id: ${SAVED_MODEL_ID}
+      settings:
+        GeneralInstructions: Extract only values supported by the primary product.
+```
+
+With `columns` omitted, every input column is submitted, including extra columns
+that this version does not recognize. With `columns` supplied, the connector
+honors that selection and its wildcards; `Find` must remain selected. Updates
+replace the submitted schema table, so omitted rows or columns are not merged
+back from the old model. Pattern-model behavior is unchanged, and `settings`
+is an AI-only connector option.
+
+Saving validates the known authoring columns and retains their original values.
+Blank rows are retained and skipped by the authoring validator. Optional defaults
+such as all named object properties being required are applied by the extraction
+runtime, not written into blank cells. Runtime compilation is stricter: a model
+can be saved with extra columns or blank rows that execution rejects. A successful
+save does not establish runtime compatibility, processing readiness, or extraction
+accuracy.
+
+For code that already has a full content document, the lower-level SDK accepts
+`Columns`, `Data`, and optional `Settings` directly:
+
+```python
+response = wrangles.train.extract(
+    {"Columns": ["Find", "Type"], "Data": [["Power", "number"]]},
+    name="Power schema",
+    variant="extract-ai",
+)
+response.raise_for_status()
+```
+
+This AI dictionary path shares the connector's authoring validation. When
+updating through the lower-level method, pass `model_id` instead of `name` and
+retain `variant="extract-ai"` to use the same settings-preservation behavior.
+The existing seven-value list input and HTTP-response return type remain
+supported. All service operations continue to use the normal Wrangles credentials.
+
+### General Instructions across Excel, saved models, and recipes
+
+The display label is **General Instructions**. In a saved model's `Settings`
+object, use `GeneralInstructions` (a string or list of strings). For an
+`extract.ai` Python call or recipe, continue to use `instructions`. Instructions
+on the call are appended to the saved model's instructions; they do not replace
+them. The Python `messages` argument remains a compatibility alias for
+`instructions`; do not supply both arguments together.
+
+Existing saved settings named `AdditionalMessages`, `instructions`, or `messages`
+are still read. Key matching ignores case, spaces, and punctuation. Within one
+settings document the precedence is `GeneralInstructions`, `AdditionalMessages`,
+`instructions`, then `messages`. An explicitly present empty string, null, or
+empty list clears that setting, even when another alias contains stale text.
+An explicit update through any alias overrides the existing saved value.
+
+Updated Excel and Python save paths write `GeneralInstructions` and an identical
+`AdditionalMessages` compatibility copy, removing other instruction aliases.
+Omitting instructions preserves the existing value. This also normalizes legacy
+instructions when a model is next saved; no bulk model migration is required.
+Both names in storage represent one setting and are applied only once.
+
+### Rolling out the naming change
+
+Release the updated Excel authoring paths first. Their compatibility copy lets
+older Python runtimes continue reading `AdditionalMessages`. Verify creating,
+editing, clearing, saving, and reopening a disposable model, then run an
+extraction using the currently deployed runtime. Reload existing Excel task
+panes so authors use the updated editor before releasing the new Python reader.
+An older editor can change only `AdditionalMessages` and leave a conflicting
+`GeneralInstructions` value; the new reader will prefer `GeneralInstructions`.
+
+Release Python next, and separately promote that package in the Lambda-Recipes
+runtime used by Excel. Confirm extraction through both Excel and recipes, with
+saved and call-specific instructions. A merged PR or published Python package
+alone does not verify the deployed runtime. Keep the compatibility copy until
+all supported readers and writers have migrated, including direct API clients.
+If an old writer or a rollback creates conflicting keys, reconcile the intended
+value through an updated save path before executing with the new reader.
+
 ## Defining the schema in a recipe
 
 For a recipe-owned definition, put the schema under `output`. Recipe YAML is

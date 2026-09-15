@@ -1372,12 +1372,17 @@ def test_legacy_chat_transport_retries_real_falsey_response(monkeypatch):
     assert sleeps == [1.0]
 
 
-def test_saved_model_and_call_instructions_use_shared_compiler(monkeypatch):
+@pytest.mark.parametrize("instruction_settings", [
+    {"AdditionalMessages": "Normalize units."},
+    {"GeneralInstructions": "Normalize units."},
+    {"GeneralInstructions": "Normalize units.", "AdditionalMessages": "Normalize units."},
+])
+def test_saved_model_and_call_instructions_use_shared_compiler(monkeypatch, instruction_settings):
     calls = []
     saved = {
         "Settings": {
             "GPTModel": "gpt-5-mini",
-            "AdditionalMessages": "Normalize units.",
+            **instruction_settings,
             "ReasoningEffort": "low",
         },
         "Columns": [
@@ -1433,7 +1438,7 @@ def test_saved_model_and_call_instructions_use_shared_compiler(monkeypatch):
     assert payload["reasoning"] == {"effort": "low"}
     assert payload["text"]["format"]["strict"] is True
     assert voltage["required"] == ["value", "uom"]
-    assert "Normalize units." in payload["instructions"]
+    assert payload["instructions"].count("Normalize units.") == 1
     assert "Prefer explicit source values." in payload["instructions"]
 
     legacy_result = extract.ai(

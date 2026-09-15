@@ -621,11 +621,14 @@ class TestTrainExtract:
                 })
             )
 
-    def test_extract_ai_write_wrong_columns(self):
+    def test_extract_ai_write_wrong_columns(self, monkeypatch):
         """
-        Writing data to an extract.ai wrangle with the wrong variant
+        An AI definition requires Find, without requiring the legacy columns.
         """
-        with pytest.raises(ValueError, match="The columns Find, Description, Type, Default, Examples, Enum, Notes must be provided for train.extract"):
+        monkeypatch.setattr(
+            wrangles.connectors.train, '_model', lambda _: {'variant': 'extract-ai'}
+        )
+        with pytest.raises(ValueError, match="The Find column is required"):
             wrangles.recipe.run(
                 """
                 write:

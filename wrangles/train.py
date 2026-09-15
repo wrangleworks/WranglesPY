@@ -6,6 +6,7 @@ from . import config as _config
 from . import auth as _auth
 from . import utils as _utils
 from . import data as _data
+from . import ai_saved_model as _ai_saved_model
 import logging as _logging
 import requests as _requests
 
@@ -91,7 +92,7 @@ class train():
 
         return response
 
-    def extract(training_data: list, name: str = None, model_id: str = None, variant: str = None):
+    def extract(training_data: _Union[list, dict], name: str = None, model_id: str = None, variant: str = None):
         """
         Train an extraction model. This can extract custom entities from the input.
         Requires WrangleWorks Account and Subscription.
@@ -99,7 +100,19 @@ class train():
         :param training_data: paired list of entities to find and optional standard representation of that entitiy.
         :param name: If provided, will create a new model with this name.
         :param model_id: If provided, will update this model.
+        :param variant: Use 'extract-ai' for AI definitions. Full definitions use
+            a dictionary containing Columns, Data, and optional Settings. AI
+            dictionary updates preserve existing content-level settings unless
+            a setting is explicitly overridden. Legacy lists remain supported.
         """
+        if isinstance(training_data, dict) and variant == 'extract-ai':
+            training_data = _ai_saved_model.prepare_content(training_data)
+            if model_id and not name:
+                existing = _data.model_content(model_id)
+                training_data['Settings'] = _ai_saved_model.merge_settings(
+                    existing.get('Settings'), training_data['Settings']
+                )
+
         # If input is a list, check to make sure that all sublists are length of 2
         # Must have both values filled ('' counts as filled, None does not count)
         if isinstance(training_data, list) and variant in (None, 'pattern'):

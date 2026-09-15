@@ -9396,7 +9396,7 @@ class TestWrangleSchema:
 
         assert "messages" not in properties
         instructions = properties["instructions"]
-        assert instructions["title"] == "Instructions"
+        assert instructions["title"] == "General Instructions"
         assert instructions["type"] == ["string", "array"]
         assert "every input row" in instructions["description"]
         assert "decision rules" in instructions["description"]

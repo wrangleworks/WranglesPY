@@ -205,7 +205,8 @@ def ai(
     :param threads: (Optional) Number of threads to use for parallel processing.
     :param timeout: (Optional) Timeout in seconds for each API call.
     :param retries: (Optional) Number of retries to attempt on failure.
-    :param instructions: (Optional) Additional guidance applied to every input row. Use this for
+    :param instructions: (Optional) General Instructions applied to every input row, in addition
+        to GeneralInstructions in a saved model. Use this for
         decision rules, evidence priorities, normalization requirements, or other behavior that
         applies to the complete extraction.
     :param messages: (Optional) Compatibility alias for instructions.
