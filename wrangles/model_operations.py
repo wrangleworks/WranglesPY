@@ -222,7 +222,8 @@ class SavedModelClient:
         except (ModelOperationError, IndexError, ValueError):
             raise ModelOperationError('missing_model_id', 'Submission was accepted, but no unambiguous model ID was returned. Reconcile with the service; do not repeat creation.', outcome='accepted') from None
         result = {'outcome': 'accepted', 'model_id': model_id, 'submitted_content': prepared}
-        return self.wait_for_submission(result, verify=verify, wait_timeout=wait_timeout, poll_interval=poll_interval) if wait or verify else result
+        return self.wait_for_submission(result, verify=verify, wait_timeout=wait_timeout, poll_interval=poll_interval,
+            server_settings={'name': name, 'type': 'extract', 'variant': 'extract-ai'}) if wait or verify else result
 
     def update(self, model_id, content, *, wait=False, verify=False, wait_timeout=300, poll_interval=2):
         _wait_options(wait_timeout, poll_interval)
@@ -234,7 +235,8 @@ class SavedModelClient:
         prepared['Settings'] = ai_saved_model.merge_settings(existing.get('Settings'), prepared['Settings'])
         self._request('PUT', '/model/content', model_id=model_id, params={'type': 'extract', 'model_id': model_id}, json=prepared)
         result = {'outcome': 'accepted', 'model_id': model_id, 'submitted_content': prepared}
-        return self.wait_for_submission(result, update=True, verify=verify, wait_timeout=wait_timeout, poll_interval=poll_interval) if wait or verify else result
+        return self.wait_for_submission(result, update=True, verify=verify, wait_timeout=wait_timeout, poll_interval=poll_interval,
+            server_settings={'type': 'extract', 'model_id': model_id}) if wait or verify else result
 
     def inspect(self, model_id):
         """Return safe metadata, not definition content or credential settings."""
@@ -262,7 +264,7 @@ class SavedModelClient:
         return {'outcome': 'verified', 'model_id': model_id, 'verification': 'passed',
                 'readiness': 'not_checked', 'comparison': comparison}
 
-    def wait_for_submission(self, submission, *, update=False, verify=False, wait_timeout=300, poll_interval=2):
+    def wait_for_submission(self, submission, *, update=False, verify=False, wait_timeout=300, poll_interval=2, server_settings=None):
         """Poll read-only after acceptance; never repeat the submission.
 
         Updates cannot claim version-specific readiness without a service version
@@ -293,7 +295,15 @@ class SavedModelClient:
                 if status == 'ready':
                     freshness['status_transition_observed'] = observed_processing
                     if update or verify:
-                        comparison = compare_content(expected, self.read_content(model_id))
+                        actual = self.read_content(model_id)
+                        comparison_expected = copy.deepcopy(expected)
+                        # The service may persist write query parameters in Settings.
+                        # Check their values against the request, never against readback.
+                        # Explicit submitted settings and all other fields stay strict.
+                        for key, value in (server_settings or {}).items():
+                            if key not in comparison_expected['Settings'] and key in actual.get('Settings', {}):
+                                comparison_expected['Settings'][key] = value
+                        comparison = compare_content(comparison_expected, actual)
                         freshness['readback_matches'] = comparison['matches']
                     if time.monotonic() >= deadline:
                         raise _deadline_error(model_id)

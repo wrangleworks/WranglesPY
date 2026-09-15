@@ -220,3 +220,23 @@ status envelope. `ModelOperationError` exposes a safe message, `code`, `exit_cod
 `outcome`, and `model_id` when known, plus readiness, verification, freshness,
 and comparison diagnostics when applicable. Existing `wrangles.train.extract` signatures
 and HTTP response return values are unchanged.
+
+## End-to-end example and live evidence
+
+See the [Power Supply walkthrough](../examples/power-supply/README.md) for a complete
+23-attribute definition, synthetic input, explicit recipe I/O, guarded PowerShell
+commands, opt-in CLI save/readback testing, and disposal of the test model.
+Offline tests, live storage checks, extraction evaluation, Excel interaction,
+and CI results must be reported separately.
+
+
+### Service-added submission settings
+
+Live API readback can include write query parameters in Settings: name, type,
+and variant after create; type and model_id after update. Submission verification
+allows these additions only when absent from the submitted settings and checks
+their values against the original request parameters. Explicitly submitted
+settings, unknown additions, and all other content still compare strictly.
+The submitted_content Python field remains the actual payload sent. Standalone
+model verify still requires a complete expected document, including service-added
+settings; use an export as the baseline for subsequent updates and verification.

@@ -226,7 +226,8 @@ This validates a local UTF-8 JSON definition using the shared saved-model contra
 without credentials or service calls. Runtime compatibility is reported separately;
 authoring success does not guarantee extraction quality. See the
 [CLI reference](docs/cli.md) for create/update/inspect/export/verify commands, waiting, the JSON result envelope, diagnostics,
-and exit codes.
+and exit codes. The [Power Supply walkthrough](examples/power-supply/README.md)
+includes a 23-attribute definition, synthetic inputs, a recipe, and an opt-in live test.
 
 #### Recipe
 ```yaml

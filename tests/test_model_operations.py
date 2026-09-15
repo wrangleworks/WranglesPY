@@ -852,3 +852,53 @@ def test_deadline_budget_is_recomputed_after_authentication(monkeypatch, clock):
     assert result['readiness'] == 'ready'
     assert request.call_args.kwargs['timeout'] == 2
     assert utils._REQUEST_DEADLINE.get() is None
+
+
+@pytest.mark.parametrize('operation', ['create', 'update'])
+@pytest.mark.parametrize('difference', [None, 'wrong_parameter', 'unknown_setting', 'changed_data', 'explicit_setting'])
+def test_submission_verification_checks_server_added_settings(monkeypatch, operation, difference):
+    client = operations.SavedModelClient(7)
+    original = {'Columns': ['Find', 'Default'], 'Data': [['Enabled', False]],
+                'Settings': {'keep': {'values': [0, None, False]}}}
+    parameter = 'name' if operation == 'create' else 'model_id'
+    if difference == 'explicit_setting':
+        original['Settings'][parameter] = 'explicit user value'
+    before = copy.deepcopy(original)
+    state = {'content': copy.deepcopy(original), 'writes': []}
+
+    def request(method, endpoint, **kwargs):
+        state['writes'].append(method)
+        state['content'] = copy.deepcopy(kwargs['json'])
+        state['content']['Settings'].update(kwargs['params'])
+        if difference == 'wrong_parameter':
+            state['content']['Settings'][parameter] = 'wrong'
+        elif difference == 'unknown_setting':
+            state['content']['Settings']['unexpected'] = True
+        elif difference == 'changed_data':
+            state['content']['Data'][0][1] = 0
+        return response({'model_id': MODEL_ID}, 202)
+
+    metadata = {'purpose': 'extract', 'variant': 'extract-ai', 'status': 'Ready'}
+    statuses = [metadata, {**metadata, 'status': 'Processing'}, metadata] if operation == 'update' else [metadata]
+    monkeypatch.setattr(client, '_request', request)
+    monkeypatch.setattr(client, '_metadata', Mock(side_effect=statuses))
+    monkeypatch.setattr(client, 'read_content', lambda model_id: copy.deepcopy(state['content']))
+    arguments = {'name': 'Synthetic'} if operation == 'create' else {}
+    args = (original,) if operation == 'create' else (MODEL_ID, original)
+    if difference is None:
+        result = getattr(client, operation)(*args, **arguments, verify=True, poll_interval=0.001)
+        assert result['verification'] == 'passed'
+        assert result['model_id'] == MODEL_ID
+        assert result['readiness'] == ('ready' if operation == 'create' else 'unconfirmed')
+        assert result['submitted_content'] == before
+    else:
+        with pytest.raises(operations.ModelOperationError) as caught:
+            getattr(client, operation)(*args, **arguments, verify=True, poll_interval=0.001)
+        assert caught.value.exit_code == 6
+        assert caught.value.verification == 'failed'
+        expected_path = ('$["Data"][0][1]' if difference == 'changed_data' else
+                         '$["Settings"]["unexpected"]' if difference == 'unknown_setting' else
+                         '$["Settings"]["' + parameter + '"]')
+        assert caught.value.differences['differences'][0]['path'] == expected_path
+    assert original == before
+    assert state['writes'] == ['POST' if operation == 'create' else 'PUT']
