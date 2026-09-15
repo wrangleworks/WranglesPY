@@ -189,8 +189,32 @@ wrangles.recipe.run('recipe.wrgl.yml')
 ```
 ```bash
 # TERMINAL
+wrangles recipe run recipe.wrgl.yml
+
+# Existing command remains supported
 wrangles.recipe recipe.wrgl.yml
 ```
+
+The unified command also supports `wrangles --help`, `wrangles --version`, and
+`wrangles recipe run --help`. Help and version do not require credentials or
+service access. After updating a source checkout, reinstall the package to
+register the new console command. You can also use `python -m wrangles`.
+
+Both recipe commands accept `--functions/-f`, `--variables/-v`, `--varDict`, and
+`--timeout/-t`. Variables files are executed as Python code; the default dictionary
+is `variables`, or the name supplied with `--varDict`.
+
+```bash
+wrangles recipe run "recipes/my recipe.yml" -f functions.py -v variables.py --varDict variables -t 60
+```
+
+`--timeout` now correctly accepts a finite, non-negative number of seconds,
+including fractional seconds; previously it mistakenly treated the value as a
+filename. Omitting it leaves execution unlimited. This forwards the existing
+recipe runner timeout and does not change its cancellation or side-effect behavior.
+Recipe sources supported by the Python runner remain supported, including local
+files, URLs, saved recipe IDs, and inline recipes. Execution is local, and output
+destinations are defined by the recipe's `write` section.
 
 #### Recipe
 ```yaml
