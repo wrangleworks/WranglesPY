@@ -38,7 +38,7 @@ No definition values are rewritten or printed by validation.
 
 ## Result format
 
-With `--json`, model validation writes exactly one JSON result to stdout.
+With `--json`, model commands write exactly one JSON result to stdout.
 Diagnostics and warnings go to stderr. Do not merge stderr into stdout when
 piping to `ConvertFrom-Json`. Help intentionally prints normal help text.
 
@@ -83,12 +83,80 @@ A runtime warning can identify the affected data row without printing its data.
 | 0 | Command succeeded; for validation, authoring passed even if runtime warns |
 | 1 | Unexpected local failure (or recipe execution failure) |
 | 2 | Usage, input file, JSON, or authoring-validation error |
-| 3 | Reserved for authentication/access failure in service commands |
-| 4 | Reserved for service/network/processing failure |
+| 3 | Authentication/access failure |
+| 4 | Service/network failure or uncertain submission outcome |
 | 5 | Reserved for model-operation deadline exceeded |
 | 6 | Reserved for saved-content verification mismatch |
-| 130 | Validation interrupted by the user |
+| 130 | Model operation interrupted by the user |
 
-Only local validation is implemented in the model command group at this stage.
-Create/update/inspect/export/verify will build on this contract. Validation does
-not establish model readiness or saved-content verification.
+## Create, update, inspect, and export
+
+```powershell
+$created = wrangles model create --type extract-ai --file "power supply.json" --name "Power Supply" --json | ConvertFrom-Json
+wrangles model inspect $created.model_id --json
+wrangles model export $created.model_id --output "saved power supply.json" --json
+wrangles model update $created.model_id --file "revised power supply.json" --json
+```
+
+These commands use the existing Wrangles credentials and configured SDK target.
+`--request-timeout SECONDS` defaults to 30 and must be finite and positive. It
+bounds connection/read inactivity for each request, including authentication;
+it is not an overall operation deadline. The new operations make one attempt per
+request and do not follow redirects. Existing SDK callers retain their existing
+retry behavior outside this opt-in request context.
+
+`create` supports only `extract-ai`, mapped to service `type=extract` and
+`variant=extract-ai`. It validates before making exactly one creation POST.
+`update` takes an explicit model ID and checks metadata purpose/type and variant
+before submitting. It never renames a model or chooses one by name.
+
+Updates replace the submitted Columns/Data table. Settings come from saved
+**content**, not metadata, and merge through the shared #1182 contract:
+
+- Omitted `Settings`, `Settings: null`, and `Settings: {}` preserve existing settings.
+- Supplied setting keys override those keys; other settings remain.
+- Explicit setting values `false`, `0`, `null`, and empty strings remain explicit.
+- Instruction aliases are normalized/mirrored by the existing shared contract.
+
+`inspect` returns a safe metadata subset, including processing status when the
+service supplies it. It does not return the saved definition or metadata settings.
+`export` reads the full definition without requesting secret-store contents and
+writes a separate UTF-8 JSON document suitable for validation/update. It replaces
+an existing destination only after the complete file has been written. The parent
+directory must exist. Export status stays on stdout; it is never appended to the file.
+
+Successful create/update returns `outcome: "accepted"` and the model ID, with
+`readiness` and `verification` both `"not_checked"`. HTTP acceptance or a status
+observed before update does not establish that this submission is Ready. Inspect
+and export use `outcome: "success"`; inspecting a Ready status is only a metadata
+observation. The envelope adds `target`, plus `metadata` for inspect or `output`
+for export. Target diagnostics omit URL credentials, query strings, and fragments.
+
+A timeout, connection loss, or server failure during a write produces an unknown
+submission outcome (exit 4). A successful creation response without an unambiguous
+ID produces `outcome: "accepted"` with an error and exit 4. Neither case triggers
+a repeated creation. Reconcile with the service before retrying: if an ID is
+known, inspect/export it; if none was returned, recover the ID through the service.
+A user interruption also does not prove a submitted write was rolled back.
+
+Waiting and saved-content verification will be added in the next step. No live
+service run is implied by the offline test results.
+
+## Python helpers
+
+```python
+from wrangles.model_operations import SavedModelClient, ModelOperationError
+
+client = SavedModelClient(request_timeout=30)
+result = client.create(definition, name="Power Supply")
+model_id = result["model_id"]
+metadata = client.inspect(model_id)
+exported = client.export_definition(model_id)
+result = client.update(model_id, revised_definition)
+```
+
+Submission results also contain `submitted_content`: the effective payload after
+settings rules, for subsequent Python verification. The CLI excludes it from the
+status envelope. `ModelOperationError` exposes a safe message, `code`, `exit_code`,
+`outcome`, and `model_id` when known. Existing `wrangles.train.extract` signatures
+and HTTP response return values are unchanged.

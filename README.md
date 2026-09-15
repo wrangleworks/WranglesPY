@@ -225,7 +225,8 @@ wrangles model validate "power supply.json" --json
 This validates a local UTF-8 JSON definition using the shared saved-model contract,
 without credentials or service calls. Runtime compatibility is reported separately;
 authoring success does not guarantee extraction quality. See the
-[CLI reference](docs/cli.md) for the JSON result envelope, diagnostics, and exit codes.
+[CLI reference](docs/cli.md) for create/update/inspect/export commands, the JSON result envelope, diagnostics,
+and exit codes.
 
 #### Recipe
 ```yaml

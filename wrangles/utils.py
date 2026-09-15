@@ -1,3 +1,6 @@
+from contextlib import contextmanager as _contextmanager
+from contextvars import ContextVar as _ContextVar
+import math as _math
 import re as _re
 import logging as _logging
 import types as _types
@@ -463,6 +466,25 @@ def evaluate_conditional(statement, variables: dict = None):
         raise ValueError(f"An error occurred when trying to evaluate if condition '{statement}'") from None
     
 
+_REQUEST_TIMEOUT = _ContextVar('wrangles_request_timeout', default=None)
+
+
+@_contextmanager
+def bounded_requests(timeout):
+    """Use one attempt per SDK request in this context, including authentication.
+
+    This opt-in policy leaves existing SDK retries unchanged outside its scope.
+    Requests timeouts bound connection/read inactivity, not total wall-clock time.
+    """
+    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not _math.isfinite(timeout) or timeout <= 0:
+        raise ValueError('Request timeout must be a finite positive number of seconds.')
+    token = _REQUEST_TIMEOUT.set(timeout)
+    try:
+        yield
+    finally:
+        _REQUEST_TIMEOUT.reset(token)
+
+
 def request_retries(request_type, url, **kwargs):
     """
     Make a request to the backend with retries for transient errors
@@ -472,6 +494,13 @@ def request_retries(request_type, url, **kwargs):
     :param kwargs: Arguments to pass to requests.request
     :returns: requests.Response object
     """
+    timeout = _REQUEST_TIMEOUT.get()
+    if timeout is not None:
+        # No retries or redirects: never repeat a possibly accepted model write.
+        with _requests.Session() as session:
+            kwargs['timeout'] = timeout
+            kwargs['allow_redirects'] = False
+            return session.request(request_type, url, **kwargs)
     _logging.debug(f": HTTP request :: method :: {request_type}, url :: {url}")
     session = _requests.Session()
     session.mount(
