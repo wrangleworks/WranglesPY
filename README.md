@@ -216,6 +216,17 @@ Recipe sources supported by the Python runner remain supported, including local
 files, URLs, saved recipe IDs, and inline recipes. Execution is local, and output
 destinations are defined by the recipe's `write` section.
 
+#### Validate a saved Extract-AI definition
+
+```bash
+wrangles model validate "power supply.json" --json
+```
+
+This validates a local UTF-8 JSON definition using the shared saved-model contract,
+without credentials or service calls. Runtime compatibility is reported separately;
+authoring success does not guarantee extraction quality. See the
+[CLI reference](docs/cli.md) for the JSON result envelope, diagnostics, and exit codes.
+
 #### Recipe
 ```yaml
 # file: recipe.wrgl.yml
