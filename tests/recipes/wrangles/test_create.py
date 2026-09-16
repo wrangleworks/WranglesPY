@@ -1444,6 +1444,8 @@ class TestCreateEmbeddings:
         with pytest.raises(ValueError, match="timeout must be a positive finite number"):
             wrangles.openai.embeddings(["test"], api_key="fake-key", timeout=timeout)
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings(self):
         """
         Test generating openai embeddings
@@ -1468,6 +1470,8 @@ class TestCreateEmbeddings:
             len(df["embedding"][0]) == 1536
         )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_batching(self):
         """
         Test generating openai embeddings
@@ -1499,6 +1503,8 @@ class TestCreateEmbeddings:
             len(df) == 150
         )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_empty(self):
         """
         Test generating openai embeddings with an empty string
@@ -1523,6 +1529,8 @@ class TestCreateEmbeddings:
             len(df["embedding"][0]) == 1536
         )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_python_list(self):
         """
         Test generating openai embeddings as a python list
@@ -1548,6 +1556,8 @@ class TestCreateEmbeddings:
             len(df["embedding"][0]) == 1536
         )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_np_array(self):
         """
         Test generating openai embeddings as a numpy array
@@ -1590,11 +1600,13 @@ class TestCreateEmbeddings:
                 - create.embeddings:
                     input: text
                     output: embedding
-                    api_key: ${OPENAI_API_KEY}
+                    api_key: fake-key
                     output_type: Something here is not right
                 """
             )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_multi_column(self):
         """
         Test generating openai embeddings
@@ -1627,6 +1639,8 @@ class TestCreateEmbeddings:
             len(df["embedding2"][0]) == 1536
         )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_np_array_with_where(self):
         """
         Test using where with a numpy array
@@ -1657,6 +1671,8 @@ class TestCreateEmbeddings:
             df["text"].values.tolist() == ['This is a test', 'THIS IS NOT A TEST']
         )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_kwargs(self):
         """
         Test passing through any unspecified
@@ -1705,6 +1721,8 @@ class TestCreateEmbeddings:
                 """
             )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_invalid_apikey(self):
         """
         Test create.embeddings gives a clear
@@ -1727,6 +1745,8 @@ class TestCreateEmbeddings:
                 """
             )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_where(self):
         """
         Test generating openai embeddings with where
@@ -1752,6 +1772,8 @@ class TestCreateEmbeddings:
         )
         assert df['embedding'][0] == '' and len(df['embedding'][2]) == 1536
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_float16_precision(self):
         """
         Test generating half precision embeddings
@@ -1787,6 +1809,8 @@ class TestCreateEmbeddings:
             round(float(df['embeddings_32'][0][0]), 3) == round(float(df['embeddings_16'][0][0]), 3)
         )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_empty_dataframe(self):
         """
         Test create.embeddings with an empty dataframe
@@ -1804,6 +1828,8 @@ class TestCreateEmbeddings:
         )
         assert df.empty and list(df.columns) == ['text', 'embedding']
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_jina(self):
         """
         Test create.embeddings with Jina provider returns the correct shape.
@@ -1888,6 +1914,8 @@ class TestCreateEmbeddings:
                 provider="unsupported-provider",
             )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_jina_infer_provider_from_url(self):
         """
         Test that when the Jina URL is provided without an explicit provider,
@@ -2088,6 +2116,8 @@ class TestCreateEmbeddings:
                     task="retrieval.query",
                 )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_create_embeddings_jina_return_value(self):
         """
         Test that the Python API returns a list of numpy arrays when using the Jina provider.

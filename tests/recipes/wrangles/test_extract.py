@@ -4,6 +4,8 @@ import wrangles
 import pandas as pd
 from unittest.mock import patch
 
+pytestmark = [pytest.mark.integration, pytest.mark.live_wrangleworks]
+
 
 class TestExtractAIWebSearch:
     @patch("wrangles.recipe_wrangles.extract._extract.ai")
@@ -3664,6 +3666,8 @@ class TestExtractAI:
             result = wrangles.recipe.run(recipe, dataframe=df)
         assert result.iloc[0]["tags"] == "wrench | 25mm"
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai(self):
         """
         Test openai extract with a single input and output
@@ -3701,6 +3705,8 @@ class TestExtractAI:
         ])
         assert matches >= 2
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_only_description(self):
         """
         Test with only a description instead of a JSON schema object
@@ -3736,6 +3742,8 @@ class TestExtractAI:
         ])
         assert matches >= 2
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_formatted_as_a_list(self):
         """
         Test with output as a list instead of an object
@@ -3771,6 +3779,8 @@ class TestExtractAI:
         ])
         assert matches >= 2
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_list_keys_only(self):
         """
         Test with output as a list instead of an object
@@ -3805,6 +3815,8 @@ class TestExtractAI:
         ])
         assert matches >= 1
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_output_key_only(self):
         """
         Test with output as a single string
@@ -3838,6 +3850,8 @@ class TestExtractAI:
         ])
         assert matches >= 1
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_multiple_output(self):
         """
         Test AI extract with multiple outputs
@@ -3883,6 +3897,8 @@ class TestExtractAI:
         ])
         assert matches >= 4
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_multiple_input(self):
         """
         Test AI extract with multiple inputs
@@ -3926,6 +3942,8 @@ class TestExtractAI:
         ])
         assert matches >= 2
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_enum(self):
         """
         Test AI extract with an enum defined
@@ -3965,6 +3983,8 @@ class TestExtractAI:
         ])
         assert matches >= 2
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_timeout(self):
         df = wrangles.recipe.run(
             """
@@ -3996,6 +4016,8 @@ class TestExtractAI:
             df['length'][2] == 'Timed Out'
         )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_timeout_multiple_output(self):
         """
         Test AI extract with multiple outputs
@@ -4039,6 +4061,8 @@ class TestExtractAI:
             df['type'][2] == 'Timed Out'
         )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_messages(self):
         """
         Test openai extract with a header level prompt
@@ -4078,6 +4102,8 @@ class TestExtractAI:
         ])
         assert matches >= 2
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_array_no_items(self):
         """
         Test openai extract with array but items type is
@@ -4109,6 +4135,8 @@ class TestExtractAI:
             ("banana" in df['fruits'][0] or "bananas" in df['fruits'][0])
         )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_array_item_type_specified(self):
         """
         Test openai extract with array where
@@ -4165,6 +4193,8 @@ class TestExtractAI:
         assert "Invalid extract.ai definition" in error.value.args[0]
         assert "unsupported JSON type" in error.value.args[0]
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_invalid_apikey(self):
         """
         Test that an appropriate error is returned
@@ -4192,6 +4222,8 @@ class TestExtractAI:
             )
         assert "API Key" in error.value.args[0]
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_where(self):
         """
         Test using where with extract.ai
@@ -4223,6 +4255,8 @@ class TestExtractAI:
             )
         )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_string_examples(self):
         """
         Test openai extract with examples passed as a string
@@ -4261,6 +4295,8 @@ class TestExtractAI:
         ])
         assert matches >= 2
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_empty(self):
         """
         Test extract.ai with an empty input
@@ -4287,6 +4323,8 @@ class TestExtractAI:
         )
         assert df.empty and df.columns.to_list() == ['data', 'length']
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_o3_mini(self):
         """
         Test openai extract with a single input and output
@@ -4324,6 +4362,8 @@ class TestExtractAI:
         ])
         assert matches >= 2
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_reasoning_and_verbosity(self):
         """
         Test extract.ai using the configured default model with
@@ -4356,6 +4396,8 @@ class TestExtractAI:
         ])
         assert matches >= 1
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_pre_gpt5_reasoning_and_verbosity_ignored(self, caplog):
         """
         Test extract.ai with a pre-gpt5 model that does not support
@@ -4395,6 +4437,8 @@ class TestExtractAI:
         assert "Ignoring 'reasoning' parameter" in caplog.text
         assert "Ignoring 'verbosity' parameter" in caplog.text
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_invalid_model_fails_recipe(self):
         """
         Test that a non-existent model fails the recipe after
@@ -4421,6 +4465,8 @@ class TestExtractAI:
                 })
             )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_legacy_chat_completions_endpoint(self):
         """
         Test extract.ai using the legacy Chat Completions endpoint
@@ -4451,6 +4497,9 @@ class TestExtractAI:
         ])
         assert matches >= 1
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
+    @pytest.mark.live_wrangleworks
     def test_model_id(self):
         """
         Test using extract.ai with a saved model
@@ -4478,6 +4527,9 @@ class TestExtractAI:
             ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values or 'diamond' in df['Shapes'].values)
         )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
+    @pytest.mark.live_wrangleworks
     def test_model_id_additional_properties(self):
         """
         Test non-explicitly passed properties, i.e. kwargs
@@ -4500,6 +4552,9 @@ class TestExtractAI:
         )
         assert 3 in df['Numbers'][0] or 2 in df['Numbers'][0]
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
+    @pytest.mark.live_wrangleworks
     def test_model_id_named_output_single_column(self):
         """
         Test using a predefined model that specifies
@@ -4529,6 +4584,9 @@ class TestExtractAI:
             'Colors' in df['result'][0]
         )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
+    @pytest.mark.live_wrangleworks
     def test_model_id_named_output_multi_column(self):
         """
         Test using a predefined model that specifies
@@ -4560,6 +4618,9 @@ class TestExtractAI:
             ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values)
         )
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
+    @pytest.mark.live_wrangleworks
     def test_model_id_object_with_properties(self):
         """
         Test a model_id that contains an output of type object
@@ -4583,6 +4644,9 @@ class TestExtractAI:
         )
         assert 'unit' in df['attributes'][0] and 'value' in df['attributes'][1]
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
+    @pytest.mark.live_wrangleworks
     def test_model_id_array_of_objects(self):
         """
         Test a model_id that contains an output of type array
@@ -4605,6 +4669,9 @@ class TestExtractAI:
         )
         assert 'unit' in df['Attributes'][0][0] and 'value' in df['Attributes'][0][1]
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
+    @pytest.mark.live_wrangleworks
     def test_strict_mode(self):
         """
         Test strict mode with an easy question but a schema that contradicts the correct answer
@@ -4711,6 +4778,8 @@ class TestExtractAI:
         """
         return wrangles.recipe.run(recipe, dataframe=self.complex_data.copy())
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_reasoning_low_vs_high_complex_data(self):
         """
         Test extract.ai on complex, multi-attribute data
@@ -4727,6 +4796,8 @@ class TestExtractAI:
             assert "Acme" in df["Manufacturer"][0]
             assert "AFC-6150-WN-A105" in df["PartNumber"][0]
 
+    @pytest.mark.integration
+    @pytest.mark.live_ai
     def test_ai_verbosity_low_vs_high_complex_data(self):
         """
         Test extract.ai on complex, multi-attribute data

@@ -1,5 +1,6 @@
 import wrangles
 import pandas as pd
+import pytest
 from wrangles.connectors import memory
 
 
@@ -59,7 +60,7 @@ def test_run_recipe_connector():
   assert run(recipe) == None
 
 
-def test_function_sub_recipe():
+def test_function_sub_recipe(tmp_path):
     """
     Test that custom functions are able to
     be called by sub-recipes.
@@ -83,7 +84,7 @@ def test_function_sub_recipe():
         return df
         
     def write_1(df, type):
-        df.to_excel(f"tests/temp/excel.{type}")
+        df.to_excel(tmp_path / f"excel.{type}")
 
     df = wrangles.recipe.run(
         recipe=main_recipe,
@@ -277,6 +278,8 @@ def test_run():
     )
     assert memory.dataframes["recipe_run"]["data"][0][0] == "VALUE1"
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 def test_model_id():
     """
     Test reading a recipe with a model ID
@@ -293,6 +296,8 @@ def test_model_id():
         list(df.columns[:3]) == ["Part Number", "Description", "Brand"]
     )
 
+@pytest.mark.integration
+@pytest.mark.live_wrangleworks
 def test_model_with_custom_functions():
     """
     Test a model that includes custom functions

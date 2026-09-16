@@ -5,6 +5,8 @@ import wrangles
 import pytest
 import time
 
+pytestmark = [pytest.mark.integration, pytest.mark.live_s3]
+
 s3_key = os.getenv('AWS_ACCESS_KEY_ID', '...')
 s3_secret = os.getenv('AWS_SECRET_ACCESS_KEY', '...')
 
