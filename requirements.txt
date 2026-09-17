@@ -6,13 +6,18 @@ pandas>=2.0,<3.0
 numpy
 numexpr
 polars==1.33.0
-pyarrow
+
+# Fuzzy text similarity
+rapidfuzz>=3.0,<4.0
 
 # Recipe engine & templating
 jinja2
 lorem
 pydantic>=2.12.0
 pyyaml
+
+# Text cleanup
+ftfy>=6.3.1,<7
 
 # API & auth
 requests
@@ -24,6 +29,9 @@ xlsxwriter
 
 # Cloud & storage
 boto3
+
+# Embedded database
+duckdb>=1.0.0
 
 # NoSQL
 pymongo

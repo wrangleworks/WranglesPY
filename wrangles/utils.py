@@ -251,10 +251,23 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
         escaped_text = pattern.sub(lambda match: f"\\{match.group(0)}", text)
         return escaped_text
 
-    if not isinstance(selected_columns, list):
+    # Work on a copy - this function mutates entries in place while
+    # processing (e.g. stripping a trailing ? or converting * to a regex
+    # pattern), and it may be called more than once with the same list for
+    # a single recipe step (e.g. once generically in recipe.py, then again
+    # inside a connector). Mutating the caller's original list would lose
+    # that information on the second call.
+    if isinstance(selected_columns, list):
+        selected_columns = list(selected_columns)
+    else:
         selected_columns = [selected_columns]
 
     _logging.debug(f": Expanding wildcards :: {len(selected_columns)} patterns against {len(all_columns)} columns")
+
+    # Track which entries were marked optional (trailing ?) so a wildcard/
+    # regex pattern that matches zero columns can be treated the same as
+    # a literal optional column that isn't present, rather than an error.
+    optional_flags = [False] * len(selected_columns)
 
     # Convert wildcards to regex pattern
     for i, val in enumerate(selected_columns):
@@ -266,7 +279,7 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
         if isinstance(val, list):
             newline = '\n'
             raise ValueError(
-                "Column name is not formatted correctly. " + 
+                "Column name is not formatted correctly. " +
                 f"Got: {_yaml.dump(val).strip(newline)}. " +
                 "Did you mean to use '-column_name' without a space? "
             )
@@ -283,6 +296,16 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
             # Get the name of the column at the index
             selected_columns[i] = all_columns[val]
             continue
+
+        # Check if the column is indicated as optional with a trailing ?.
+        # This must happen before wildcard/regex conversion below, otherwise
+        # the ? gets escaped into the pattern itself (e.g. "Col*?" would
+        # only match a column literally ending in "?") instead of being
+        # recognised as the separate optional marker.
+        if isinstance(val, str) and val.endswith('?') and val not in all_columns:
+            val = val[:-1]
+            selected_columns[i] = val
+            optional_flags[i] = True
 
         # If column contains * without escape
         if (
@@ -328,7 +351,7 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
             result_cols[col] = None
         return result_cols
     # Identify any matching columns using regex within the list
-    for column in selected_columns:
+    for i, column in enumerate(selected_columns):
         # If the column is already in all_columns, add it
         if column in all_columns:
             column_checker(column, result_columns)
@@ -340,7 +363,7 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
             column = "regex:-" + column[7:]
 
         if column.lower().startswith('regex:'):
-            pattern = column[6:].strip() 
+            pattern = column[6:].strip()
             if pattern.startswith("-"):
                 # Remove columns that match the negative regex pattern
                 result_columns = {
@@ -353,7 +376,7 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
                 result_columns.update(dict.fromkeys(list(
                     filter(_re.compile(pattern).fullmatch, all_columns)
                 ))) # Read Note below
-            
+
             continue
 
         if ":" in column:
@@ -372,23 +395,25 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
             result_columns.pop(column[1:], None)
             continue
 
-        # Check if a column is indicated as
-        # optional with column_name?
-        optional_column = False
-        if column[-1] == "?" and column not in all_columns:
-            column = column[:-1]
-            optional_column = True
-
+        # column's trailing ? (if any) was already stripped above, before
+        # wildcard/regex conversion - use the tracked flag here instead of
+        # re-checking the string, since it no longer ends with "?".
         if column in all_columns:
             column_checker(column, result_columns)
             counter += 1
             continue
         else:
-            if not optional_column:
+            if not optional_flags[i]:
                 raise KeyError(f'Column {column} does not exist')
             
     # If wildcard expansion is the only input and there are no matches, then raise an error
-    if len(result_columns) == 0 and len(selected_columns) == 1 and str(selected_columns[0]).startswith('regex'):
+    # (unless that wildcard was marked optional with a trailing ?)
+    if (
+        len(result_columns) == 0 and
+        len(selected_columns) == 1 and
+        str(selected_columns[0]).startswith('regex') and
+        not optional_flags[0]
+    ):
         raise KeyError(f'Wildcard expansion pattern did not find any matching columns')
     
     # Return, preserving original order

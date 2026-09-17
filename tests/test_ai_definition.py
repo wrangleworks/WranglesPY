@@ -51,14 +51,9 @@ def test_fixed_recipe_definition_remains_strict():
     assert compiled.strict is True
     assert compiled.dynamic_paths == ()
     assert compiled.output["Voltage"]["type"] == ["object", "null"]
-    assert compiled.output["Voltage"]["properties"]["value"]["type"] == [
-        "number",
-        "null",
-    ]
-    assert compiled.output["Voltage"]["properties"]["uom"]["type"] == [
-        "string",
-        "null",
-    ]
+    assert compiled.output["Voltage"]["properties"]["value"]["type"] == "number"
+    assert compiled.output["Voltage"]["properties"]["uom"]["type"] == "string"
+    assert compiled.output["Voltage"]["required"] == ["value", "uom"]
     assert compiled.output["Voltage"]["additionalProperties"] is False
     assert compiled.root_schema["required"] == ["Voltage"]
 
@@ -129,6 +124,7 @@ def test_saved_and_recipe_definitions_compile_to_the_same_schema(caplog):
         settings={
             "GPTModel": "gpt-5.4-mini",
             "AdditionalMessages": "Use normalized units.",
+            "ReasoningEffort": "low",
         },
     )
 
@@ -163,8 +159,32 @@ def test_saved_and_recipe_definitions_compile_to_the_same_schema(caplog):
         "Use normalized units.",
         "Prefer explicit evidence.",
     ]
+    assert from_saved.reasoning == {"effort": "low"}
     assert "model_id.settings.gptmodel mapped to model" in caplog.text
-    assert "model_id.settings.additionalmessages mapped to messages" in caplog.text
+    assert "model_id.settings.additionalmessages mapped to GeneralInstructions" in caplog.text
+
+
+@pytest.mark.parametrize("settings,expected", [
+    ({}, []),
+    ({"AdditionalMessages": "Legacy guidance."}, ["Legacy guidance."]),
+    ({"GeneralInstructions": "Current guidance."}, ["Current guidance."]),
+    ({"general instructions": "Normalized spelling."}, ["Normalized spelling."]),
+    ({"instructions": ["First.", "Second."]}, ["First.", "Second."]),
+    ({"messages": "Legacy runtime alias."}, ["Legacy runtime alias."]),
+    ({"GeneralInstructions": "Same", "AdditionalMessages": "Same"}, ["Same"]),
+    ({"GeneralInstructions": "Current", "AdditionalMessages": "Stale"}, ["Current"]),
+    ({"GeneralInstructions": "", "AdditionalMessages": "Stale"}, []),
+    ({"GeneralInstructions": None, "AdditionalMessages": "Stale"}, []),
+    ({"GeneralInstructions": [], "messages": "Stale"}, []),
+    ({"AdditionalMessages": "", "instructions": "Stale"}, []),
+])
+def test_saved_general_instructions_precedence_and_clearing(settings, expected):
+    saved = _saved_model(["Voltage"], settings=settings, columns=["Find"])
+    compiled = ai_definition.compile_definition(
+        None, saved_model_content=saved, messages="Call-specific guidance.",
+        model="gpt-5.4-mini",
+    )
+    assert compiled.messages == expected + ["Call-specific guidance."]
 
 
 def test_saved_model_rejects_unknown_populated_columns():
@@ -179,6 +199,20 @@ def test_saved_model_rejects_unknown_populated_columns():
             model="gpt-5.4-mini",
             saved_model_content=saved,
             source="saved model abc",
+        )
+
+
+def test_saved_model_rejects_unsupported_reasoning_effort():
+    saved = _saved_model(
+        ["Voltage", "Voltage", "number", "", "", "", "", ""],
+        settings={"ReasoningEffort": "medium"},
+    )
+
+    with pytest.raises(ValueError, match="ReasoningEffort.*none.*low"):
+        ai_definition.compile_definition(
+            None,
+            model="gpt-5.4-mini",
+            saved_model_content=saved,
         )
 
 
@@ -350,6 +384,44 @@ def test_saved_model_nullable_column_and_enum_string_null_are_normalized(caplog)
     assert "converted the string 'null' to JSON null" in caplog.text
 
 
+def test_saved_model_non_nullable_enum_rejects_json_null_but_allows_literal_word():
+    invalid = _saved_model(
+        ["Status", "", "string", "", "", "Active | null", "", "", "FALSE"],
+        columns=[
+            "Find",
+            "Description",
+            "Type",
+            "Default",
+            "Examples",
+            "Enum",
+            "Notes",
+            "Properties",
+            "Nullable",
+        ],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="nullable false conflicts with an enum containing null",
+    ):
+        ai_definition.compile_definition(
+            None,
+            model="gpt-5.4-mini",
+            saved_model_content=invalid,
+        )
+
+    literal = _saved_model(
+        ["Status", "", "string", "", "", '["null"]', "", "", "FALSE"],
+        columns=invalid["Columns"],
+    )
+    compiled = ai_definition.compile_definition(
+        None,
+        model="gpt-5.4-mini",
+        saved_model_content=literal,
+    )
+    assert compiled.output["Status"]["enum"] == ["null"]
+
+
 def test_saved_model_examples_accept_human_entered_pseudo_json():
     saved = _saved_model(
         [
@@ -399,6 +471,246 @@ def test_saved_model_examples_accept_human_entered_pseudo_json():
         "Slate",
     ]
     assert compiled.output["Dust_Blower"]["examples"] == [True]
+
+
+def test_saved_model_schema_shorthand_compiles_closed_required_nested_objects():
+    saved = _saved_model(
+        [
+            "Voltage",
+            "Voltage and unit",
+            "object",
+            "",
+            "{value: 120, uom: VAC}",
+            "",
+            "",
+            "value: number | uom: string",
+            "",
+            "",
+            "",
+        ],
+        [
+            "Cutting Depth",
+            "Cutting capacity by material",
+            "array",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "value: number | uom: string | material: string",
+            "",
+            "",
+        ],
+        columns=[
+            "Find",
+            "Description",
+            "Type",
+            "Default",
+            "Examples",
+            "Enum",
+            "Notes",
+            "Properties",
+            "Items",
+            "Required",
+            "Additional Properties",
+        ],
+    )
+
+    compiled = ai_definition.compile_definition(
+        None,
+        model="gpt-5.4-mini",
+        saved_model_content=saved,
+    )
+
+    voltage = compiled.output["Voltage"]
+    assert voltage["required"] == ["value", "uom"]
+    assert voltage["additionalProperties"] is False
+    assert voltage["properties"] == {
+        "value": {"type": "number"},
+        "uom": {"type": "string"},
+    }
+
+    items = compiled.output["Cutting_Depth"]["items"]
+    assert items["type"] == "object"
+    assert items["required"] == ["value", "uom", "material"]
+    assert items["additionalProperties"] is False
+    assert items["properties"] == {
+        "value": {"type": "number"},
+        "uom": {"type": "string"},
+        "material": {"type": "string"},
+    }
+
+
+def test_blank_nested_schema_keywords_use_object_defaults():
+    saved = _saved_model(
+        [
+            "Voltage",
+            "Voltage and unit",
+            "object",
+            "",
+            "",
+            "",
+            "",
+            (
+                '{"value":{"type":"number","nullable"},'
+                '"uom":{"type":"string","nullable"}}'
+            ),
+        ],
+        [
+            "Cutting Depth",
+            "Cutting depth by material",
+            "array",
+            "",
+            "",
+            "",
+            "",
+            "",
+            (
+                '{"type":"object","properties":{'
+                '"value":{"type":"number","nullable"},'
+                '"material":{"type":"string","nullable"}},'
+                '"required","additionalProperties","nullable"}'
+            ),
+        ],
+        columns=[
+            "Find",
+            "Description",
+            "Type",
+            "Default",
+            "Examples",
+            "Enum",
+            "Notes",
+            "Properties",
+            "Items",
+        ],
+    )
+
+    compiled = ai_definition.compile_definition(
+        None,
+        model="gpt-5.4-mini",
+        saved_model_content=saved,
+    )
+
+    voltage = compiled.output["Voltage"]
+    assert voltage["type"] == ["object", "null"]
+    assert voltage["properties"] == {
+        "value": {"type": "number"},
+        "uom": {"type": "string"},
+    }
+
+    cutting_depth_items = compiled.output["Cutting_Depth"]["items"]
+    assert cutting_depth_items["required"] == ["value", "material"]
+    assert cutting_depth_items["additionalProperties"] is False
+    assert cutting_depth_items["properties"] == {
+        "value": {"type": "number"},
+        "material": {"type": "string"},
+    }
+
+
+def test_saved_model_human_values_are_shape_aware_and_json_compatible():
+    saved = _saved_model(
+        ["Power Source", "", "string", "", "Corded|Battery", "Corded|Battery", "", ""],
+        ["Applications", "", "array", "", "- Soft Wood\n- Aluminum", "", "", "", "string"],
+        ["Dust Blower", "", "boolean", "", "", "", "", "", "", "", "", "", "stated", "true"],
+        columns=[
+            "Find",
+            "Description",
+            "Type",
+            "Default",
+            "Examples",
+            "Enum",
+            "Notes",
+            "Properties",
+            "Items",
+            "Required",
+            "Additional Properties",
+            "Nullable",
+            "Example - Input",
+            "Example - Output",
+        ],
+    )
+
+    compiled = ai_definition.compile_definition(
+        None,
+        model="gpt-5.4-mini",
+        saved_model_content=saved,
+    )
+
+    assert compiled.output["Power_Source"]["examples"] == ["Corded", "Battery"]
+    assert compiled.output["Power_Source"]["enum"] == ["Corded", "Battery", None]
+    assert compiled.output["Applications"]["examples"] == ["Soft Wood", "Aluminum"]
+    assert compiled.output["Applications"]["items"] == {"type": "string"}
+    assert compiled.field_examples[0].output is True
+
+    assert ai_definition._Compiler._parse_examples_value("yes|2026-08-27|001") == [
+        "yes",
+        "2026-08-27",
+        "001",
+    ]
+
+
+def test_multiline_example_input_stays_text_while_object_output_is_parsed():
+    example_input = (
+        "Description: Cordless drill, 20V, brushless motor\n"
+        "Category: Power Tools"
+    )
+    saved = _saved_model(
+        [
+            "Voltage",
+            "",
+            "object",
+            "",
+            "",
+            "",
+            "",
+            "value: number | uom: string",
+            example_input,
+            "value: 20\nuom: VDC",
+        ],
+        columns=[
+            "Find",
+            "Description",
+            "Type",
+            "Default",
+            "Examples",
+            "Enum",
+            "Notes",
+            "Properties",
+            "Example - Input",
+            "Example - Output",
+        ],
+    )
+
+    compiled = ai_definition.compile_definition(
+        None,
+        model="gpt-5.4-mini",
+        saved_model_content=saved,
+    )
+
+    assert compiled.field_examples[0].input == example_input
+    assert compiled.field_examples[0].output == {"value": 20, "uom": "VDC"}
+
+
+def test_saved_model_human_values_reject_duplicate_keys_and_anchors():
+    duplicate = _saved_model(
+        ["Attribute", "", "object", "", "", "", "", "{value: number, value: string}"],
+    )
+    with pytest.raises(ValueError, match="duplicate key"):
+        ai_definition.compile_definition(
+            None,
+            model="gpt-5.4-mini",
+            saved_model_content=duplicate,
+        )
+
+    anchored = _saved_model(
+        ["Attribute", "", "object", "", "", "", "", "{value: &shared {type: number}}"],
+    )
+    with pytest.raises(ValueError, match="anchors and aliases"):
+        ai_definition.compile_definition(
+            None,
+            model="gpt-5.4-mini",
+            saved_model_content=anchored,
+        )
 
 
 def test_saved_model_compiles_new_field_example_columns_and_legacy_examples():
@@ -457,13 +769,18 @@ def test_saved_model_compiles_new_field_example_columns_and_legacy_examples():
     assert compiled.output["Power_Source"]["examples"] == ["Corded", "Battery"]
 
 
-def test_recipe_field_pairs_and_holistic_examples_compile_to_stable_guidance():
+def test_recipe_field_pairs_and_record_examples_compile_to_stable_guidance():
     compiled = ai_definition.compile_definition(
         {
             "Power Source": {
                 "type": "string",
                 "examples": [
-                    {"input": "18V cordless drill", "output": "Battery"},
+                    {
+                        "name": "cordless tool",
+                        "notes": "Voltage without a cord indicates a battery.",
+                        "input": "18V cordless drill",
+                        "output": "Battery",
+                    },
                     "Corded",
                 ],
             },
@@ -473,6 +790,7 @@ def test_recipe_field_pairs_and_holistic_examples_compile_to_stable_guidance():
         examples=[
             {
                 "name": "corded saw",
+                "notes": "Use both fields from this complete record example.",
                 "input": "120V corded jig saw",
                 "output": {"Power Source": "Corded", "Voltage": 120},
             },
@@ -486,10 +804,15 @@ def test_recipe_field_pairs_and_holistic_examples_compile_to_stable_guidance():
     assert compiled.output["Power_Source"]["examples"] == ["Corded"]
     assert compiled.field_examples[0].field == "Power_Source"
     assert compiled.field_examples[0].output == "Battery"
+    assert compiled.field_examples[0].name == "cordless tool"
+    assert compiled.field_examples[0].notes == "Voltage without a cord indicates a battery."
     assert compiled.record_examples[0].output == {
         "Power_Source": "Corded",
         "Voltage": 120,
     }
+    assert compiled.record_examples[0].notes == (
+        "Use both fields from this complete record example."
+    )
     assert compiled.record_examples[1].output == {
         "Power_Source": None,
         "Voltage": None,
@@ -498,10 +821,48 @@ def test_recipe_field_pairs_and_holistic_examples_compile_to_stable_guidance():
     guidance = ai_definition.render_example_guidance(compiled)
     assert "<field_example" in guidance
     assert "<record_example" in guidance
+    assert 'name="cordless tool"' in guidance
+    assert "Voltage without a cord indicates a battery." in guidance
+    assert "Use both fields from this complete record example." in guidance
     assert '"Power_Source": null' in guidance
 
 
-def test_saved_model_can_supply_holistic_examples():
+def test_nested_examples_require_non_nullable_properties_and_fill_nullable_ones():
+    with pytest.raises(
+        ValueError,
+        match="uom.*must be provided because this property does not allow null",
+    ):
+        ai_definition.compile_definition(
+            {
+                "Voltage": {
+                    "type": "object",
+                    "properties": {
+                        "value": {"type": "number"},
+                        "uom": {"type": "string"},
+                    },
+                    "examples": [{"input": "120V", "output": {"value": 120}}],
+                }
+            },
+            model="gpt-5.4-mini",
+        )
+
+    compiled = ai_definition.compile_definition(
+        {
+            "Voltage": {
+                "type": "object",
+                "properties": {
+                    "value": {"type": "number"},
+                    "uom": {"type": "string", "nullable": True},
+                },
+                "examples": [{"input": "120V", "output": {"value": 120}}],
+            }
+        },
+        model="gpt-5.4-mini",
+    )
+    assert compiled.field_examples[0].output == {"value": 120, "uom": None}
+
+
+def test_saved_model_can_supply_record_examples():
     saved = _saved_model(
         ["Color", "Explicit color", "string", "", "", "", "", ""],
     )
@@ -550,7 +911,7 @@ def test_field_example_input_requires_output_but_explicit_null_is_valid():
     assert compiled.field_examples[0].output is None
 
 
-def test_holistic_example_rejects_unknown_output_field():
+def test_record_example_rejects_unknown_output_field():
     with pytest.raises(ValueError, match="unknown output field 'Mystery'"):
         ai_definition.compile_definition(
             {"Color": {"type": "string"}},
@@ -608,12 +969,13 @@ def test_dynamic_dictionary_flows_through_yaml_recipe(monkeypatch):
     }
 
 
-def test_saved_model_without_inline_output_flows_through_yaml_recipe(monkeypatch):
+@pytest.mark.parametrize("setting_key", ["GeneralInstructions", "AdditionalMessages"])
+def test_saved_model_without_inline_output_flows_through_yaml_recipe(monkeypatch, setting_key):
     saved = _saved_model(
         ["Color", "Named color", "string", "", "", "", "", ""],
         settings={
             "GPTModel": "gpt-5-mini",
-            "AdditionalMessages": "Return the explicit color.",
+            setting_key: "Return the explicit color.",
         },
     )
     calls = []
@@ -638,16 +1000,18 @@ def test_saved_model_without_inline_output_flows_through_yaml_recipe(monkeypatch
             model_id: saved-model
             api_key: dummy
             threads: 1
+            instructions: Use primary product evidence.
         """,
         dataframe=pd.DataFrame({"Description": ["yellow square"]}),
     )
 
     assert result["Color"].tolist() == ["yellow"]
     assert calls[0]["model"] == "gpt-5-mini"
-    assert "Return the explicit color." in calls[0]["instructions"]
+    assert calls[0]["instructions"].count("Return the explicit color.") == 1
+    assert calls[0]["instructions"].count("Use primary product evidence.") == 1
 
 
-def test_field_and_holistic_examples_flow_through_yaml_recipe(monkeypatch):
+def test_field_and_record_examples_flow_through_yaml_recipe(monkeypatch):
     calls = []
 
     def call_structured(data, api_key, payload, *args):
@@ -663,16 +1027,21 @@ def test_field_and_holistic_examples_flow_through_yaml_recipe(monkeypatch):
             input: Description
             api_key: dummy
             threads: 1
+            instructions: Prefer explicit source values.
             output:
               Color:
                 type: string
                 examples:
-                  - input: yellow handle
+                  - name: explicit field color
+                    notes: This example guides only the Color field.
+                    input: yellow handle
                     output: yellow
               Voltage:
                 type: number
-            examples:
-              - input: yellow manual tool
+            record_examples:
+              - name: complete yellow example
+                notes: The voltage is intentionally absent.
+                input: yellow manual tool
                 output:
                   Color: yellow
         """,
@@ -683,4 +1052,37 @@ def test_field_and_holistic_examples_flow_through_yaml_recipe(monkeypatch):
     assert result["Voltage"].tolist() == [""]
     assert "<field_example" in calls[0]["instructions"]
     assert "<record_example" in calls[0]["instructions"]
+    assert "Prefer explicit source values." in calls[0]["instructions"]
+    assert "explicit field color" in calls[0]["instructions"]
+    assert "This example guides only the Color field." in calls[0]["instructions"]
+    assert "complete yellow example" in calls[0]["instructions"]
+    assert "The voltage is intentionally absent." in calls[0]["instructions"]
     assert '"Voltage": null' in calls[0]["instructions"]
+
+
+def test_recipe_messages_remains_a_compatibility_alias(monkeypatch):
+    calls = []
+
+    def call_structured(data, api_key, payload, *args):
+        calls.append(payload)
+        return {"Color": "yellow"}
+
+    monkeypatch.setattr(openai_responses, "call_structured", call_structured)
+
+    result = wrangles.recipe.run(
+        """
+        wrangles:
+        - extract.ai:
+            input: Description
+            api_key: dummy
+            threads: 1
+            messages: Legacy recipe guidance.
+            output:
+              Color:
+                type: string
+        """,
+        dataframe=pd.DataFrame({"Description": ["yellow handle"]}),
+    )
+
+    assert result["Color"].tolist() == ["yellow"]
+    assert "Legacy recipe guidance." in calls[0]["instructions"]

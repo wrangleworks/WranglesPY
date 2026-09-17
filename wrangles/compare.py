@@ -8,6 +8,8 @@ import logging as _logging
 import unicodedata
 from typing import Tuple
 
+from rapidfuzz import fuzz as _fuzz, distance as _distance
+
 def normalize_alphanum(text: str) -> str:
     """
     Normalizes text using Python's built-in unicodedata library.
@@ -142,15 +144,14 @@ def contrast(input: list, type: str ='difference', char: str = ' ', case_sensiti
     _logging.debug(f": Comparing {len(input)} records :: type :: {type}, case_sensitive :: {case_sensitive}")
     results = []
     for row in input:
-            
+
         if not row:
             return ""
 
-        # Generate ordered words for each string
-        if not case_sensitive and type != 'intersection':
-            ordered_words_list = [_ordered_words(x.lower(), char) for x in row]
-        else:
-            ordered_words_list = [_ordered_words(x, char) for x in row]
+        # Always keep original casing for the word lists - case-insensitive
+        # matching (when requested) is applied only at comparison time below,
+        # so the output preserves the source casing either way.
+        ordered_words_list = [_ordered_words(x, char) for x in row]
 
         # Initialize intersection with the words of the first string
         common_words = _OrderedDict(ordered_words_list[0])
@@ -177,7 +178,11 @@ def contrast(input: list, type: str ='difference', char: str = ' ', case_sensiti
                     if word not in all_words_flat:
                         all_words_flat[word] = None
 
-            difference = " ".join(k for k in all_words_flat if k not in common_words)
+            if not case_sensitive:
+                common_words_lower = set(w.lower() for w in common_words)
+                difference = " ".join(k for k in all_words_flat if k.lower() not in common_words_lower)
+            else:
+                difference = " ".join(k for k in all_words_flat if k not in common_words)
             results.append(difference)
 
     return results
@@ -230,10 +235,10 @@ def overlap(
         if matcher.ratio() == 1.0:
             if include_ratio:
                 results.append(
-                    [exact_match if exact_match else a_str, 1]
+                    [exact_match if exact_match else a_original, 1]
                 )
             else:
-                results.append(exact_match if exact_match else a_str)
+                results.append(exact_match if exact_match else a_original)
             continue
 
         result = []
@@ -270,6 +275,69 @@ def overlap(
             results.append(''.join(result))
 
     return results
+
+def normalize_similarity_text(text) -> str:
+    """
+    Standard preprocessing pipeline for method: similarity.
+
+    Applies Unicode compatibility normalization, Unicode-aware case folding,
+    converts punctuation/separators to spaces (without merging adjacent
+    tokens), and collapses whitespace. Numbers and units are preserved as-is,
+    so e.g. "AB-12" and "AB12" normalize to different token sequences.
+    """
+    text = unicodedata.normalize('NFKC', str(text))
+    text = text.casefold()
+    text = ''.join(ch if ch.isalnum() else ' ' for ch in text)
+    return ' '.join(text.split())
+
+
+def _is_missing(value) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, float) and value != value:
+        return True
+    return False
+
+
+def similarity(input: list, metric: str = 'token_sort', decimal_places: int = 3) -> list:
+    """
+    Compute a symmetric, 0.0-1.0 bounded similarity score between two strings.
+
+    :param input: 2D list of value pairs to compare. [[a, b], [a1, b1], ...]
+    :param metric: 'token_sort', 'damerau_levenshtein', or 'token_set'
+    :param decimal_places: Number of decimal places to round the score to
+    """
+    _logging.debug(f": Computing {metric} similarity for {len(input)} record pairs")
+    results = []
+    for row in input:
+        a_raw, b_raw = row[0], row[1]
+
+        if _is_missing(a_raw) or _is_missing(b_raw):
+            results.append(None)
+            continue
+
+        a_norm = normalize_similarity_text(a_raw)
+        b_norm = normalize_similarity_text(b_raw)
+
+        if not a_norm or not b_norm:
+            results.append(None)
+            continue
+
+        if metric == 'token_sort':
+            score = _fuzz.token_sort_ratio(a_norm, b_norm) / 100
+        elif metric == 'token_set':
+            score = _fuzz.token_set_ratio(a_norm, b_norm) / 100
+        elif metric == 'damerau_levenshtein':
+            score = _distance.DamerauLevenshtein.normalized_similarity(a_norm, b_norm)
+        else:
+            raise ValueError(
+                "metric must be one of 'token_sort', 'damerau_levenshtein', 'token_set'"
+            )
+
+        results.append(round(score, decimal_places))
+
+    return results
+
 
 def deduplicate(result, enabled=False, ignore_case=False):
     _logging.debug(f": Deduplicating {len(result)} items :: ignore_case :: {ignore_case}")

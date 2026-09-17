@@ -913,10 +913,12 @@ def test_compare_overlap_empty_strings():
 
 def test_compare_overlap_case_insensitive():
     """
-    Test compare.overlap with case_sensitive=False
+    Test compare.overlap with case_sensitive=False.
+    Matching is case-insensitive, but the original casing of the first
+    input is preserved in the output rather than being forced to lowercase.
     """
     result = wrangles.compare.overlap([['HELLO', 'hello']], case_sensitive=False)
-    assert result == ['hello']
+    assert result == ['HELLO']
 
 def test_compare_overlap_custom_non_match():
     """

@@ -41,6 +41,18 @@ class _wrangles_accessor:
     #         **kwargs
     #     )[output]
 
+
+class _callable_wrangles_accessor(_wrangles_accessor):
+    """Expose a wrangle that is both callable and a dotted namespace."""
+
+    def __init__(self, df, wrangle):
+        self._wrangle = wrangle
+        super().__init__(df, wrangle)
+
+    def __call__(self, *args, **kwargs):
+        return self._wrangle(self._df.copy(), *args, **kwargs)
+
+
 class _wrangles:
     """
     A class to hold wrangles-related methods and properties.
@@ -61,7 +73,21 @@ class _wrangles:
                     method.__doc__ = target_func.__doc__
                     return method
 
-                setattr(self, name, make_method(name).__get__(self))
+                target = getattr(_recipe_wrangles.main, name)
+                child_wrangles = [
+                    child
+                    for child in dir(target)
+                    if not child.startswith('_')
+                    and callable(getattr(target, child))
+                ]
+                if child_wrangles:
+                    setattr(
+                        self,
+                        name,
+                        _callable_wrangles_accessor(self._df, target)
+                    )
+                else:
+                    setattr(self, name, make_method(name).__get__(self))
 
     @property
     def compare(self):

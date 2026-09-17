@@ -1,5 +1,8 @@
 # `extract.ai` configuration
 
+For a task-oriented introduction to defining attributes in Excel or directly
+in recipe YAML, see [`extract_ai_user_guide.md`](extract_ai_user_guide.md).
+
 The packaged defaults and base prompt live in
 `wrangles/ai_defaults.yml`. Set `WRANGLES_AI_CONFIG` to the path of a
 versioned replacement YAML file to override the complete configuration.
@@ -9,43 +12,172 @@ versioned replacement YAML file to override the complete configuration.
 - Provider: `openai`
 - Protocol: `responses`
 - Model: `gpt-5.4-mini`
-- Concurrency: 32
-- Per-request timeout: 12 seconds
-- Total call deadline: 15 seconds
-- Retries: 1, bounded by the total deadline
+- Default worker concurrency (`default_concurrency`): 32 per `extract.ai` call
+- Network timeout per HTTP attempt: 12 seconds
+- Retries: 1 additional attempt per row after a retryable failure
 - Reasoning effort: `none`
-- Response storage: disabled
+- Response storage: enabled
 
 Recipes and Python calls can override these settings individually. Saved XL
 models and recipe outputs are compiled through the same definition compiler.
 
+When `threads` is omitted, the call uses `extract_ai.default_concurrency`.
+An explicit `threads` value can raise or lower concurrency for that call.
+Custom `WRANGLES_AI_CONFIG` files should use `extract_ai.default_concurrency`.
+
+Each retry receives the full configured timeout. Queued rows and retry delays
+do not consume that timeout, so a complete batch can take much longer than one
+request. Long-running Python and GitHub jobs can process rows in successive
+waves; WranglesXL batches must still fit within XL's approximately 20-second
+request window. See [`extract_ai/README.md`](extract_ai/README.md) for timing
+and batch-size guidance.
+
+## Response storage and OpenAI logs
+
+The packaged default is `store: true`. Responses API requests retain their
+inputs and outputs at OpenAI for later inspection in the project's **Logs >
+Responses** view. No `protocol` or `url` override is needed with the packaged
+Responses defaults. OpenAI's standard policy retains stored response data for
+at least 30 days; see its [data controls](https://developers.openai.com/api/docs/guides/your-data#v1responses)
+for retention exceptions and project controls.
+
+Set `store: false` on an individual recipe step to disable response storage:
+
+```yaml
+wrangles:
+  - extract.ai:
+      input: Description
+      api_key: ${OPENAI_API_KEY}
+      store: false
+      output:
+        Product Type:
+          type: string
+```
+
+Direct Python calls can likewise pass `store=False`. A per-call value overrides
+the configuration. A replacement `WRANGLES_AI_CONFIG` file should set
+`extract_ai.store` explicitly; if it omits that key, the runtime's fallback
+is `true`.
+
+Response storage is separate from the local result cache. Cache hits do not
+send another OpenAI request or create another stored response. Changing
+`store` changes the effective cache key, so stored and unstored calls do not
+reuse each other's cached results. Use `cache: false` only when a fresh
+request is needed for diagnosis, and keep caching enabled for normal runs.
+
+The `store` option applies to the Responses path and does not select the API
+protocol or create Agents SDK workflow traces. The Chat Completions
+compatibility path does not forward this option.
+
+## Recipe and user labels in OpenAI logs
+
+`extract.ai` automatically adds available recipe and user labels to the
+request's `metadata`:
+
+| Label | Automatic source |
+| --- | --- |
+| `recipe_name` | Saved recipe title, local recipe file basename, or the caller's `recipe_name` run variable |
+| `wrangles_user` | `WRANGLES_USER` from run variables or the environment, then XL's `user_email`, then the configured Wrangles login |
+
+Once the companion WranglesXL and WranglesPY updates are both deployed,
+WranglesXL supplies the Recipe editor's displayed name and its existing user
+email automatically. Existing recipes need no edits. With an older XL client,
+provide `recipe_name` as a run variable or set `metadata.recipe_name` on the
+step. Python callers can likewise pass
+`variables={"recipe_name": "Product classification"}` to `recipe.run` for an
+inline recipe. Anonymous nested recipe steps inherit the enclosing name.
+
+Direct `wrangles.extract.ai` calls use the configured Wrangles login; when
+called from inside a recipe, they also use that recipe's context. Missing
+labels are omitted. Only these selected labels are added automatically, using
+already available context without another authentication request. They help
+diagnose runs and are not authenticated audit identities.
+
+Use explicit `metadata` to override either label or attach other labels:
+
+```yaml
+wrangles:
+  - extract.ai:
+      input: Description
+      api_key: ${OPENAI_API_KEY}
+      metadata:
+        recipe_name: Product classification
+        wrangles_user: ${WRANGLES_USER}
+        batch: trial-01
+      output:
+        Product Type:
+          type: string
+```
+
+For an explicit user override in XL, `${user_email}` is also available.
+`metadata: {}` disables all automatic labels for that step. Otherwise,
+explicit values take precedence and available automatic labels fill the
+remaining slots. OpenAI permits up to 16 string pairs, with keys up to 64
+characters and values up to 512 characters; see the
+[Responses API reference](https://developers.openai.com/api/reference/cli/resources/responses/methods/create).
+Automatically discovered labels are shortened to 512 characters if needed;
+invalid explicit metadata fails before any OpenAI request.
+
+Metadata is forwarded with both Responses and Chat Completions requests and
+is separate from model instructions. Stored Responses logs show the labels
+when response storage is enabled. Effective metadata is part of the local
+result-cache identity, so changing a label causes a cache miss. It does not
+change the OpenAI prompt-cache key or enable workflow tracing.
+
+## Instructions
+
+Use `instructions` for guidance that applies to every input row:
+
+```yaml
+wrangles:
+  - extract.ai:
+      input: Description
+      api_key: ${OPENAI_API_KEY}
+      instructions:
+        - Prefer explicit evidence over inferred evidence.
+        - Normalize dimensions to inches.
+      output:
+        Product Type:
+          type: string
+```
+
+Instructions are useful for decision rules, evidence priorities,
+normalization requirements, or other behavior that applies to the complete
+extraction. The former `messages` parameter remains available as a compatibility
+alias but is no longer advertised in the recipe schema. Do not provide both.
+
 ## Nullable output fields
 
 Defined output keys remain required so strict Structured Outputs always return
-the complete response shape. Their values are nullable by default, allowing the
-model to return JSON `null` when the input does not support a value. Python
+the complete response shape. Top-level values are nullable by default, allowing
+the model to return JSON `null` when the input does not support a value. Named
+nested properties are non-null by default. Python
 represents that value as `None`; presentation layers such as WranglesXL may
 convert it to an empty cell or empty string at their serialization boundary.
 
-Enums automatically include JSON `null`. For saved models, either `null` or the
-string `"null"` in an Enum cell is normalized to JSON `null` when the field is
-nullable. A future or existing saved-model `Nullable` column is supported:
-blank or `true` uses the nullable default, while `false` explicitly opts out.
+Nullable enums automatically include JSON `null`. In an Excel Enum cell, an
+unquoted `null` token means JSON `null`; combining it with `Nullable: FALSE` is
+rejected. Use an explicit JSON string list such as `["null"]` only when the
+literal word is an intended enum value. A future or existing saved-model
+`Nullable` column is supported: blank or `true` uses the nullable default,
+while `false` explicitly opts out.
 
-Saved-model Examples cells accept strict JSON or human-friendly YAML-like
-values. For example, both of these are compiled into structured examples:
+Saved-model Examples cells accept strict JSON or restricted, human-friendly
+YAML-like values. Pipe-delimited lists are preferred; comma-delimited values
+remain compatible. For example, these are compiled into structured examples:
 
 ```text
 {value: 12, uom: VDC},{value: 110, uom: VAC}
-Ceramic Tile, Slate
+Ceramic Tile | Slate
 ```
 
-The compiler uses PyYAML's safe loader and treats comma-separated Examples
-cells as sequences; users do not need to quote every object key and value.
+The compiler uses JSON-compatible scalar rules and rejects YAML tags, anchors,
+aliases, duplicate keys, and non-JSON values. Users do not need to quote every
+object key and value.
 
 ## Examples
 
-Definitions support both field-specific and holistic examples. They compile to
+Definitions support both field-specific and record examples. They compile to
 the same stable prompt representation and precede each row's dynamic input.
 
 For saved models, the field grid supports:
@@ -60,9 +192,19 @@ When `Example - Input` is populated, `Example - Output` is required. The
 expected output may be human-friendly JSON/YAML-like syntax. Use explicit list
 syntax for an array-valued paired output, such as `[Ceramic Tile, Slate]`.
 An explicit `null` is valid because output fields are nullable by default.
+Plain, multiline Example Input text remains text even when its lines use a
+`Label: value` format. Use an explicitly bracketed object such as
+`{Title: drill, Voltage: 20V}` only when the runtime input is itself structured.
 
-Field-specific examples teach only the named field. Definitions may also
-provide holistic examples that pair one input with a multi-field output:
+An object-valued expected output must include every named nested property that
+does not allow null. Omitted nullable properties are filled with JSON `null`.
+For example, `{value: 120}` is incomplete for the default
+`value: number | uom: string` schema; either supply `uom` or define that child
+with `nullable: true` in a complete property schema.
+
+Field-specific examples teach only the named field. Paired field examples may
+include optional `name` and `notes` metadata. Definitions may also provide
+`record_examples` that pair one input with a multi-field output:
 
 ```yaml
 wrangles:
@@ -73,13 +215,16 @@ wrangles:
         Power Source:
           type: string
           examples:
-            - input: 18V cordless drill
+            - name: cordless tool
+              notes: Voltage without a cord indicates a battery.
+              input: 18V cordless drill
               output: Battery
             - Corded
         Voltage:
           type: number
-      examples:
+      record_examples:
         - name: corded saw
+          notes: Use both fields from this complete example.
           input: 120V corded jig saw
           output:
             Power Source: Corded
@@ -87,13 +232,15 @@ wrangles:
 ```
 
 The first `Power Source` item is a paired field example; `Corded` remains
-output-only value guidance. Top-level `examples` are holistic. Their output may
-be sparse: the compiler inserts `null` for omitted output fields so every
-example demonstrates the complete required response shape. Unknown fields and
-values that do not match the output schema fail during compilation.
+output-only value guidance. Top-level `record_examples` demonstrate the complete
+record. Their output may omit nullable top-level fields: the compiler inserts
+`null` so every example demonstrates the complete required response shape.
+Required non-null nested properties must still be supplied. Unknown fields and
+values that do not match the output schema fail during compilation. Optional
+`name` and `notes` metadata are included in model guidance at both levels.
 
 Saved-model content may likewise include a top-level `Examples` array of
-holistic pairs. A dedicated WranglesXL interface for those examples can be
+record pairs. A dedicated WranglesXL interface for those examples can be
 added later without changing the compiler or runtime contract.
 
 ## Result cache
@@ -110,9 +257,10 @@ Default limits:
 - Concurrent duplicate suppression: enabled
 
 The effective key includes the provider, protocol, API credential hash, model,
-prompt, schema, model options, endpoint, and exact serialized input. A change
-to any of these produces a cache miss. Errors, timeouts, invalid structured
-responses, and oversized values are not cached.
+prompt, schema, model options, endpoint, response storage, effective metadata,
+and exact serialized input. A change to any of these produces a cache miss.
+Errors, timeouts, invalid structured responses, and oversized values are not
+cached.
 
 Use `cache: false` in a recipe or `cache=False` in Python to bypass the cache
 for one call. `cache_ttl` overrides the TTL for one call.

@@ -20,6 +20,7 @@ import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
 from . import data as _data
+from . import auth as _auth
 from .config import (
     reserved_word_replacements as _reserved_word_replacements,
     where_overwrite_output as _where_overwrite_output,
@@ -41,7 +42,7 @@ except ImportError:
 
 _logging.getLogger().setLevel(_logging.INFO)
 
-# Recipe source and nesting state used for best-effort error line lookups.
+# Recipe source, logging attribution, and nesting state.
 # Context variables isolate simultaneous recipe.run() calls. Each run creates
 # a new dictionary so nested recipes can update their own source without
 # mutating the parent run's context. The context is copied into the worker
@@ -76,6 +77,11 @@ def _load_recipe(
     if variables is None:
         variables = {}
 
+    user_variable_keys = set(variables.keys())
+
+    if "applied_permission_group" not in variables:
+        variables["applied_permission_group"] = _auth.get_applied_permission_group()
+
     # Accept path-like objects (e.g. pathlib.Path) by converting to str
     if isinstance(recipe, _os.PathLike):
         recipe = str(recipe)
@@ -103,6 +109,7 @@ def _load_recipe(
     # another recipe) - unlike synthetic inline recipes, which should defer
     # to whatever recipe text the outer call was already tracking.
     _is_external_source = False
+    source_recipe_name = None
 
     # If the recipe to read is from "https://" or "http://"
     if 'https://' == recipe[:8] or 'http://' == recipe[:7]:
@@ -118,9 +125,15 @@ def _load_recipe(
         version_id = recipe.split(':')[1].strip() if ':' in recipe else None
 
         metadata = _data.model(model_id)
+        source_recipe_name = metadata.get('name')
         # If model_id format is correct but no mode_id exists
         if metadata.get('message', None) == 'error':
             raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
+
+        metadata_applied_permission_group = _auth.extract_applied_permission_group(metadata)
+        if metadata_applied_permission_group is not None:
+            if "applied_permission_group" not in user_variable_keys:
+                variables["applied_permission_group"] = metadata_applied_permission_group
 
         # Using model_id in wrong function
         purpose = metadata['purpose']
@@ -177,6 +190,7 @@ def _load_recipe(
             with open(recipe, "r", encoding='utf-8') as f:
                 recipe_string = f.read()
             _is_external_source = True
+            source_recipe_name = _os.path.basename(recipe)
         except:
             raise RuntimeError(
                 f'Error reading recipe: "{recipe}". ' \
@@ -267,6 +281,30 @@ def _load_recipe(
     run_context = _RECIPE_RUN_CONTEXT.get()
     if run_context is not None and (run_context['depth'] <= 1 or _is_external_source):
         run_context['recipe_string'] = recipe_string
+    if run_context is not None:
+        supplied_name = variables.get('recipe_name')
+        if not isinstance(supplied_name, str):
+            supplied_name = None
+        # Meta-wrangles forward the caller's variables unchanged. A saved child
+        # keeps its own title when an anonymous fragment forwards the older label.
+        changed_name = (
+            'recipe_name' in user_variable_keys
+            and supplied_name != run_context.get('recipe_name_variable')
+        )
+        if (
+            source_recipe_name
+            or changed_name
+            or run_context['depth'] <= 1
+            or _is_external_source
+        ):
+            run_context['recipe_name'] = source_recipe_name or supplied_name
+        run_context['recipe_name_variable'] = supplied_name
+        # XL supplies user_email; local runners normally supply WRANGLES_USER.
+        # These labels are diagnostic attribution, never authorization claims.
+        for candidate in (variables.get('WRANGLES_USER'), variables.get('user_email')):
+            if isinstance(candidate, str) and candidate.strip() and candidate != 'Missing':
+                run_context['wrangles_user'] = candidate
+                break
 
     # Check if there are any templated valued to update
     recipe_object = _replace_templated_values(recipe_object, variables)
@@ -762,6 +800,40 @@ def _execute_wrangles(
                             df_temp = df_temp.rename(columns=colDict)
                             cols_renamed = [col for col in cols_renamed if col in fn_argspec.args]
 
+                            # If the user explicitly mapped column(s) via input, but none
+                            # of them match a parameter name by exact name equality, fall
+                            # back to binding them positionally to the function's
+                            # remaining unfilled parameters, in the function's declared
+                            # order. Without this, input's value is silently dropped and
+                            # the function is called with that parameter missing entirely.
+                            # Only applies when input is explicit: without it, the full
+                            # dataframe is in play and there's no user intent to bind it
+                            # to the function's arguments.
+                            if not cols_renamed and 'input' in params:
+                                remaining_args = [
+                                    arg for arg in fn_argspec.args
+                                    if arg not in params_temp
+                                ]
+                                input_cols = df_temp.columns.tolist()
+                                if input_cols and len(input_cols) <= len(remaining_args):
+                                    positional_map = dict(zip(remaining_args, input_cols))
+                                    df_temp = df_temp.rename(
+                                        columns={col: arg for arg, col in positional_map.items()}
+                                    )
+                                    cols_renamed = list(positional_map.keys())
+                                elif input_cols and remaining_args and len(input_cols) > len(remaining_args):
+                                    # Only ambiguous - and worth a clear error - when the
+                                    # function still needs values and there are too many
+                                    # candidate columns to know which ones to use. If the
+                                    # function needs nothing further (remaining_args is
+                                    # empty), extra columns are simply irrelevant to it.
+                                    raise ValueError(
+                                        f"{wrangle} accepts at most {len(remaining_args)} "
+                                        f"unfilled parameter(s) ({', '.join(remaining_args)}) "
+                                        f"but {len(input_cols)} column(s) were provided: "
+                                        f"{', '.join(input_cols)}"
+                                    )
+
                             # Ensure we don't remove all columns
                             # if user hasn't specified any
                             if cols_renamed:
@@ -1219,11 +1291,15 @@ def run(
     """
     if variables is None:
         variables = {}
+    variables = variables.copy()
 
     parent_context = _RECIPE_RUN_CONTEXT.get()
     run_context = {
         'depth': (parent_context.get('depth', 0) if parent_context else 0) + 1,
-        'recipe_string': parent_context.get('recipe_string') if parent_context else None
+        'recipe_string': parent_context.get('recipe_string') if parent_context else None,
+        'recipe_name': parent_context.get('recipe_name') if parent_context else None,
+        'recipe_name_variable': parent_context.get('recipe_name_variable') if parent_context else None,
+        'wrangles_user': parent_context.get('wrangles_user') if parent_context else None,
     }
     context_token = _RECIPE_RUN_CONTEXT.set(run_context)
     try:

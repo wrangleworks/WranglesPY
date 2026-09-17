@@ -4103,6 +4103,39 @@ wrangles:
         )
         assert df['header1'][0] == 'VALUE1' and df['header2'][0] == 'value2'
 
+    def test_recipe_wrangle_write_dataframe_shapes_output(self):
+        """
+        A recipe used as a wrangle should still honor an inner
+        write: - dataframe: columns: [...] step to shape which columns are
+        returned, even though real (side-effecting) write steps are stripped
+        to avoid duplicate/partial writes when nested inside batch.
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: Val1
+                    Col2: Val2
+
+            wrangles:
+              - recipe:
+                  wrangles:
+                    - create.column:
+                        output: Col3
+                        value: Val3
+
+                  write:
+                    - dataframe:
+                        columns:
+                          - Col2
+                          - Col3
+            """
+        )
+        assert df.columns.tolist() == ['Col2', 'Col3']
+        assert df.values.tolist() == [['Val2', 'Val3']]
+
     def test_recipe_where(self):
         """
         Test using a recipe as a wrangle
@@ -9338,6 +9371,71 @@ class TestWrangleSchema:
                 failures.append(f'{path}: YAML parse error — {e}')
 
         assert not failures, 'Wrangle schema docstring YAML parse failures:\n' + '\n'.join(failures)
+
+    def test_extract_ai_schema_documents_public_parameters_and_example_shape(self):
+        import inspect
+        import yaml
+
+        method = wrangles.recipe._recipe_wrangles.extract.ai
+        schema = yaml.safe_load(method.__doc__)
+        properties = schema["properties"]
+        parameters = {
+            name
+            for name in inspect.signature(method).parameters
+            if name not in {"df", "kwargs"}
+        }
+
+        assert parameters <= properties.keys()
+        assert all(
+            isinstance(definition.get("description"), str)
+            and definition["description"].strip()
+            for definition in properties.values()
+        )
+        assert properties["web_search"]["type"] == "boolean"
+        assert "web_search_sources" in properties["web_search"]["description"]
+
+        assert "messages" not in properties
+        instructions = properties["instructions"]
+        assert instructions["title"] == "General Instructions"
+        assert instructions["type"] == ["string", "array"]
+        assert "every input row" in instructions["description"]
+        assert "decision rules" in instructions["description"]
+        assert "after" not in instructions["description"].lower()
+
+        assert "examples" not in properties
+        examples = properties["record_examples"]
+        assert examples["title"] == "Record examples"
+        assert examples["required"] == ["input", "output"]
+        assert examples["items"]["required"] == ["input", "output"]
+        assert set(examples["items"]["properties"]) == {
+            "name",
+            "notes",
+            "input",
+            "output",
+        }
+        assert all(
+            definition["description"].strip()
+            for definition in examples["items"]["properties"].values()
+        )
+
+        field_schema = next(iter(properties["output"]["patternProperties"].values()))
+        field_examples = field_schema["properties"]["examples"]
+        assert field_examples["title"] == "Field examples"
+        assert "backward-compatible" in field_examples["description"]
+        assert "optional name and notes" in field_examples["description"]
+        paired_field_example = field_examples["items"]["anyOf"][0]
+        assert paired_field_example["required"] == ["input", "output"]
+        assert set(paired_field_example["properties"]) == {
+            "name",
+            "notes",
+            "input",
+            "output",
+        }
+        assert all(
+            definition["description"].strip()
+            for definition in field_schema["properties"].values()
+        )
+        assert "effort" in properties["reasoning"]["properties"]
 
     def test_extract_codes_schema_matches_microservice_params(self):
         import yaml

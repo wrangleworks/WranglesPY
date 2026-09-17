@@ -1,34 +1,17 @@
 ---
 name: Refactor
 about: Refactor code and/or upgrade packages
-title: '[REFACTOR] '
-labels: refactor
+title: ''
+labels: 'P1'
 assignees: ''
+type: Enhancement
 ---
 
-**What needs refactoring**
-Component, module, or package
+**Description**
+What component, module, or package needs refactoring and why?
 
-**Current state**
-What's the problem with current implementation?
+**Desired Behavior**
+What should the refactored state look like (performance, structure, API)?
 
-**Proposed changes**
-What should be refactored and how?
-
-**Benefits**
-- Performance improvement
-- Better maintainability
-- Code quality
-- Other:
-
-**Breaking changes**
-- [ ] Yes
-- [ ] No
-
-**Details**
-
-
-**Acceptance criteria**
-- [ ] 
-- [ ] 
-- [ ] 
+**Example current / desired**
+Current implementation snippet vs. proposed approach

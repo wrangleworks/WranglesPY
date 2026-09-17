@@ -1,5 +1,6 @@
 import wrangles
 import pandas as pd
+import pytest
 from wrangles.connectors import memory
 
 
@@ -101,6 +102,160 @@ def test_excel_sheet_append_accumulates_repeated_writes():
     assert len(excel_outputs) == 1
     assert excel_outputs[0]["name"] == "Results"
     assert len(excel_outputs[0]["data"]) == 1000
+
+
+def test_excel_sheet_write_preserves_column_formatting():
+    """Formatting configured in a recipe is passed through for WranglesXL."""
+    memory.clear()
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                ID: 1
+                Amount: 12.5
+                Verified: true
+                Notes: some long text
+        write:
+          - excel.sheet:
+              name: Results
+              formatting:
+                columns:
+                  ID:
+                    bold: true
+                    align: center
+                  Amount:
+                    num_format: '$#,##0.00'
+                  Verified:
+                    checkbox: true
+                  Notes:
+                    text_wrap: true
+        """
+    )
+
+    excel_outputs = [
+        v
+        for v in memory.dataframes.values()
+        if v.get("connector") == "excel.sheet.write"
+    ]
+    memory.clear()
+
+    assert len(excel_outputs) == 1
+    assert excel_outputs[0]["formatting"] == {
+        "columns": {
+            "ID": {"bold": True, "align": "center"},
+            "Amount": {"num_format": "$#,##0.00"},
+            "Verified": {"checkbox": True},
+            "Notes": {"text_wrap": True},
+        }
+    }
+
+
+def test_excel_sheet_formatting_options_match_xlsxwriter_syntax():
+    """
+    excel.sheet is rendered by WranglesXL via the Office API, not
+    XlsxWriter/Polars, but the recipe syntax must still match the
+    Polars/XlsxWriter formatting syntax already used by the `file` connector
+    (see connectors/_formatting.py) so authors don't learn two syntaxes for
+    the same concept. `align`, `num_format`, `bold`, `checkbox`, and
+    `text_wrap` must all be real XlsxWriter Format properties.
+    """
+    import inspect
+    import typing
+    import xlsxwriter
+    from wrangles.connectors.excel import _FORMATTING_OPTIONS, _ALIGNMENTS
+
+    format_setters = {
+        name[len("set_"):]
+        for name in dir(xlsxwriter.format.Format)
+        if name.startswith("set_")
+    }
+    assert _FORMATTING_OPTIONS <= format_setters
+
+    # "general" has no XlsxWriter equivalent - it matches Excel's unformatted
+    # default, so it is intentionally excluded from the XlsxWriter check.
+    align_param = inspect.signature(
+        xlsxwriter.format.Format.set_align
+    ).parameters["alignment"]
+    valid_alignments = set(typing.get_args(align_param.annotation))
+    assert (_ALIGNMENTS - {"general"}) <= valid_alignments
+
+
+def test_excel_sheet_formatting_rejects_unsupported_options():
+    """The first-draft contract accepts only its five formatting options."""
+    with pytest.raises(ValueError, match="font_color"):
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    ID: 1
+            write:
+              - excel.sheet:
+                  formatting:
+                    columns:
+                      ID:
+                        font_color: red
+            """
+        )
+
+
+def test_excel_sheet_append_accumulates_matching_formatting():
+    """Repeated writes with the same formatting remain one output payload."""
+    memory.clear()
+    formatting = {"columns": {"ID": {"bold": True}}}
+
+    for value in (1, 2):
+        wrangles.connectors.excel.sheet.write(
+            pd.DataFrame({"ID": [value]}),
+            name="Results",
+            formatting=formatting
+        )
+
+    excel_outputs = [
+        v
+        for v in memory.dataframes.values()
+        if v.get("connector") == "excel.sheet.write"
+    ]
+    memory.clear()
+
+    assert len(excel_outputs) == 1
+    assert excel_outputs[0]["data"] == [[1], [2]]
+    assert excel_outputs[0]["formatting"] == formatting
+
+
+def test_excel_sheet_append_keeps_different_formatting_separate():
+    """Formatting changes form ordered output segments for the same target."""
+    memory.clear()
+    wrangles.connectors.excel.sheet.write(
+        pd.DataFrame({"ID": [1]}),
+        name="Results",
+        formatting={"columns": {"ID": {"bold": True}}}
+    )
+    wrangles.connectors.excel.sheet.write(
+        pd.DataFrame({"ID": [2]}),
+        name="Results",
+        formatting={"columns": {"ID": {"align": "center"}}}
+    )
+    wrangles.connectors.excel.sheet.write(
+        pd.DataFrame({"ID": [3]}),
+        name="Results",
+        formatting={"columns": {"ID": {"bold": True}}}
+    )
+
+    excel_outputs = [
+        v
+        for v in memory.dataframes.values()
+        if v.get("connector") == "excel.sheet.write"
+    ]
+    memory.clear()
+
+    assert len(excel_outputs) == 3
+    assert [output["data"] for output in excel_outputs] == [
+        [[1]], [[2]], [[3]]
+    ]
 
 
 def test_excel_sheet_append_aligns_dynamic_batch_columns_by_name():
