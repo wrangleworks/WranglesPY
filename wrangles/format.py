@@ -276,6 +276,68 @@ def raw_search_results_to_text(payloads: list) -> str:
     return "\n".join(lines).strip()
 
 
+def ai_mode_results_to_text(payloads: list) -> str:
+    """Format normalized AI Mode payloads without changing classic search output."""
+    if not payloads:
+        return ""
+    if not isinstance(payloads, list):
+        payloads = [payloads]
+
+    blocks = []
+    for index, payload in enumerate(payloads, start=1):
+        if not isinstance(payload, dict):
+            blocks.append(f"Query {index}\nStatus: Failure\nError: Invalid data")
+            continue
+
+        metadata = payload.get("search_metadata") or {}
+        query_index = metadata.get("query_index") or index
+        query = metadata.get("query") or ""
+        status = payload.get("status") or metadata.get("status") or "Unknown"
+        lines = [f"## Query {query_index}: {query} ##", f"Status: {status}"]
+
+        if payload.get("error"):
+            lines.append(f"Error: {payload['error']}")
+
+        content = payload.get("extracted_content") or {}
+        answer = content.get("answer_markdown") if isinstance(content, dict) else content
+        if answer:
+            lines.extend(["", "Answer:", str(answer)])
+
+        results = payload.get("search_results") or []
+        if results:
+            lines.extend(["", "Sources:"])
+        for source_index, result in enumerate(results, start=1):
+            lines.append(f"# --- Source {source_index} --- #")
+            lines.append(f"Title:   {result.get('title', '')}")
+            lines.append(f"Source:  {result.get('source', '')}")
+            lines.append(f"Link:    {result.get('link', '')}")
+            if result.get("snippet"):
+                snippet = textwrap.fill(
+                    result["snippet"],
+                    width=99,
+                    subsequent_indent="         ",
+                )
+                lines.append(f"Snippet: {snippet}")
+
+            pricing = result.get("pricing") or {}
+            if pricing:
+                price = pricing.get("price")
+                currency = pricing.get("currency")
+                price_text = " ".join(
+                    str(value) for value in (currency, price) if value is not None
+                ) or "Unknown"
+                pricing_parts = [price_text]
+                if pricing.get("availability"):
+                    pricing_parts.append(str(pricing["availability"]))
+                if pricing.get("vendor"):
+                    pricing_parts.append(f"via {pricing['vendor']}")
+                lines.append(f"Pricing: {' | '.join(pricing_parts)}")
+
+        blocks.append("\n".join(lines))
+
+    return "\n\n========================================\n\n".join(blocks)
+
+
 def remove_duplicates(input_list: list, ignore_case: bool = False) -> list:
     """
     Remove duplicates from a list. Preserves input order.

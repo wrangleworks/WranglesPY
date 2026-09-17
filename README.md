@@ -2,6 +2,9 @@
 
 Full documentation available at [wrangles.io](https://wrangles.io/python).
 
+Documentation for the unreleased `search.ai_mode` wrangle is available in
+[docs/search-ai-mode.md](docs/search-ai-mode.md).
+
 ## Local development
 
 Supported local development uses Python 3.13. On Windows, create or refresh the
