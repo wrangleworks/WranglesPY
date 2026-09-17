@@ -1,0 +1,27 @@
+# Run with run_search_ai_mode.py, which supplies the input DataFrame and settings.
+# Required input columns: ID, Description, Mfr, MPN, part_codes (list), query.
+# The SerpAPI client reads SERPAPI_API_KEY from the environment.
+
+wrangles:
+  # Retain all supplied product evidence in the single AI Mode query.
+  - create.jinja:
+      output: search_query
+      template:
+        string: |-
+          Description: {{ Description }}
+          Mfr: {{ Mfr }}
+          MPN: {{ MPN }}
+          part_codes: {{ part_codes | tojson }}
+          query: {{ query }}
+
+  - search.ai_mode:
+      queries: search_query
+      id: ID
+      output:
+        - ai_mode_results
+        - ai_mode_text
+      client: serpapi
+      n_results: ${N_RESULTS}
+      threads: ${THREADS}
+      country: ${COUNTRY}
+      language: ${LANGUAGE}
