@@ -20,6 +20,7 @@ wrangles:
       output:
         - ai_mode_results
         - ai_mode_text
+        - reconstructed_markdown
       client: serpapi
       n_results: ${N_RESULTS}
       threads: ${THREADS}

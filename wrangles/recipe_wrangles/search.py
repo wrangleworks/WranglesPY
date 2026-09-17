@@ -1,5 +1,6 @@
 import logging as _logging
 import pandas as _pd
+from collections.abc import Mapping as _Mapping
 
 # Import the combined core wrangles
 from .. import search as _search_core
@@ -222,7 +223,14 @@ def ai_mode(
         type:
           - string
           - array
-        description: Output column for dictionaries. If a list of 2 is provided, outputs [dicts_column, pretty_strings_column].
+        description: |-
+          Output column for response dictionaries. For one query column, two
+          outputs return [dicts_column, pretty_strings_column]; three outputs
+          add a reconstructed_markdown text column. Markdown comes directly
+          from the provider response, without truncation. For multiple queries
+          in one cell, available Markdown answers are joined in query order
+          with a blank line between answers. Missing Markdown returns an empty
+          string. Multiple query columns require one structured output each.
       client:
         type: string
         description: The search provider to use.
@@ -273,10 +281,11 @@ def ai_mode(
     if not isinstance(output, list):
         output = [output]
 
-    is_multi_output = len(queries) == 1 and len(output) == 2
+    is_multi_output = len(queries) == 1 and len(output) in (2, 3)
+    has_markdown_output = is_multi_output and len(output) == 3
 
     if not is_multi_output and len(queries) != len(output):
-        raise ValueError("search.ai_mode must have an equal number of query and output columns, OR 1 query column and 2 output columns [dicts, strings].")
+        raise ValueError("search.ai_mode must have an equal number of query and output columns, OR 1 query column and 2 or 3 output columns [dicts, strings, optional reconstructed_markdown].")
 
     def _to_query_list(v) -> list[str]:
         if v is None:
@@ -298,6 +307,8 @@ def ai_mode(
             df[dict_output_column] = [[] for _ in row_query_lists]
             if is_multi_output:
                 df[output[1]] = ["" for _ in row_query_lists]
+            if has_markdown_output:
+                df[output[2]] = ["" for _ in row_query_lists]
             _logging.info(": Wrangling :: ai_mode summary :: 0 queries >> 0 results")
             continue
 
@@ -310,7 +321,7 @@ def ai_mode(
             **kwargs
         )
 
-        out_cells, string_cells, pos, total_queries = [], [], 0, 0
+        out_cells, string_cells, markdown_cells, pos, total_queries = [], [], [], 0, 0
 
         for qs, current_id in zip(row_query_lists, row_ids):
             k = len(qs)
@@ -318,11 +329,20 @@ def ai_mode(
             if k == 0:
                 out_cells.append([])
                 string_cells.append("")
+                markdown_cells.append("")
                 continue
 
             cell = flat_responses[pos:pos + k]
+            markdown_parts = []
             for j, resp in enumerate(cell, start=1):
                 if isinstance(resp, dict):
+                    if has_markdown_output:
+                        raw_response = resp.get("raw_response")
+                        if isinstance(raw_response, _Mapping):
+                            markdown = raw_response.get("reconstructed_markdown")
+                            if isinstance(markdown, str) and markdown:
+                                markdown_parts.append(markdown)
+
                     meta = resp.get("search_metadata")
                     if isinstance(meta, dict):
                         meta["query_index"] = j
@@ -341,12 +361,16 @@ def ai_mode(
             out_cells.append(cell)
             if is_multi_output:
                 string_cells.append(_format.raw_search_results_to_text(cell))
+            if has_markdown_output:
+                markdown_cells.append("\n\n".join(markdown_parts))
 
             pos += k
 
         df[dict_output_column] = out_cells
         if is_multi_output:
             df[output[1]] = string_cells
+        if has_markdown_output:
+            df[output[2]] = markdown_cells
 
         _logging.info(f": Wrangling :: ai_mode summary :: {total_queries} queries processed")
 
