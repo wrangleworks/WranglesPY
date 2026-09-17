@@ -40,8 +40,10 @@ def ai_mode(
     """
     Search Google AI Mode using a shared list of single-entry query dictionaries.
 
-    Each response contains ai_mode_result (heading block lists, references and
-    meta_data) and ai_mode_markdown (the provider's original Markdown string).
+    Each response contains ai_mode_result (compact section content),
+    ai_mode_result_complete (section blocks, references and meta_data with
+    srsltid URL parameters and image fields removed),
+    and ai_mode_markdown (the provider's original Markdown string).
     A string query returns one response; a list returns responses in input order.
     Blank queries return a Skipped response without calling the provider.
     """

@@ -33,6 +33,7 @@ wrangles:
       query_config: ${AI_MODE_QUERY}
       output:
         - ai_mode_result
+        - ai_mode_result_complete
         - ai_mode_markdown
       client: serpapi
       threads: ${THREADS}

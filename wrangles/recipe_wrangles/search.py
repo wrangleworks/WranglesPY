@@ -205,7 +205,7 @@ def ai_mode(
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Search Google AI Mode and group answer blocks under the requested headings, retaining all references and returning the original Markdown separately.
+    description: Search Google AI Mode and return compact section content, an optional complete result with references and metadata, and optional original Markdown.
     additionalProperties: false
     required:
       - queries
@@ -238,15 +238,22 @@ def ai_mode(
           - type: string
           - type: array
             minItems: 1
-            maxItems: 2
+            maxItems: 3
             uniqueItems: true
             items:
               type: string
         description: |-
-          One output returns a dictionary containing a block list per requested
-          heading, the complete references list and meta_data. Two outputs return
-          [ai_mode_result, ai_mode_markdown], where Markdown is the provider's
-          original reconstructed_markdown string, without cleanup or truncation.
+          Outputs are ordered [ai_mode_result, ai_mode_result_complete, ai_mode_markdown].
+          One output returns compact content for the requested headings only:
+          paragraphs become text, lists and tables become flat lists, and pricing
+          sections contain supplier-to-price dictionaries when the text identifies
+          a supplier. Its references field contains only reference URLs. Section
+          content omits links, metadata, viewer labels and recognized follow-up
+          invitations; it cleans Unicode escapes and units.
+          The optional second output retains section blocks, the complete references
+          list and meta_data, removing source_icon and thumbnail fields recursively
+          and stripping srsltid URL parameters. The optional third output is the
+          provider's original reconstructed_markdown, without cleanup or truncation.
           Missing sections have empty lists and parse warnings. If the first heading
           is omitted and opening paragraphs precede the second requested heading, they
           populate the first section with an inferred_headings diagnostic and warning.
@@ -269,7 +276,7 @@ def ai_mode(
       include_raw_response:
         type: boolean
         default: false
-        description: Include the complete provider response under raw_response for diagnostics. Normal outputs omit this duplicate payload.
+        description: Include the provider response under raw_response inside ai_mode_result_complete for diagnostics, applying the same image-field and srsltid filtering. The compact output never includes it.
       country:
         type: string
         default: us
@@ -303,11 +310,11 @@ def ai_mode(
         output = queries
     columns = [output] if isinstance(output, str) else output
     if (
-        not isinstance(columns, list) or len(columns) not in (1, 2)
+        not isinstance(columns, list) or len(columns) not in (1, 2, 3)
         or any(not isinstance(name, str) or not name for name in columns)
         or len(set(columns)) != len(columns)
     ):
-        raise ValueError("search.ai_mode requires 1 or 2 distinct output columns [ai_mode_result, ai_mode_markdown].")
+        raise ValueError("search.ai_mode requires 1, 2 or 3 distinct output columns [ai_mode_result, ai_mode_result_complete, ai_mode_markdown].")
 
     row_ids = df[id].tolist()
     query_values = [
@@ -325,15 +332,11 @@ def ai_mode(
     )
     if len(responses) != len(df):
         raise RuntimeError("AI Mode response count does not match the input row count.")
-    result_cells, markdown_cells = [], []
     for row_id, response in zip(row_ids, responses):
-        result = response["ai_mode_result"]
-        result["meta_data"]["input_row_id"] = row_id
-        result_cells.append(result)
-        markdown_cells.append(response["ai_mode_markdown"])
-    df[columns[0]] = result_cells
-    if len(columns) == 2:
-        df[columns[1]] = markdown_cells
+        response["ai_mode_result_complete"]["meta_data"]["input_row_id"] = row_id
+    payloads = ("ai_mode_result", "ai_mode_result_complete", "ai_mode_markdown")
+    for column, payload in zip(columns, payloads):
+        df[column] = [response[payload] for response in responses]
     _logging.info(f": Wrangling :: ai_mode summary :: {len(query_values)} queries processed")
     return df
 

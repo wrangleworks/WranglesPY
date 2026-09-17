@@ -33,6 +33,7 @@ configuration column is removed before searching.
     query_config: ${AI_MODE_QUERY}
     output:
       - ai_mode_result
+      - ai_mode_result_complete
       - ai_mode_markdown
     client: serpapi
     threads: ${THREADS}
@@ -41,10 +42,17 @@ configuration column is removed before searching.
 ```
 
 Each row must contain one query string. Explode query lists before searching.
-The first output is a dictionary, and the second is a string:
+The outputs are compact result, complete result, and original Markdown, in
+that order. Supply one, two, or three output column names as needed.
 
 ```text
 ai_mode_result = {
+    "Product Description": "The Example Power P12 supplies 12 VDC.",
+    "Technical Specifications": ["Output Voltage: 12 VDC", "Output Current: 5 A"],
+    "Sources & Pricing": [{"Supplier A": "$13.17 USD per pack of 10"}],
+    "references": ["https://example.invalid/product"]
+}
+ai_mode_result_complete = {
     "Product Description": [original content blocks],
     "Technical Specifications": [original content blocks],
     "Sources & Pricing": [original content blocks],
@@ -54,16 +62,38 @@ ai_mode_result = {
 ai_mode_markdown = original reconstructed_markdown
 ```
 
-Section values preserve paragraphs, lists, tables, nested blocks, links,
-LaTeX and citation indexes. They are not inferred product attributes or
-price dictionaries. References retain their original indexes and ordering;
-they are not truncated, deduplicated, or requested again as a heading.
+The compact result includes the requested headings and a flat list of
+reference URLs. Paragraphs become text; list items and table rows become
+flat lists. Section content omits URLs, block wrappers, citation metadata,
+Google's product-viewer instruction, and recognized follow-up invitations.
+It reuses `standardize.clean` to repair encoding, Unicode escapes and simple
+LaTeX units. Tables follow the header-and-row structure in the
+[SerpAPI table example](https://serpapi.com/google-ai-mode-api).
+
+In sections whose heading includes "price", "prices", or "pricing", entries
+written as `Supplier: details` become single-entry dictionaries. Navigation
+phrases such as "via Supplier Product Page" are removed. Price ranges,
+currencies, per-pack quantities and other price qualifiers stay as text;
+no currency or price is guessed. Text without an identifiable supplier
+stays a string, and multiple offers from one supplier remain separate entries.
+
+The complete result preserves paragraphs, lists, tables, nested blocks,
+links, LaTeX and citation indexes, with three noise filters: `srsltid` URL
+parameters, `source_icon` fields and `thumbnail` fields are removed throughout.
+URL pruning reuses `wrangles.web.clean_link` with full URLs and remaining
+query encoding preserved. Other query parameters and fragments remain intact.
+Classic search retains the sanitizer's existing defaults.
+
+Complete references retain their original indexes and ordering. Compact
+references contain those same URLs, skipping entries with no URL. Neither
+list is truncated or deduplicated. References are not requested again as a
+heading; an empty provider references list produces an empty compact list.
 
 Heading matching ignores case and whitespace differences. When Google omits
 the first heading and the response begins with paragraphs followed by the
 second requested heading, those paragraphs populate the first section. This
 fallback requires a successful response and no explicit first heading anywhere
-in the answer. It records `meta_data.inferred_headings` and an `inferred_heading`
+in the answer. The complete result records `meta_data.inferred_headings` and an `inferred_heading`
 warning; `parse_status` stays `partial` to make the inference visible.
 
 Other missing sections produce empty lists and warnings. Repeated headings
@@ -78,19 +108,21 @@ provider and return empty sections and Markdown.
 keys must be unique headings. `references`, `meta_data`, and `raw_response`
 are reserved output keys. Instructions must be strings.
 
-The trial recipe retains raw Markdown and creates `ai_mode_markdown_clean`
+The trial recipe retains original Markdown and creates `ai_mode_markdown_clean`
 using the opt-in `standardize.clean` Unicode/LaTeX controls and the runner's
-link-label repair. Search itself does not clean or truncate either output.
-The compact result omits duplicated raw payloads, but very large responses
-can still exceed spreadsheet cell capacity. Set `include_raw_response: true`
-only when the complete provider response is needed under `raw_response`.
+link-label repair. The third output stays exactly as returned by the provider,
+including its original URLs. Large complete responses can still exceed
+spreadsheet cell capacity. Set `include_raw_response: true` when the provider
+payload is needed under `ai_mode_result_complete.raw_response`; the same
+three noise filters apply there. The compact output never includes that copy.
 
-This replaces the earlier experimental three-output contract: one output
-now returns just the result dictionary; two return result and Markdown.
+This replaces the earlier experimental output contracts: one output returns
+the compact result, two add the complete result, and three add Markdown.
 Remove `n_results` from AI Mode recipes, since all references are retained.
 `google_domain` and `num` are also unsupported for AI Mode.
 Classic `search.find_links` keeps its existing output and result limit.
 
 For direct Python usage, `wrangles.search.ai_mode(query, AI_MODE_QUERY)`
-returns an envelope with `ai_mode_result` and `ai_mode_markdown` keys. A list
-of queries returns a list of these envelopes in input order.
+returns an envelope with `ai_mode_result`, `ai_mode_result_complete`, and
+`ai_mode_markdown` keys. A list of queries returns a list of these envelopes
+in input order.

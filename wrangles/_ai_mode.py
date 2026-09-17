@@ -5,6 +5,8 @@ from copy import deepcopy
 import math
 import unicodedata
 
+from ._ai_mode_content import compact_result, prune_noise
+
 
 def heading_key(value):
     return " ".join(unicodedata.normalize("NFC", value).split()).casefold()
@@ -66,7 +68,7 @@ def request_parameters(kwargs):
 
 def normalize_response(response, query, headings, query_index=None, *,
                        status=None, error=None, include_raw_response=False):
-    """Keep provider blocks/references intact and expose a separate Markdown string."""
+    """Return compact content alongside complete blocks/references and raw Markdown."""
     if not isinstance(response, Mapping):
         raise TypeError("AI Mode returned a non-object JSON response.")
     provider_meta = response.get("search_metadata")
@@ -212,4 +214,10 @@ def normalize_response(response, query, headings, query_index=None, *,
     result["meta_data"] = metadata
     if include_raw_response:
         result["raw_response"] = deepcopy(dict(response))
-    return {"ai_mode_result": result, "ai_mode_markdown": markdown}
+    # Preserve requested heading names, even if one coincides with a media key.
+    result = {name: prune_noise(value) for name, value in result.items()}
+    return {
+        "ai_mode_result": compact_result(result, headings),
+        "ai_mode_result_complete": result,
+        "ai_mode_markdown": markdown,
+    }

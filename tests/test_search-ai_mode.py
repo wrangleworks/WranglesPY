@@ -67,7 +67,7 @@ def run_ai_mode(data=None, output=None, **options):
         data = pd.DataFrame({"query": ["product"], "ID": [42]})
     args = {
         "queries": "query", "id": "ID", "query_config": QUERY_CONFIG,
-        "output": ["result", "markdown"] if output is None else output,
+        "output": ["compact", "result", "markdown"] if output is None else output,
         "threads": 1, **options,
     }
     return wrangles.recipe.run({"wrangles": [{"search.ai_mode": args}]}, dataframe=data)
@@ -95,14 +95,179 @@ def test_sections_references_and_markdown_preserve_provider_content(ai_mode_prov
     assert meta["warnings"] == []
 
 
+def test_compact_result_contains_core_sections_and_reference_urls(ai_mode_provider, provider_response):
+    row = run_ai_mode().iloc[0]
+    compact = row["compact"]
+    assert list(compact) == HEADINGS + ["references"]
+    assert compact["Product Description"] == "The Example Power P12 supplies 12 VDC."
+    assert len(compact["Technical Specifications"]) == 12
+    assert compact["Technical Specifications"][2:5] == [
+        "Output Voltage: 12 VDC", "Output Current: 5 A", "Output Power: 60 W",
+    ]
+    assert all(isinstance(value, str) for value in compact["Technical Specifications"])
+    assert compact["Sources & Pricing"] == [
+        {"Supplier 1": "$21.00"}, {"Supplier 2": "$22.00"}, {"Supplier 3": "$23.00"},
+    ]
+    assert compact["references"] == [reference["link"] for reference in provider_response["references"]]
+    assert row["result"]["Product Description"][0] == provider_response["text_blocks"][1]
+    assert row["markdown"] == provider_response["reconstructed_markdown"]
+
+
+@pytest.mark.parametrize("detail, expected", [
+    ("Available for $13.17 USD via Supplier Product Page.", "$13.17 USD"),
+    ("$13.17 USD per pack of 10 (minimum order: 2 packs)", "$13.17 USD per pack of 10 (minimum order: 2 packs)"),
+    ("From £9.50–£12.00 per unit", "From £9.50–£12.00 per unit"),
+    ("€12,50 (approximately $13.17 USD)", "€12,50 (approximately $13.17 USD)"),
+    ("$13.17 - Check availability on Supplier", "$13.17"),
+    ("Contact for quote; currently out of stock", "Contact for quote; currently out of stock"),
+])
+def test_compact_prices_keep_currency_and_qualifiers(ai_mode_provider, provider_response, detail, expected):
+    response = deepcopy(provider_response)
+    response["text_blocks"][5]["list"] = [{
+        "snippet": f"Supplier: {detail}",
+        "snippet_links": [{"text": "Supplier Product Page", "link": "https://example.invalid/product"}],
+    }]
+    response["text_blocks"].append({
+        "type": "paragraph", "snippet": "If you need an alternative part, let me know.",
+    })
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert row["compact"]["Sources & Pricing"] == [{"Supplier": expected}]
+    assert row["result"]["Sources & Pricing"] == response["text_blocks"][5:]
+
+
+def test_compact_prices_keep_multiple_offers_and_unattributed_text(ai_mode_provider, provider_response):
+    response = deepcopy(provider_response)
+    response["text_blocks"][5]["list"] = [
+        {"snippet": "Supplier: $13.17 each"},
+        {"snippet": "Supplier: $11.00 each for 100+"},
+        {"snippet": "No other prices were disclosed."},
+    ]
+    ai_mode_provider[0]["product"] = response
+    assert run_ai_mode().iloc[0]["compact"]["Sources & Pricing"] == [
+        {"Supplier": "$13.17 each"}, {"Supplier": "$11.00 each for 100+"},
+        "No other prices were disclosed.",
+    ]
+
+
+def test_compact_text_removes_links_and_cleans_units_and_unicode(ai_mode_provider, provider_response):
+    response = deepcopy(provider_response)
+    snippet = (
+        r"The [P12Go to product viewer dialog for this item.](https://example.invalid/part(a)?q=1) "
+        r"supports healthcare \u0026 ITE at $12\text{ VDC}$. "
+        r"<a href=\"https://example.invalid/datasheet\">Datasheet</a>"
+    )
+    response["text_blocks"][1]["snippet"] = snippet
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert row["compact"]["Product Description"] == "The P12 supports healthcare & ITE at 12 VDC. Datasheet"
+    assert row["result"]["Product Description"][0]["snippet"] == snippet
+
+
+def test_compact_nested_lists_and_tables_are_shallow(ai_mode_provider, provider_response):
+    response = deepcopy(provider_response)
+    response["text_blocks"][3] = {"type": "list", "list": [{
+        "snippet": "Dimensions",
+        "list": [{"snippet": "Width: 12 mm"}],
+        "text_blocks": [{"type": "table", "table": [
+            ["Specification", "Value"], ["Voltage", r"$12\text{ VDC}$"], ["Current", r"$5\text{ A}$"],
+        ]}],
+    }]}
+    response["text_blocks"][5] = {"type": "table", "table": [
+        ["Supplier", "Price", "Unit"], ["Supplier A", "$13.17 USD", "pack of 10"],
+    ]}
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert row["compact"]["Technical Specifications"] == [
+        "Dimensions", "Width: 12 mm", "Voltage: 12 VDC", "Current: 5 A",
+    ]
+    assert row["compact"]["Sources & Pricing"] == [{"Supplier A": "$13.17 USD; Unit: pack of 10"}]
+    assert row["result"]["Technical Specifications"] == [response["text_blocks"][3]]
+
+
+def test_compact_references_omit_missing_urls_and_keep_provider_order(ai_mode_provider, provider_response):
+    response = deepcopy(provider_response)
+    response["references"] = [
+        {"index": 4, "link": "https://example.invalid/four"},
+        {"index": 1, "title": "No link"},
+        {"index": 0, "link": "https://example.invalid/zero"},
+        {"index": 3, "link": None},
+    ]
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert row["compact"]["references"] == ["https://example.invalid/four", "https://example.invalid/zero"]
+    assert row["result"]["references"] == response["references"]
+
+
+@pytest.mark.parametrize("original, expected", [
+    ("https://example.invalid/p?srsltid=tracking", "https://example.invalid/p"),
+    ("https://example.invalid/p?srsltid=tracking&sku=A", "https://example.invalid/p?sku=A"),
+    ("https://example.invalid/p?sku=A&srsltid=tracking", "https://example.invalid/p?sku=A"),
+    ("https://example.invalid/p?x=a%20b&srsltid=one&blank=&x=%2B&SRSltid=two#part", "https://example.invalid/p?x=a%20b&blank=&x=%2B#part"),
+    ("https://example.invalid/p?%73rsltid=tracking&utm_source=catalog&gclid=kept", "https://example.invalid/p?utm_source=catalog&gclid=kept"),
+    ("https://example.invalid/p?srsltid=tracking&amp;sku=A", "https://example.invalid/p?sku=A"),
+    (r"https://example.invalid/p?sku=A\&srsltid=tracking\&q=2", r"https://example.invalid/p?sku=A\&q=2"),
+    ("[Source](https://example.invalid/part(a)?srsltid=tracking).", "[Source](https://example.invalid/part(a))."),
+    ("https://example.invalid/p?sku=A&empty=&sku=B#srsltid=not-a-query", "https://example.invalid/p?sku=A&empty=&sku=B#srsltid=not-a-query"),
+])
+def test_srsltid_filter_preserves_other_url_content(original, expected):
+    from wrangles._ai_mode_content import prune_noise
+    assert prune_noise(original) == expected
+
+
+@pytest.mark.parametrize("original, expected", [
+    ("", ""),
+    ("https://example.invalid/p", "example.invalid/p"),
+    ("https://example.invalid/p?x=a%20b&srsltid=t&utm_source=catalog&blank=#part", "example.invalid/p?x=a+b&blank=#part"),
+    ("http://example.invalid/p?x=%2B&amp;gclid=t", "example.invalid/p?x=%2B"),
+])
+def test_shared_link_sanitizer_defaults_remain_compatible(original, expected):
+    from wrangles.web import clean_link
+    assert clean_link(original) == expected
+
+
+def test_complete_noise_filter_is_recursive_and_markdown_stays_raw(ai_mode_provider, provider_response):
+    response = deepcopy(provider_response)
+    tracked = "https://example.invalid/product?sku=P12&srsltid=tracking#details"
+    clean_url = "https://example.invalid/product?sku=P12#details"
+    response["text_blocks"][1]["snippet_links"][0].update({
+        "link": tracked, "source_icon": "data:image/png;base64,synthetic", "thumbnail": "https://example.invalid/thumb",
+    })
+    response["text_blocks"][3]["list"][0].update({
+        "thumbnail": {"large": "https://example.invalid/large"},
+        "thumbnail_width": 100,
+    })
+    response["references"][0].update({"link": tracked, "source_icon": "icon", "thumbnail": "thumb"})
+    response["reconstructed_markdown"] = f"[Product]({tracked})"
+    ai_mode_provider[0]["product"] = response
+    original = deepcopy(response)
+    row = run_ai_mode(include_raw_response=True).iloc[0]
+    complete = row["result"]
+    assert complete["Product Description"][0]["snippet_links"][0] == {
+        "text": provider_response["text_blocks"][1]["snippet_links"][0]["text"], "link": clean_url,
+    }
+    assert complete["Technical Specifications"][0]["list"][0]["thumbnail_width"] == 100
+    assert "thumbnail" not in complete["Technical Specifications"][0]["list"][0]
+    assert row["compact"]["references"][0] == clean_url
+    assert complete["references"][0]["link"] == clean_url
+    assert complete["references"][0]["index"] == 0
+    assert "source_icon" not in complete["references"][0]
+    assert "thumbnail" not in complete["references"][0]
+    assert "srsltid=" not in json.dumps(complete)
+    assert "source_icon" not in json.dumps(complete["raw_response"])
+    assert complete["raw_response"]["reconstructed_markdown"] == f"[Product]({clean_url})"
+    assert row["markdown"] == original["reconstructed_markdown"]
+    assert response == original
+
+
 def test_public_search_namespace_and_ordered_batch(ai_mode_provider):
     assert wrangles.search.__name__ == "wrangles.search"
     assert recipe_search._search_core is wrangles.search
     scalar = wrangles.search.ai_mode(" first ", QUERY_CONFIG)
-    assert scalar["ai_mode_result"]["meta_data"]["query"] == "first"
+    assert scalar["ai_mode_result_complete"]["meta_data"]["query"] == "first"
     results = wrangles.search.ai_mode(["first", "second"], QUERY_CONFIG, threads=2)
-    assert [r["ai_mode_result"]["meta_data"]["query"] for r in results] == ["first", "second"]
-    assert [r["ai_mode_result"]["meta_data"]["query_index"] for r in results] == [1, 2]
+    assert [r["ai_mode_result_complete"]["meta_data"]["query"] for r in results] == ["first", "second"]
+    assert [r["ai_mode_result_complete"]["meta_data"]["query_index"] for r in results] == [1, 2]
     assert results[0] == scalar
 
 
@@ -110,12 +275,21 @@ def test_public_search_namespace_and_ordered_batch(ai_mode_provider):
 def test_single_output_is_a_dictionary(ai_mode_provider, output):
     df = run_ai_mode(output=output)
     assert isinstance(df.iloc[0]["result"], dict)
+    assert isinstance(df.iloc[0]["result"]["Product Description"], str)
+    assert "meta_data" not in df.iloc[0]["result"]
     assert "markdown" not in df.columns
 
 
-@pytest.mark.parametrize("output", [[], ["a", "b", "c"], ["a", "a"], ["a", 1], ""])
+def test_two_outputs_are_compact_then_complete(ai_mode_provider, provider_response):
+    df = run_ai_mode(output=["compact", "complete"])
+    assert isinstance(df.iloc[0]["compact"]["Product Description"], str)
+    assert df.iloc[0]["complete"]["Product Description"] == [provider_response["text_blocks"][1]]
+    assert "markdown" not in df.columns
+
+
+@pytest.mark.parametrize("output", [[], ["a", "b", "c", "d"], ["a", "a"], ["a", 1], ""])
 def test_invalid_outputs_fail_before_search(ai_mode_provider, output):
-    with pytest.raises(ValueError, match="1 or 2 distinct output columns"):
+    with pytest.raises(ValueError, match="1, 2 or 3 distinct output columns"):
         run_ai_mode(output=output)
     assert ai_mode_provider[1] == []
 
@@ -281,7 +455,7 @@ def test_blank_queries_and_empty_dataframe_need_no_credentials(monkeypatch):
         assert result["meta_data"]["parse_status"] == "skipped"
         assert result["meta_data"]["warnings"] == []
     empty = run_ai_mode(pd.DataFrame(columns=["query", "ID"]))
-    assert empty.empty and list(empty.columns) == ["query", "ID", "result", "markdown"]
+    assert empty.empty and list(empty.columns) == ["query", "ID", "compact", "result", "markdown"]
     assert wrangles.search.ai_mode([], QUERY_CONFIG) == []
 
 
@@ -403,10 +577,17 @@ def test_runner_uses_shared_configuration_and_separate_cleanup(monkeypatch, ai_m
     assert "References:" not in query
     assert "Mfr: INA" in query and "MPN: NATV6-PP-A" in query
     assert query.endswith(config[-1]["query_suffix"])
-    result = df.iloc[0]["ai_mode_result"]
+    result = df.iloc[0]["ai_mode_result_complete"]
     assert result["Specification Details"] == [provider_response["text_blocks"][3]]
     assert result["meta_data"]["parse_status"] == "complete"
     assert df.iloc[0]["ai_mode_markdown"] == provider_response["reconstructed_markdown"]
+    compact = df.iloc[0]["ai_mode_result"]
+    assert isinstance(compact["Product Description"], str)
+    assert len(compact["Specification Details"]) == 12
+    assert compact["references"] == [reference["link"] for reference in provider_response["references"]]
+    outputs = ["ai_mode_result", "ai_mode_result_complete", "ai_mode_markdown"]
+    positions = [df.columns.get_loc(column) for column in outputs]
+    assert positions == sorted(positions)
     clean = df.iloc[0]["ai_mode_markdown_clean"]
     assert "Go to product viewer dialog" not in clean
     assert "[Example Power P12](https://example.invalid/product?part=P12&variant=1)" in clean
@@ -414,13 +595,13 @@ def test_runner_uses_shared_configuration_and_separate_cleanup(monkeypatch, ai_m
     assert "\\text" in result["Product Description"][0]["snippet"]
 
 
-def test_ai_mode_schema_matches_two_output_contract():
+def test_ai_mode_schema_matches_three_output_contract():
     schema = yaml.safe_load(recipe_search.ai_mode.__doc__)
     jsonschema.Draft7Validator.check_schema(schema)
     valid = {"queries": "query", "id": "ID", "query_config": QUERY_CONFIG,
-             "output": ["result", "markdown"], "include_raw_response": True}
+             "output": ["compact", "complete", "markdown"], "include_raw_response": True}
     jsonschema.validate(valid, schema)
-    for change in ({"output": ["a", "b", "c"]}, {"query_config": [{"a": "x", "b": "y"}]},
+    for change in ({"output": ["a", "b", "c", "d"]}, {"query_config": [{"a": "x", "b": "y"}]},
                    {"n_results": 5}, {"queries": ["query"]}, {"threads": 0}):
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate({**valid, **change}, schema)
