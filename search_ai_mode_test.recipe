@@ -26,3 +26,17 @@ wrangles:
       threads: ${THREADS}
       country: ${COUNTRY}
       language: ${LANGUAGE}
+
+  # Retain the original Markdown alongside the cleaned version for comparison.
+  - standardize.clean:
+      input: reconstructed_markdown
+      output: reconstructed_markdown_clean
+      unescape_unicode: true
+      latex_to_text: true
+      collapse_whitespace: false
+      trim: false
+      uncurl_quotes: false
+      unescape_html: false
+
+  - custom.clean_ai_mode_links:
+      input: reconstructed_markdown_clean

@@ -342,3 +342,45 @@ def test_ai_mode_schema_documents_third_output():
         "output": ["raw", "text", "markdown"],
     }, schema)
     assert "reconstructed_markdown" in schema["properties"]["output"]["description"]
+
+
+def test_trial_runner_keeps_raw_markdown_and_clean_comparison(monkeypatch):
+    import sys
+    from types import ModuleType
+
+    import run_search_ai_mode as runner
+
+    markdown = (
+        r"[PartGo to product viewer dialog for this item.](https://example.com/?a=1&b=2)"
+        "\n\n" + r"$12\text{ VDC}$; healthcare \u0026 ITE"
+    )
+    monkeypatch.setattr(
+        recipe_search._search_core,
+        "ai_mode",
+        lambda queries, **kwargs: [
+            {**_ai_response(query), "raw_response": {"reconstructed_markdown": markdown}}
+            for query in queries
+        ],
+    )
+    dotenv = ModuleType("dotenv")
+    dotenv.load_dotenv = lambda *args, **kwargs: False
+    monkeypatch.setitem(sys.modules, "dotenv", dotenv)
+    writes = []
+    monkeypatch.setattr(
+        "wrangles.connectors.file.write",
+        lambda df, **kwargs: writes.append(df.copy()),
+    )
+
+    result = runner.main()
+
+    assert len(result) == 2
+    for written in writes:
+        assert written.equals(result)
+    assert result["reconstructed_markdown"].tolist() == [markdown, markdown]
+    assert result["reconstructed_markdown_clean"].tolist() == [
+        "[Part](https://example.com/?a=1&b=2)\n\n12 VDC; healthcare & ITE"
+    ] * 2
+    for cell in result["ai_mode_results"]:
+        # The trial recipe may optionally explode the list of query responses.
+        payloads = cell if isinstance(cell, list) else [cell]
+        assert all(item["raw_response"]["reconstructed_markdown"] == markdown for item in payloads)

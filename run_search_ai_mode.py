@@ -7,6 +7,7 @@ Set SERPAPI_API_KEY in the environment or the ignored repository .env file
 
 from pathlib import Path
 from pprint import pprint
+import re
 
 import pandas as pd
 
@@ -45,6 +46,26 @@ INPUT_ROWS = [
 # ---------------------------------------------------------------------------
 
 
+def clean_ai_mode_links(df, input, output=None):
+    """Remove Google's viewer instruction from link labels for this trial."""
+    from wrangles._text_cleanup import map_markdown_prose
+
+    viewer_label = re.compile(
+        r'(\[(?:\\.|[^\]\\\n])*?)\s*'
+        r'Go to product viewer dialog for this item\.(?=\]\()'
+    )
+
+    def clean(value):
+        if not isinstance(value, str):
+            return value
+        return map_markdown_prose(
+            value, lambda prose: viewer_label.sub(lambda match: match[1].rstrip(), prose)
+        )
+
+    df[output or input] = df[input].map(clean)
+    return df
+
+
 def main():
     if NROWS is not None and NROWS < 1:
         raise ValueError("NROWS must be None for all rows, or a positive integer.")
@@ -66,6 +87,7 @@ def main():
     results_df = wrangles.recipe.run(
         str(RECIPE_FILE),
         dataframe=input_df,
+        functions=[clean_ai_mode_links],
         variables={
             "N_RESULTS": N_RESULTS,
             "THREADS": THREADS,
