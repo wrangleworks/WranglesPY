@@ -175,6 +175,71 @@ def test_heading_matching_missing_repeated_and_unmatched_content(ai_mode_provide
     assert meta["parse_status"] == "partial"
 
 
+@pytest.mark.parametrize("first_heading", ["Product Description", "Overview"])
+def test_missing_first_heading_recovers_leading_paragraphs(ai_mode_provider, provider_response, first_heading):
+    # Google sometimes starts with the description and labels only later sections.
+    response = deepcopy(provider_response)
+    response["text_blocks"] = response["text_blocks"][1:]
+    continuation = {"type": "paragraph", "snippet": "Additional product features."}
+    response["text_blocks"].insert(1, continuation)
+    response["references"] = []
+    response["text_blocks"][0].pop("reference_indexes")
+    response["text_blocks"][3].pop("reference_indexes")
+    ai_mode_provider[0]["product"] = response
+    config = deepcopy(QUERY_CONFIG)
+    config[1] = {first_heading: "1-3 sentences including the name and key features."}
+
+    row = run_ai_mode(query_config=config, include_raw_response=True).iloc[0]
+    result = row["result"]
+    assert result[first_heading] == response["text_blocks"][:2]
+    assert result["Technical Specifications"] == [response["text_blocks"][3]]
+    assert result["Sources & Pricing"] == [response["text_blocks"][5]]
+    assert result["references"] == []
+    assert row["markdown"] == response["reconstructed_markdown"]
+    assert result["raw_response"] == response
+    meta = result["meta_data"]
+    assert meta["missing_headings"] == []
+    assert meta["inferred_headings"] == [first_heading]
+    assert meta["unsectioned_text_blocks"] == []
+    assert meta["warnings"] == [f"inferred_heading: {first_heading}"]
+    assert meta["parse_status"] == "partial"
+
+
+@pytest.mark.parametrize("case", [
+    "explicit-first-heading", "explicit-first-heading-late", "unknown-heading-first", "two-missing-headings",
+    "no-headings", "list-preamble", "malformed-preamble", "processing-response",
+])
+def test_first_heading_fallback_keeps_ambiguous_preambles_in_diagnostics(ai_mode_provider, provider_response, case):
+    preamble = [{"type": "paragraph", "snippet": "Opening text."}]
+    remaining = deepcopy(provider_response["text_blocks"][2:])
+    status = "Success"
+    if case == "explicit-first-heading":
+        remaining = deepcopy(provider_response["text_blocks"])
+    elif case == "explicit-first-heading-late":
+        remaining.extend(deepcopy(provider_response["text_blocks"][:2]))
+    elif case == "unknown-heading-first":
+        remaining.insert(0, {"type": "heading", "snippet": "Unrequested Heading"})
+    elif case == "two-missing-headings":
+        remaining = remaining[2:]
+    elif case == "no-headings":
+        remaining = []
+    elif case == "list-preamble":
+        preamble = [{"type": "list", "list": [{"snippet": "Unclassified content"}]}]
+    elif case == "malformed-preamble":
+        preamble.append("Malformed block")
+    elif case == "processing-response":
+        status = "Processing"
+    response = {**provider_response, "search_metadata": {"status": status},
+                "text_blocks": preamble + remaining}
+    ai_mode_provider[0]["product"] = response
+
+    result = run_ai_mode().iloc[0]["result"]
+    assert result["meta_data"]["unsectioned_text_blocks"] == preamble
+    assert result["meta_data"]["inferred_headings"] == []
+    expected = [provider_response["text_blocks"][1]] if case.startswith("explicit-first-heading") else []
+    assert result["Product Description"] == expected
+
+
 def test_nested_lists_tables_and_unknown_blocks_are_preserved(ai_mode_provider, provider_response):
     blocks = [
         {"type": "heading", "snippet": "Details"},

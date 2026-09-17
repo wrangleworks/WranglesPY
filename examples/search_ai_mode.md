@@ -59,9 +59,16 @@ LaTeX and citation indexes. They are not inferred product attributes or
 price dictionaries. References retain their original indexes and ordering;
 they are not truncated, deduplicated, or requested again as a heading.
 
-Heading matching ignores case and whitespace differences. Missing headings
-produce empty lists and warnings. Repeated headings append to the same
-section. Unrequested headings and preamble content are preserved in
+Heading matching ignores case and whitespace differences. When Google omits
+the first heading and the response begins with paragraphs followed by the
+second requested heading, those paragraphs populate the first section. This
+fallback requires a successful response and no explicit first heading anywhere
+in the answer. It records `meta_data.inferred_headings` and an `inferred_heading`
+warning; `parse_status` stays `partial` to make the inference visible.
+
+Other missing sections produce empty lists and warnings. Repeated headings
+append to the same section. Unrequested headings and remaining preamble
+content are preserved in
 `meta_data.unmatched_sections` and `meta_data.unsectioned_text_blocks`.
 `meta_data.parse_status` is `complete`, `partial`, `error`, or `skipped`.
 Provider errors remain attached to the input row. Blank queries skip the

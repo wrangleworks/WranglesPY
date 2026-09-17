@@ -247,8 +247,10 @@ def ai_mode(
           heading, the complete references list and meta_data. Two outputs return
           [ai_mode_result, ai_mode_markdown], where Markdown is the provider's
           original reconstructed_markdown string, without cleanup or truncation.
-          Missing headings have empty lists and parse warnings. Unknown headings
-          and preamble blocks are retained in meta_data diagnostics. Blank queries
+          Missing sections have empty lists and parse warnings. If the first heading
+          is omitted and opening paragraphs precede the second requested heading, they
+          populate the first section with an inferred_headings diagnostic and warning.
+          Unknown headings and other preamble blocks remain in meta_data. Blank queries
           return an empty section dictionary with status Skipped and empty Markdown.
       client:
         type: string

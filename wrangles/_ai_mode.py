@@ -93,6 +93,7 @@ def normalize_response(response, query, headings, query_index=None, *,
         "device": parameters.get("device"),
         "location": parameters.get("location_used", parameters.get("location")),
         "missing_headings": [],
+        "inferred_headings": [],
         "repeated_headings": [],
         "unmatched_sections": [],
         "unsectioned_text_blocks": [],
@@ -101,6 +102,7 @@ def normalize_response(response, query, headings, query_index=None, *,
     result = {name: [] for name in headings}
     lookup = {heading_key(name): name for name in headings}
     seen = set()
+    observed_headings = []
 
     def field(name, expected_type, default):
         value = response.get(name, default)
@@ -116,6 +118,7 @@ def normalize_response(response, query, headings, query_index=None, *,
         if isinstance(block, Mapping) and block.get("type") == "heading":
             label = block.get("snippet")
             name = lookup.get(heading_key(label)) if isinstance(label, str) else None
+            observed_headings.append(name)
             if name is not None:
                 if name in seen:
                     warnings.append(f"repeated_heading: {name}")
@@ -133,6 +136,24 @@ def normalize_response(response, query, headings, query_index=None, *,
             current.append(deepcopy(block))
             if not isinstance(block, Mapping):
                 warnings.append("invalid_text_block")
+
+    # Google can omit the first heading while labeling subsequent sections.
+    # Infer only opening paragraphs bounded by the second requested heading.
+    leading = metadata["unsectioned_text_blocks"]
+    if (
+        status == "Success" and len(headings) > 1 and headings[0] not in seen
+        and observed_headings and observed_headings[0] == headings[1] and leading
+        and all(
+            isinstance(block, Mapping) and block.get("type") == "paragraph"
+            and isinstance(block.get("snippet"), str) and block["snippet"].strip()
+            for block in leading
+        )
+    ):
+        result[headings[0]].extend(leading)
+        metadata["unsectioned_text_blocks"] = []
+        metadata["inferred_headings"].append(headings[0])
+        seen.add(headings[0])
+        warnings.append(f"inferred_heading: {headings[0]}")
 
     references = field("references", list, [])
     result["references"] = []
