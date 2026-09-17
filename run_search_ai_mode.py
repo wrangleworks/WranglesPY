@@ -16,10 +16,19 @@ import pandas as pd
 REPOSITORY = Path(__file__).resolve().parent
 RECIPE_FILE = REPOSITORY / "search_ai_mode_test.recipe"
 NROWS = None  # None = all input rows; 1 = a one-row trial.
-N_RESULTS = 5
 THREADS = 1
 COUNTRY = "us"
 LANGUAGE = "en"
+AI_MODE_QUERY = [
+    {"base_query": "Provide the following product information:"},
+    {"Product Description": "1-3 sentences including the product name and key features."},
+    {"Technical Specifications": "List confirmed technical specifications."},
+    {"Sources & Pricing": "List suppliers and available pricing with source links."},
+    {"query_suffix": (
+        "Use the requested headings exactly as written. "
+        "Include only the requested sections, and do not include follow-up questions."
+    )},
+]
 
 # User-supplied examples, 2026-09-17; JSON-style records, without generated data.
 INPUT_ROWS = [
@@ -89,7 +98,7 @@ def main():
         dataframe=input_df,
         functions=[clean_ai_mode_links],
         variables={
-            "N_RESULTS": N_RESULTS,
+            "AI_MODE_QUERY": AI_MODE_QUERY,
             "THREADS": THREADS,
             "COUNTRY": COUNTRY,
             "LANGUAGE": LANGUAGE,

@@ -3,34 +3,46 @@
 # The SerpAPI client reads SERPAPI_API_KEY from the environment.
 
 wrangles:
-  # Retain all supplied product evidence in the single AI Mode query.
+  # Give Jinja the same structured configuration passed to the search parser.
+  - create.column:
+      output: __ai_mode_query_config
+      value: ${AI_MODE_QUERY}
+      value_if_exists: new
+
   - create.jinja:
       output: search_query
       template:
         string: |-
+          {% for entry in __ai_mode_query_config %}{% if 'base_query' in entry %}{{ entry.base_query }}
+          {% endif %}{% endfor %}
+          {% for entry in __ai_mode_query_config %}{% for heading, instruction in entry.items() %}{% if heading not in ['base_query', 'query_suffix'] %}{{ heading | trim }}: {{ instruction }}
+          {% endif %}{% endfor %}{% endfor %}
           Description: {{ Description }}
           Mfr: {{ Mfr }}
           MPN: {{ MPN }}
           part_codes: {{ part_codes | tojson }}
           query: {{ query }}
+          {% for entry in __ai_mode_query_config %}{% if 'query_suffix' in entry %}{{ entry.query_suffix }}{% endif %}{% endfor %}
+
+  - drop:
+      columns: __ai_mode_query_config
 
   - search.ai_mode:
       queries: search_query
       id: ID
+      query_config: ${AI_MODE_QUERY}
       output:
-        - ai_mode_results
-        - ai_mode_text
-        - reconstructed_markdown
+        - ai_mode_result
+        - ai_mode_markdown
       client: serpapi
-      n_results: ${N_RESULTS}
       threads: ${THREADS}
       country: ${COUNTRY}
       language: ${LANGUAGE}
 
   # Retain the original Markdown alongside the cleaned version for comparison.
   - standardize.clean:
-      input: reconstructed_markdown
-      output: reconstructed_markdown_clean
+      input: ai_mode_markdown
+      output: ai_mode_markdown_clean
       unescape_unicode: true
       latex_to_text: true
       collapse_whitespace: false
@@ -39,4 +51,4 @@ wrangles:
       unescape_html: false
 
   - custom.clean_ai_mode_links:
-      input: reconstructed_markdown_clean
+      input: ai_mode_markdown_clean

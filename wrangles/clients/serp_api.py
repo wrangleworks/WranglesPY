@@ -4,23 +4,8 @@ from typing import Union as _Union
 
 # Import our new core web helpers
 from .. import web as _web
+from .. import _ai_mode
 
-_PRICING_KEYS = {
-    "price",
-    "pricing",
-    "prices",
-    "currency",
-    "cost",
-    "list_price",
-    "unit_price",
-    "availability",
-    "in_stock",
-    "stock",
-    "lead_time",
-    "minimum_order_quantity",
-    "moq",
-    "supplier_price",
-}
 
 def _extract_target_sites(query: str) -> list[str]:
     """Extract site:domain filters from query using simple token parsing."""
@@ -166,23 +151,6 @@ def _build_empty_classic_response(query, query_index: int | None) -> dict:
     }
 
 
-def _build_empty_ai_response(query, query_index: int | None) -> dict:
-    empty_meta = {
-        "query_index": query_index,
-        "query": str(query).strip() if query else None,
-        "search_type": "ai",
-    }
-    return {
-        "search_metadata": empty_meta,
-        "product_details": {},
-        "pricing": {},
-        "misc": {},
-        "content_like_results": [],
-        "raw_response": {},
-        "validation": _build_high_level_validation(empty_meta, {}, {}, []),
-    }
-
-
 def _build_error_classic_response(query, query_index: int | None, error: Exception) -> dict:
     return {
         "search_metadata": {
@@ -192,104 +160,6 @@ def _build_error_classic_response(query, query_index: int | None, error: Excepti
             "error": str(error),
         },
         "search_results": []
-    }
-
-
-def _build_error_ai_response(query, query_index: int | None, error: Exception) -> dict:
-    error_meta = {
-        "query_index": query_index,
-        "query": str(query).strip() if query else None,
-        "search_type": "ai",
-        "error": str(error),
-    }
-    return {
-        "search_metadata": error_meta,
-        "product_details": {},
-        "pricing": {},
-        "misc": {},
-        "content_like_results": [],
-        "raw_response": {},
-        "validation": _build_high_level_validation(error_meta, {}, {}, []),
-    }
-
-
-def _flatten_one_level(payload: dict) -> dict:
-    """Flatten nested dictionaries one level deep using parent_key_child_key naming."""
-    out = {}
-    for key, value in (payload or {}).items():
-        if isinstance(value, dict):
-            for sub_key, sub_value in value.items():
-                out[f"{key}_{sub_key}"] = sub_value
-        else:
-            out[key] = value
-    return out
-
-
-def _split_details_and_pricing(flattened: dict) -> tuple[dict, dict, dict]:
-    product_details = {}
-    pricing = {}
-    misc = {}
-
-    for key, value in (flattened or {}).items():
-        key_l = str(key).lower()
-        if key_l in _PRICING_KEYS or any(token in key_l for token in ("price", "currency", "cost", "availability", "stock", "lead_time", "moq")):
-            pricing[key] = value
-        elif key_l in ("sources", "citations", "references"):
-            misc[key] = value
-        else:
-            product_details[key] = value
-
-    return product_details, pricing, misc
-
-
-def _extract_content_like_results(response: dict) -> list:
-    """Collect response blocks that contain source/content-like material and normalize to dicts."""
-    results = []
-    candidates = [
-        "organic_results",
-        "sources",
-        "citations",
-        "references",
-        "related_questions",
-    ]
-
-    for key in candidates:
-        value = response.get(key)
-        if isinstance(value, list):
-            for item in value:
-                if isinstance(item, dict):
-                    results.append(_flatten_one_level(item))
-                elif item is not None:
-                    results.append({"value": item, "source_type": key})
-        elif isinstance(value, dict):
-            results.append(_flatten_one_level(value))
-
-    if not results:
-        answer_box = _safe_dict(response.get("answer_box"))
-        if answer_box:
-            results.append(_flatten_one_level(answer_box))
-
-    return results
-
-
-def _build_high_level_validation(search_metadata: dict, product_details: dict, pricing: dict, content_like_results: list) -> dict:
-    warnings = []
-    if not product_details:
-        warnings.append("missing_product_details")
-    if not pricing:
-        warnings.append("missing_pricing")
-    if not content_like_results:
-        warnings.append("missing_content_like_results")
-
-    return {
-        "is_valid": len(warnings) == 0,
-        "warnings": warnings,
-        "counts": {
-            "product_detail_fields": len(product_details),
-            "pricing_fields": len(pricing),
-            "content_like_results": len(content_like_results),
-        },
-        "has_error": bool(search_metadata.get("error")),
     }
 
 
@@ -366,54 +236,35 @@ class SerpApiWranglesClient:
         except Exception as e:
             return _build_error_classic_response(query, query_index, e)
 
-    def ai_mode_single(self, query: str, n_results: int = 5, kwargs: dict = None, query_index: int | None = None) -> dict:
-        """Perform a single Google AI Mode search using SerpAPI and return a hybrid payload."""
-        if _is_empty_query(query):
-            return _build_empty_ai_response(query, query_index)
-
-        if kwargs is None:
-            kwargs = {}
-
+    def ai_mode_single(self, query, query_config, kwargs=None, query_index=None,
+                       include_raw_response=False) -> dict:
+        """Return heading sections and the provider Markdown for one query."""
+        headings = _ai_mode.query_headings(query_config)
+        query = _ai_mode.normalize_query(query)
+        kwargs = _ai_mode.request_parameters(kwargs or {})
+        if not query:
+            return _ai_mode.normalize_response(
+                {}, query, headings, query_index, status="Skipped",
+                include_raw_response=include_raw_response,
+            )
         try:
             client = self.client_class(api_key=self.api_key)
-            params = {
-                "engine": "google_ai_mode",
-                "q": str(query).strip(),
-                "num": min(n_results, 100),
+            response = client.search({
                 **kwargs,
-            }
-            response = client.search(params)
-
-            search_metadata = _build_search_metadata(
-                response=response,
-                query=query,
-                query_index=query_index,
-                search_type="ai",
+                "engine": "google_ai_mode",
+                "q": query,
+                "output": "json",
+            })
+            return _ai_mode.normalize_response(
+                response, query, headings, query_index,
+                include_raw_response=include_raw_response,
             )
-
-            flattened = _flatten_one_level(response)
-            product_details, pricing, misc = _split_details_and_pricing(flattened)
-            content_like_results = _extract_content_like_results(response)[:n_results]
-
-            validation = _build_high_level_validation(
-                search_metadata=search_metadata,
-                product_details=product_details,
-                pricing=pricing,
-                content_like_results=content_like_results,
+        except Exception as error:
+            message = str(error).replace(self.api_key, "[redacted]")
+            return _ai_mode.normalize_response(
+                {}, query, headings, query_index, error=message or type(error).__name__,
+                include_raw_response=include_raw_response,
             )
-
-            return {
-                "search_metadata": search_metadata,
-                "product_details": product_details,
-                "pricing": pricing,
-                "misc": misc,
-                "content_like_results": content_like_results,
-                "raw_response": response,
-                "validation": validation,
-            }
-
-        except Exception as e:
-            return _build_error_ai_response(query, query_index, e)
 
     def search_batch(
         self,
@@ -421,6 +272,8 @@ class SerpApiWranglesClient:
         n_results: int = 10,
         threads: int = 10,
         search_mode: str = "classic",
+        query_config: list | None = None,
+        include_raw_response: bool = False,
         **kwargs
     ) -> _Union[dict, list]:
         """
@@ -435,8 +288,11 @@ class SerpApiWranglesClient:
         mode = str(search_mode or "classic").strip().lower()
         if mode in ("classic", "google", "web"):
             single_search_fn = self.search_single
+            search_options = {"n_results": n_results}
         elif mode in ("ai", "ai_mode", "google_ai_mode"):
+            _ai_mode.query_headings(query_config)
             single_search_fn = self.ai_mode_single
+            search_options = {"query_config": query_config, "include_raw_response": include_raw_response}
         else:
             raise ValueError("search_mode must be one of: classic, ai")
 
@@ -446,7 +302,7 @@ class SerpApiWranglesClient:
             results = list(executor.map(
                 lambda t: single_search_fn(
                     query=t[1],
-                    n_results=n_results,
+                    **search_options,
                     kwargs=kwargs,
                     query_index=t[0],
                 ),

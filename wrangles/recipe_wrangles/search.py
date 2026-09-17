@@ -1,6 +1,6 @@
 import logging as _logging
 import pandas as _pd
-from collections.abc import Mapping as _Mapping
+from .. import _ai_mode
 
 # Import the combined core wrangles
 from .. import search as _search_core
@@ -193,189 +193,147 @@ def find_links(
 
 def ai_mode(
     df: _pd.DataFrame,
-    queries: str | list,
+    queries: str,
     id: str,
+    query_config: list,
     output: str | list | None = None,
     client: str = "serpapi",
     api_key: str | None = None,
-    n_results: int = 10,
     threads: int = 10,
+    include_raw_response: bool = False,
     **kwargs
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Perform Google AI Mode searches and return normalized JSON with product details, pricing, content-like results, and raw response payload.
+    description: Search Google AI Mode and group answer blocks under the requested headings, retaining all references and returning the original Markdown separately.
     additionalProperties: false
     required:
       - queries
       - id
+      - query_config
       - output
     properties:
       queries:
-        type:
-          - string
-          - array
-        description: Name or list of input columns containing AI mode search queries.
+        type: string
+        description: Column containing one query string per row. Explode lists of queries before searching.
       id:
         type: string
-        description: Name of the column containing the row ID to append to each result record.
-      output:
-        type:
-          - string
-          - array
+        description: Input row ID column. Its value is retained in meta_data.input_row_id.
+      query_config:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          minProperties: 1
+          maxProperties: 1
+          additionalProperties:
+            type: string
         description: |-
-          Output column for response dictionaries. For one query column, two
-          outputs return [dicts_column, pretty_strings_column]; three outputs
-          add a reconstructed_markdown text column. Markdown comes directly
-          from the provider response, without truncation. For multiple queries
-          in one cell, available Markdown answers are joined in query order
-          with a blank line between answers. Missing Markdown returns an empty
-          string. Multiple query columns require one structured output each.
+          Shared list of single-entry dictionaries used to build the Jinja query.
+          base_query and query_suffix contain prompt text and do not become output
+          fields. Other keys are unique requested headings; values are instructions.
+          references, meta_data and raw_response are reserved output keys.
+      output:
+        oneOf:
+          - type: string
+          - type: array
+            minItems: 1
+            maxItems: 2
+            uniqueItems: true
+            items:
+              type: string
+        description: |-
+          One output returns a dictionary containing a block list per requested
+          heading, the complete references list and meta_data. Two outputs return
+          [ai_mode_result, ai_mode_markdown], where Markdown is the provider's
+          original reconstructed_markdown string, without cleanup or truncation.
+          Missing headings have empty lists and parse warnings. Unknown headings
+          and preamble blocks are retained in meta_data diagnostics. Blank queries
+          return an empty section dictionary with status Skipped and empty Markdown.
       client:
         type: string
-        description: The search provider to use.
         enum:
           - serpapi
         default: serpapi
+        description: Search provider.
       api_key:
         type: string
-        description: API key for the search client. Can also be set as an environment variable (e.g., SERPAPI_API_KEY).
-      n_results:
-        type: integer
-        description: Number of content-like result blocks to retain per query (default 10, max 100).
-        default: 10
+        description: Search API key. Defaults to the SERPAPI_API_KEY environment variable.
       threads:
         type: integer
-        description: Number of concurrent threads for parallel processing (default 10).
+        minimum: 1
         default: 10
+        description: Number of concurrent queries.
+      include_raw_response:
+        type: boolean
+        default: false
+        description: Include the complete provider response under raw_response for diagnostics. Normal outputs omit this duplicate payload.
       country:
         type: string
-        description: "Country code for search results (default 'us'). Alias: gl."
         default: us
+        description: "Country code. Alias: gl."
+      gl:
+        type: string
+        description: Country code.
       language:
         type: string
-        description: "Language code for search results (default 'en'). Alias: hl."
         default: en
-      google_domain:
+        description: "Language code. Alias: hl."
+      hl:
         type: string
-        description: Google domain for search results (e.g., google.com, google.co.uk).
+        description: Language code.
       location:
         type: string
-        description: Location for search results (e.g., 'Austin, Texas').
+        description: Geographic search location.
       device:
         type: string
-        description: Device type for search results.
         enum:
           - desktop
           - mobile
           - tablet
+        description: Device type.
     """
+    _ai_mode.query_headings(query_config)
+    kwargs = _ai_mode.request_parameters(kwargs)
+    if not isinstance(queries, str) or not queries:
+        raise ValueError("search.ai_mode requires one query column.")
     if output is None:
         output = queries
+    columns = [output] if isinstance(output, str) else output
+    if (
+        not isinstance(columns, list) or len(columns) not in (1, 2)
+        or any(not isinstance(name, str) or not name for name in columns)
+        or len(set(columns)) != len(columns)
+    ):
+        raise ValueError("search.ai_mode requires 1 or 2 distinct output columns [ai_mode_result, ai_mode_markdown].")
 
-    client_config = {"api_key": api_key}
-    kwargs = _normalize_search_kwargs(kwargs)
-
-    if not isinstance(queries, list):
-        queries = [queries]
-    if not isinstance(output, list):
-        output = [output]
-
-    is_multi_output = len(queries) == 1 and len(output) in (2, 3)
-    has_markdown_output = is_multi_output and len(output) == 3
-
-    if not is_multi_output and len(queries) != len(output):
-        raise ValueError("search.ai_mode must have an equal number of query and output columns, OR 1 query column and 2 or 3 output columns [dicts, strings, optional reconstructed_markdown].")
-
-    def _to_query_list(v) -> list[str]:
-        if v is None:
-            return []
-        if isinstance(v, (list, tuple)):
-            return [str(x).strip() for x in v if x is not None and str(x).strip()]
-        s = str(v).strip()
-        return [s] if s else []
-
-    row_ids = df[id].tolist() if id in df.columns else [None] * len(df)
-
-    for i, query_column in enumerate(queries):
-        dict_output_column = output[0] if is_multi_output else output[i]
-
-        row_query_lists = [_to_query_list(v) for v in df[query_column].tolist()]
-        flat_queries = [q for qs in row_query_lists for q in qs]
-
-        if not flat_queries:
-            df[dict_output_column] = [[] for _ in row_query_lists]
-            if is_multi_output:
-                df[output[1]] = ["" for _ in row_query_lists]
-            if has_markdown_output:
-                df[output[2]] = ["" for _ in row_query_lists]
-            _logging.info(": Wrangling :: ai_mode summary :: 0 queries >> 0 results")
-            continue
-
-        flat_responses = _search_core.ai_mode(
-            queries=flat_queries,
-            client=client,
-            client_config=client_config,
-            n_results=n_results,
-            threads=threads,
-            **kwargs
-        )
-
-        out_cells, string_cells, markdown_cells, pos, total_queries = [], [], [], 0, 0
-
-        for qs, current_id in zip(row_query_lists, row_ids):
-            k = len(qs)
-            total_queries += k
-            if k == 0:
-                out_cells.append([])
-                string_cells.append("")
-                markdown_cells.append("")
-                continue
-
-            cell = flat_responses[pos:pos + k]
-            markdown_parts = []
-            for j, resp in enumerate(cell, start=1):
-                if isinstance(resp, dict):
-                    if has_markdown_output:
-                        raw_response = resp.get("raw_response")
-                        if isinstance(raw_response, _Mapping):
-                            markdown = raw_response.get("reconstructed_markdown")
-                            if isinstance(markdown, str) and markdown:
-                                markdown_parts.append(markdown)
-
-                    meta = resp.get("search_metadata")
-                    if isinstance(meta, dict):
-                        meta["query_index"] = j
-
-                    content_like = []
-                    for item in resp.get("content_like_results", []):
-                        if isinstance(item, dict):
-                            new_item = {"input_row_id": current_id}
-                            new_item.update(item)
-                            new_item["query_index"] = j
-                            content_like.append(new_item)
-                        else:
-                            content_like.append(item)
-                    resp["content_like_results"] = content_like
-
-            out_cells.append(cell)
-            if is_multi_output:
-                string_cells.append(_format.raw_search_results_to_text(cell))
-            if has_markdown_output:
-                markdown_cells.append("\n\n".join(markdown_parts))
-
-            pos += k
-
-        df[dict_output_column] = out_cells
-        if is_multi_output:
-            df[output[1]] = string_cells
-        if has_markdown_output:
-            df[output[2]] = markdown_cells
-
-        _logging.info(f": Wrangling :: ai_mode summary :: {total_queries} queries processed")
-
+    row_ids = df[id].tolist()
+    query_values = [
+        "" if value is _pd.NA or value is _pd.NaT else _ai_mode.normalize_query(value)
+        for value in df[queries].tolist()
+    ]
+    responses = _search_core.ai_mode(
+        queries=query_values,
+        query_config=query_config,
+        client=client,
+        client_config={"api_key": api_key},
+        threads=threads,
+        include_raw_response=include_raw_response,
+        **kwargs,
+    )
+    if len(responses) != len(df):
+        raise RuntimeError("AI Mode response count does not match the input row count.")
+    result_cells, markdown_cells = [], []
+    for row_id, response in zip(row_ids, responses):
+        result = response["ai_mode_result"]
+        result["meta_data"]["input_row_id"] = row_id
+        result_cells.append(result)
+        markdown_cells.append(response["ai_mode_markdown"])
+    df[columns[0]] = result_cells
+    if len(columns) == 2:
+        df[columns[1]] = markdown_cells
+    _logging.info(f": Wrangling :: ai_mode summary :: {len(query_values)} queries processed")
     return df
-
 
 
 def retrieve_link_content(
