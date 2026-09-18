@@ -89,9 +89,16 @@ references contain those same URLs, skipping entries with no URL. Neither
 list is truncated or deduplicated. References are not requested again as a
 heading; an empty provider references list produces an empty compact list.
 
-Heading matching ignores case and whitespace differences. When Google omits
-the first heading and the response begins with paragraphs followed by the
-second requested heading, those paragraphs populate the first section. This
+Heading matching ignores case and whitespace differences. It recognizes native
+heading blocks and paragraph blocks containing an exact requested label, either
+alone or followed by a colon and content (for example, `Product Description: The
+INA roller ...`). Content after the label stays in that section, retaining its
+links and citation indexes in the complete result. Matching applies only at the
+start of a top-level heading or paragraph; nested blocks and ordinary mentions
+of a heading stay as content. The original Markdown remains unchanged.
+
+When Google omits the first heading and the response begins with paragraphs
+followed by the second requested heading, those paragraphs populate the first section. This
 fallback requires a successful response and no explicit first heading anywhere
 in the answer. The complete result records `meta_data.inferred_headings` and an `inferred_heading`
 warning; `parse_status` stays `partial` to make the inference visible.

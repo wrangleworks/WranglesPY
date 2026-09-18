@@ -349,10 +349,111 @@ def test_heading_matching_missing_repeated_and_unmatched_content(ai_mode_provide
     assert meta["parse_status"] == "partial"
 
 
+@pytest.mark.parametrize("inline_description", [False, True])
+def test_paragraph_section_labels_populate_all_outputs(ai_mode_provider, provider_response, inline_description):
+    # Google can put the description after a colon and emit later labels as paragraphs.
+    response = deepcopy(provider_response)
+    for index, heading in enumerate(HEADINGS):
+        response["text_blocks"][index * 2] = {"type": "paragraph", "snippet": f"{heading}:"}
+    if inline_description:
+        response["text_blocks"][1]["snippet"] = "Product Description: " + response["text_blocks"][1]["snippet"]
+        response["text_blocks"].pop(0)
+    ai_mode_provider[0]["product"] = response
+
+    row = run_ai_mode(include_raw_response=True).iloc[0]
+    result = row["result"]
+    for index, heading in enumerate(HEADINGS):
+        assert result[heading] == [provider_response["text_blocks"][index * 2 + 1]]
+    assert row["compact"]["Product Description"] == "The Example Power P12 supplies 12 VDC."
+    assert len(row["compact"]["Technical Specifications"]) == 12
+    assert row["compact"]["Sources & Pricing"] == [
+        {"Supplier 1": "$21.00"}, {"Supplier 2": "$22.00"}, {"Supplier 3": "$23.00"},
+    ]
+    assert row["compact"]["references"] == [ref["link"] for ref in response["references"]]
+    assert result["references"] == response["references"]
+    assert result["raw_response"] == response
+    assert row["markdown"] == response["reconstructed_markdown"]
+    meta = result["meta_data"]
+    assert meta["missing_headings"] == meta["inferred_headings"] == []
+    assert meta["unsectioned_text_blocks"] == meta["warnings"] == []
+    assert meta["parse_status"] == "complete"
+
+
+@pytest.mark.parametrize("block_type, label, body", [
+    ("heading", " product   DESCRIPTION: ", ""),
+    ("paragraph", " product   DESCRIPTION ", ""),
+    ("paragraph", " product\tDESCRIPTION :\nBody text: 12 mm.", "Body text: 12 mm."),
+    ("paragraph", "Product Description：Body text.", "Body text."),
+    ("heading", "Product Description: Body text.", "Body text."),
+])
+def test_explicit_section_labels_allow_spacing_and_colons(ai_mode_provider, provider_response, block_type, label, body):
+    response = deepcopy(provider_response)
+    response["text_blocks"][0] = {"type": block_type, "snippet": label}
+    ai_mode_provider[0]["product"] = response
+    result = run_ai_mode().iloc[0]["result"]
+    expected = ([{"type": "paragraph", "snippet": body}] if body else [])
+    assert result["Product Description"] == expected + [provider_response["text_blocks"][1]]
+    assert result["meta_data"]["parse_status"] == "complete"
+
+
+def test_section_labels_preserve_attached_nested_content(ai_mode_provider, provider_response):
+    response = deepcopy(provider_response)
+    response["text_blocks"][3].update(type="paragraph", snippet="Technical Specifications:")
+    response["text_blocks"].pop(2)
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert row["result"]["Technical Specifications"] == [{**response["text_blocks"][2], "snippet": ""}]
+    assert len(row["compact"]["Technical Specifications"]) == 12
+    assert row["result"]["meta_data"]["parse_status"] == "complete"
+
+
+def test_section_labels_do_not_match_embedded_mentions_or_nested_items(ai_mode_provider, provider_response):
+    blocks = [
+        {"type": "paragraph", "snippet": "See Technical Specifications: below."},
+        {"type": "paragraph", "snippet": "Technical Specifications include these values."},
+        {"type": "paragraph", "snippet": "Technical Specifications Summary: 12 mm."},
+        {"type": "paragraph", "snippet": "Technical Specifications12 mm"},
+        {"type": "list", "snippet": "Technical Specifications:", "list": [
+            {"snippet": "Sources & Pricing: should stay in this list.", "text_blocks": [
+                {"type": "heading", "snippet": "Sources & Pricing"},
+            ]},
+        ]},
+    ]
+    response = deepcopy(provider_response)
+    response["text_blocks"][2:2] = blocks
+    ai_mode_provider[0]["product"] = response
+    result = run_ai_mode().iloc[0]["result"]
+    assert result["Product Description"] == [provider_response["text_blocks"][1], *blocks]
+    assert result["Technical Specifications"] == [provider_response["text_blocks"][3]]
+    assert result["Sources & Pricing"] == [provider_response["text_blocks"][5]]
+    assert result["meta_data"]["parse_status"] == "complete"
+
+
+def test_custom_section_labels_with_colons_use_full_name(ai_mode_provider, provider_response):
+    config = [{"Details": "Overview"}, {"Details: Dimensions": "Measurements"}]
+    blocks = [
+        {"type": "paragraph", "snippet": "Details: First description."},
+        {"type": "paragraph", "snippet": "Details: Dimensions: Width: 12 mm."},
+        {"type": "paragraph", "snippet": "Details: Second description."},
+    ]
+    ai_mode_provider[0]["product"] = {**provider_response, "text_blocks": blocks}
+    row = run_ai_mode(query_config=config).iloc[0]
+    assert row["compact"]["Details"] == "First description.\n\nSecond description."
+    assert row["compact"]["Details: Dimensions"] == "Width: 12 mm."
+    meta = row["result"]["meta_data"]
+    assert meta["missing_headings"] == []
+    assert meta["repeated_headings"] == ["Details"]
+    assert meta["warnings"] == ["repeated_heading: Details"]
+
+
 @pytest.mark.parametrize("first_heading", ["Product Description", "Overview"])
-def test_missing_first_heading_recovers_leading_paragraphs(ai_mode_provider, provider_response, first_heading):
+@pytest.mark.parametrize("heading_type", ["heading", "paragraph"])
+def test_missing_first_heading_recovers_leading_paragraphs(ai_mode_provider, provider_response, first_heading, heading_type):
     # Google sometimes starts with the description and labels only later sections.
     response = deepcopy(provider_response)
+    for block in response["text_blocks"]:
+        if block["type"] == "heading":
+            block["type"] = heading_type
     response["text_blocks"] = response["text_blocks"][1:]
     continuation = {"type": "paragraph", "snippet": "Additional product features."}
     response["text_blocks"].insert(1, continuation)

@@ -12,6 +12,26 @@ def heading_key(value):
     return " ".join(unicodedata.normalize("NFC", value).split()).casefold()
 
 
+def _section_marker(block, lookup):
+    """Match explicit top-level labels, including paragraphs with inline content."""
+    if not isinstance(block, Mapping) or block.get("type") not in ("heading", "paragraph"):
+        return None
+    label = block.get("snippet")
+    if not isinstance(label, str):
+        return None
+    name = lookup.get(heading_key(label))
+    if name is not None:
+        return name, ""
+    # A colon bounds an inline label. Try the longest prefix first because a
+    # configured heading can itself contain colons; leave the body unchanged.
+    delimiters = [index for index, char in enumerate(label) if char in ":："]
+    for index in reversed(delimiters):
+        name = lookup.get(heading_key(label[:index]))
+        if name is not None:
+            return name, label[index + 1:].strip()
+    return None
+
+
 def query_headings(query_config):
     """Return canonical headings from the same configuration used by Jinja."""
     if not isinstance(query_config, list) or not query_config:
@@ -117,22 +137,27 @@ def normalize_response(response, query, headings, query_index=None, *,
 
     current = metadata["unsectioned_text_blocks"]
     for block in field("text_blocks", list, []):
-        if isinstance(block, Mapping) and block.get("type") == "heading":
-            label = block.get("snippet")
-            name = lookup.get(heading_key(label)) if isinstance(label, str) else None
+        marker = _section_marker(block, lookup)
+        if marker is not None:
+            name, body = marker
             observed_headings.append(name)
-            if name is not None:
-                if name in seen:
-                    warnings.append(f"repeated_heading: {name}")
-                    if name not in metadata["repeated_headings"]:
-                        metadata["repeated_headings"].append(name)
-                seen.add(name)
-                current = result[name]
-            else:
-                section = {"heading": deepcopy(dict(block)), "text_blocks": []}
-                metadata["unmatched_sections"].append(section)
-                warnings.append(f"unexpected_heading: {label}")
-                current = section["text_blocks"]
+            if name in seen:
+                warnings.append(f"repeated_heading: {name}")
+                if name not in metadata["repeated_headings"]:
+                    metadata["repeated_headings"].append(name)
+            seen.add(name)
+            current = result[name]
+            if body or any(block.get(key) for key in ("list", "table", "text_blocks")):
+                content = deepcopy(dict(block))
+                content.update(type="paragraph", snippet=body)
+                current.append(content)
+        elif isinstance(block, Mapping) and block.get("type") == "heading":
+            label = block.get("snippet")
+            observed_headings.append(None)
+            section = {"heading": deepcopy(dict(block)), "text_blocks": []}
+            metadata["unmatched_sections"].append(section)
+            warnings.append(f"unexpected_heading: {label}")
+            current = section["text_blocks"]
         else:
             # Preserve list/table structure, nested blocks and unfamiliar block types.
             current.append(deepcopy(block))

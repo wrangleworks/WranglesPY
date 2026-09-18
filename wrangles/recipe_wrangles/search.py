@@ -254,6 +254,9 @@ def ai_mode(
           list and meta_data, removing source_icon and thumbnail fields recursively
           and stripping srsltid URL parameters. The optional third output is the
           provider's original reconstructed_markdown, without cleanup or truncation.
+          Requested labels match native headings or top-level paragraphs, including
+          a label followed by a colon and inline content. Case and whitespace
+          differences are ignored; content after an inline label stays in its section.
           Missing sections have empty lists and parse warnings. If the first heading
           is omitted and opening paragraphs precede the second requested heading, they
           populate the first section with an inferred_headings diagnostic and warning.
