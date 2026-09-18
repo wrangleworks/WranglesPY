@@ -124,7 +124,21 @@ def _visible_items(blocks, listed=False):
 
 
 def _supplier_price(text, links):
-    parts = re.split(r"\s*[:：]\s*|\s+[–—]\s+", text, maxsplit=1)
+    labels = sorted(dict.fromkeys(
+        label for link in (links if isinstance(links, list) else [])
+        if isinstance(link, Mapping) and (label := _plain_text(link.get("text")))
+    ), key=len, reverse=True)
+    prefix = r"(?:available|offered|sold)\s+(?:at|from|by)\s+"
+    parts = None
+    # Prefer the linked name so a supplier containing "for" or "at" stays whole.
+    for label in labels:
+        match = re.fullmatch(prefix + re.escape(label) + r"\s+(?:for|at)\s+(.+)", text, re.IGNORECASE)
+        if match:
+            parts = (label, match[1])
+            break
+    if parts is None:
+        match = re.fullmatch(prefix + r"(.+?)\s+(?:for|at)\s+(.+)", text, re.IGNORECASE)
+        parts = match.groups() if match else re.split(r"\s*[:：]\s*|\s+[–—]\s+", text, maxsplit=1)
     if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
         return {"text": text}
     supplier, detail = parts
@@ -133,12 +147,9 @@ def _supplier_price(text, links):
     # ranges, currencies, quantity breaks and per-pack qualifiers must survive.
     detail = re.sub(r"\s+[-–—]\s+(?:check availability|view listing|order via|purchase through)\b.*$",
                     "", detail, flags=re.IGNORECASE)
-    if isinstance(links, list):
-        for link in links:
-            label = _plain_text(link.get("text")) if isinstance(link, Mapping) else ""
-            if label:
-                detail = re.sub(r"\s+(?:via|at|on|from)\s+" + re.escape(label) + r"[.!]?\s*$",
-                                "", detail, flags=re.IGNORECASE)
+    for label in labels:
+        detail = re.sub(r"\s+(?:via|at|on|from)\s+" + re.escape(label) + r"[.!]?\s*$",
+                        "", detail, flags=re.IGNORECASE)
     detail = re.sub(r"\s+(?:via|at|on|from)\s*[.!]?\s*$", "", detail, flags=re.IGNORECASE)
     detail = re.sub(r"^(?:available for|priced at|price is|price:)\s*", "", detail, flags=re.IGNORECASE)
     detail = detail.rstrip(" .")
@@ -172,7 +183,11 @@ def _source_url(value):
     """Return a clean web URL; Google product viewers do not identify a source."""
     if not isinstance(value, str):
         return ""
-    value = html.unescape(value).replace(r"\&", "&").strip()
+    # Require complete entities: html.unescape alone treats &currency as &curren
+    # and corrupts the query parameter into a currency symbol followed by "cy".
+    value = re.sub(r"&(?:#[0-9]+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);",
+                   lambda match: html.unescape(match[0]), value)
+    value = value.replace(r"\&", "&").strip()
     try:
         parts = urlsplit(value)
         if parts.scheme.lower() not in ("http", "https") or not parts.hostname:

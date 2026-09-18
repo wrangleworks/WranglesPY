@@ -47,6 +47,20 @@ def test_latex_units_and_symbols(original, expected):
 
 
 @pytest.mark.parametrize(("original", "expected"), [
+    ("$1/2$-inch", "1/2-inch"),
+    ("$ 3 / 8 $", "3 / 8"),
+    ("$-1/2$", "-1/2"),
+    ("$1 1/2$ inch", "1 1/2 inch"),
+    ("$1/2$ and $3/4$", "1/2 and 3/4"),
+    ("Cost $18.57; pitch $1/2$ inch.", "Cost $18.57; pitch 1/2 inch."),
+    ("[Size $1/2$](https://example.invalid/$3/8$)", "[Size 1/2](https://example.invalid/$3/8$)"),
+])
+def test_latex_numeric_fractions_without_commands(original, expected):
+    assert _clean(original) == original
+    assert _clean(original, latex_to_text=True) == expected
+
+
+@pytest.mark.parametrize(("original", "expected"), [
     (r"$\$6\text{ mm}$", "6 mm"),
     (r"$\$19\text{ mm}$", "19 mm"),
     (r"$\$12\text{ mm}$", "12 mm"),
@@ -86,6 +100,9 @@ def test_latex_dollars_are_removed_without_recognizing_units(original, expected)
     (r"$\$6.00\text{ to }\$12.00\text{ USD per pack}$", "$6.00 to $12.00 USD per pack"),
     ("$6 mm", "$6 mm"),
     ("$6m", "$6m"),
+    ("$1/2 off and $3 on sale", "$1/2 off and $3 on sale"),
+    ("$1/2", "$1/2"),
+    (r"\$1/2$", r"\$1/2$"),
     (r"$\$6\unknown{ mm}$", r"$\$6\unknown{ mm}$"),
 ])
 def test_latex_cleanup_preserves_numeric_currency_and_protected_values(original, expected):
@@ -121,6 +138,9 @@ def test_unknown_math_currency_and_markdown_escapes_are_preserved(original):
 
 
 @pytest.mark.parametrize("protected", [
+    r"`$1/2$`",
+    r"$$1/2$$",
+    r"https://example.invalid/?value=$1/2$",
     r"`$\$2\text{ custom units}$`",
     r"[source](https://example.com/?value=$\$2\text{custom-units}$)",
     r"$$\$2\text{ custom units}$$",

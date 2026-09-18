@@ -249,7 +249,8 @@ def ai_mode(
           containing specification or specifications produce name-to-value
           dictionaries, preserving unlabeled content in a text dictionary. Pricing
           sections contain supplier-to-price dictionaries when the text identifies
-          a supplier using a colon or spaced en/em dash. Unattributed pricing notes
+          a supplier using a colon, spaced en/em dash, or wording such as
+          "Available at Supplier for price". Unattributed pricing notes
           are retained in text dictionaries. Pricing lists align by position with
           references, matching cleaned inline URLs, citation IDs or an unambiguous
           source name. References without prices have an empty string value keyed

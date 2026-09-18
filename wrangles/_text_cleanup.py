@@ -14,7 +14,11 @@ _PROTECTED = re.compile(
     r"|(?P<display_math>(?<!\\)\$\$)",
     re.MULTILINE,
 )
-_INLINE_MATH = r"(?<![\\$])\$(?!\$)(?=[^$\r\n]*\\)(?P<math>(?:\\[^\r\n]|[^\\$\r\n])+)\$(?!\$)"
+_BARE_FRACTION = r"[ \t]*[+-]?(?:[0-9]+[ \t]+)?[0-9]+[ \t]*/[ \t]*[0-9]+[ \t]*"
+_INLINE_MATH = (
+    r"(?<![\\$])\$(?!\$)(?=[^$\r\n]*\\|" + _BARE_FRACTION + r"\$)"
+    r"(?P<math>(?:\\[^\r\n]|[^\\$\r\n])+)\$(?!\$)"
+)
 _UNICODE_ESCAPE = (
     r"(?<!\\)\\(?:u[dD][89aAbB][0-9a-fA-F]{2}\\u[dD][c-fC-F][0-9a-fA-F]{2}"
     r"|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})"

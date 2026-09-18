@@ -107,8 +107,8 @@ def clean(
     :param trim: Remove leading and trailing whitespace.
     :param unescape_unicode: Decode literal printable Unicode escapes in prose.
         Code and Markdown link destinations are preserved. Defaults to false.
-    :param latex_to_text: Convert supported inline LaTeX units and symbols to
-        readable text. Preserve numeric dollar amounts, ranges and explicit price
+    :param latex_to_text: Convert supported inline LaTeX units, symbols and numeric
+        fractions to readable text. Preserve numeric dollar amounts, ranges and explicit price
         qualifiers; remove extra dollar signs from other supported inline math.
         Unsupported formulas are preserved. Defaults to false.
         Use collapse_whitespace=False and trim=False to retain Markdown layout.

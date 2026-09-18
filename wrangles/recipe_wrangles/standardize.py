@@ -125,7 +125,7 @@ def clean(
       latex_to_text:
         type: boolean
         default: false
-        description: Convert supported inline LaTeX units and symbols to readable text. Preserve numeric dollar amounts, ranges and explicit price qualifiers; remove extra dollar signs from other supported inline math. Preserve unsupported formulas. Set collapse_whitespace and trim to false to retain Markdown layout.
+        description: Convert supported inline LaTeX units, symbols and numeric fractions to readable text. Preserve numeric dollar amounts, ranges and explicit price qualifiers; remove extra dollar signs from other supported inline math. Preserve unsupported formulas. Set collapse_whitespace and trim to false to retain Markdown layout.
       separator:
         type: string
         default: " "

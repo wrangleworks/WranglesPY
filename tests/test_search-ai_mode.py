@@ -274,6 +274,58 @@ def test_compact_prices_keep_currency_and_qualifiers(ai_mode_provider, provider_
     assert row["result"]["Sources & Pricing"] == response["text_blocks"][5:]
 
 
+@pytest.mark.parametrize("snippet, label, expected", [
+    ("Available at Supplier for $18.57 USD", "Supplier", {"Supplier": "$18.57 USD"}),
+    ("Available from Supplier for $10 per pack (minimum order: 2 packs)", "Supplier", {"Supplier": "$10 per pack (minimum order: 2 packs)"}),
+    ("Sold by Supplier for £9.50 – £12.00 per unit", "Supplier", {"Supplier": "£9.50 – £12.00 per unit"}),
+    ("Offered at Supplier at $1,200.50 USD", "Supplier", {"Supplier": "$1,200.50 USD"}),
+    ("Available at Centre for Industrial Parts for $12 USD", "Centre for Industrial Parts", {"Centre for Industrial Parts": "$12 USD"}),
+    ("Available at Supplier for Contact for quote", "Supplier", {"Supplier": "Contact for quote"}),
+    ("Available at Supplier for $10", None, {"Supplier": "$10"}),
+    ("Available from several sources, pricing was not disclosed.", None, {"text": "Available from several sources, pricing was not disclosed."}),
+])
+def test_compact_prices_parse_supplier_sentences(ai_mode_provider, provider_response, snippet, label, expected):
+    response = deepcopy(provider_response)
+    response["references"] = []
+    response["text_blocks"] = [
+        {"type": "heading", "snippet": "Sources & Pricing"},
+        {"type": "list", "list": [{"snippet": snippet, "snippet_links": [
+            {"text": label, "link": "https://example.invalid/supplier"},
+        ]}]},
+    ]
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert row["compact"]["Sources & Pricing"] == [expected]
+    assert row["compact"]["references"] == ["https://example.invalid/supplier"]
+    assert row["result"]["Sources & Pricing"] == response["text_blocks"][1:]
+
+
+def test_compact_fractions_and_supplier_sentences_from_same_response(ai_mode_provider, provider_response):
+    response = deepcopy(provider_response)
+    description = {"type": "paragraph", "snippet": "A connecting link for $1/2$-inch chains.", "snippet_latex": ["1/2"]}
+    specifications = {"type": "list", "list": [{"snippet": r"Pitch: $1/2$ inch ( $12.7\text{ mm}$)", "snippet_latex": ["1/2", r"12.7\text{ mm}"]}]}
+    offers = [("Supplier A", "18.57"), ("Supplier B", "13.16"), ("Supplier C", "12.87")]
+    pricing = {"type": "list", "list": [
+        {"snippet": rf"Available at {name} for ${amount}\text{{ USD}}$",
+         "snippet_links": [{"text": name, "link": f"https://example.invalid/supplier-{index}"}],
+         "snippet_latex": [rf"{amount}\text{{ USD}}"]}
+        for index, (name, amount) in enumerate(offers)
+    ]}
+    response["text_blocks"][1], response["text_blocks"][3], response["text_blocks"][5] = description, specifications, pricing
+    response["references"] = [{"index": 2, "source": "Supplier A", "link": "https://example.invalid/supplier-0"}]
+    response["reconstructed_markdown"] = description["snippet"]
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert row["compact"]["Product Description"] == "A connecting link for 1/2-inch chains."
+    assert row["compact"]["Technical Specifications"] == [{"Pitch": "1/2 inch ( 12.7 mm)"}]
+    assert row["compact"]["Sources & Pricing"] == [{name: amount + " USD"} for name, amount in offers]
+    assert row["compact"]["references"] == [f"https://example.invalid/supplier-{index}" for index in range(3)]
+    for heading, block in zip(HEADINGS, (description, specifications, pricing)):
+        assert row["result"][heading] == [block]
+    assert row["markdown"] == response["reconstructed_markdown"]
+    assert wrangles.standardize.clean(row["markdown"], latex_to_text=True) == "A connecting link for 1/2-inch chains."
+
+
 def test_compact_prices_parse_dashed_supplier_entries(ai_mode_provider, provider_response):
     snippets = [
         "Acorn Industrial Services – $13.18 USD",
@@ -429,6 +481,25 @@ def test_compact_references_omit_missing_urls_and_keep_provider_order(ai_mode_pr
     ai_mode_provider[0]["product"] = response
     row = run_ai_mode().iloc[0]
     assert row["compact"]["references"] == ["https://example.invalid/four", "https://example.invalid/zero"] + FIXTURE_SNIPPET_URLS
+    assert row["result"]["references"] == response["references"]
+
+
+@pytest.mark.parametrize("separator", ["&", "&amp;", "&#38;", "&#x26;", r"\&"])
+def test_compact_reference_html_decoding_preserves_query_parameter_names(ai_mode_provider, provider_response, separator):
+    response = deepcopy(provider_response)
+    url = "https://example.invalid/product?sku=A%20B" + separator + (separator.join([
+        "currency=USD", "copy_id=10", "notable=yes", "utm_source=google",
+    ]))
+    expected = "https://example.invalid/product?sku=A%20B&currency=USD&copy_id=10&notable=yes"
+    response["references"] = [{"index": 2, "source": "Supplier", "link": url}]
+    response["text_blocks"] = [
+        {"type": "heading", "snippet": "Sources & Pricing"},
+        {"type": "paragraph", "snippet": "Supplier: $41.00", "snippet_links": [{"text": "Supplier", "link": expected}]},
+    ]
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert row["compact"]["references"] == [expected]
+    assert row["compact"]["Sources & Pricing"] == [{"Supplier": "$41.00"}]
     assert row["result"]["references"] == response["references"]
 
 
