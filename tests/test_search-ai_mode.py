@@ -200,6 +200,46 @@ def test_compact_text_removes_links_and_cleans_units_and_unicode(ai_mode_provide
     assert row["result"]["Product Description"][0]["snippet"] == snippet
 
 
+def test_latex_measurements_and_prices_remain_distinct(ai_mode_provider, provider_response):
+    response = deepcopy(provider_response)
+    specifications = [
+        ("Inner Bore Diameter", r"\$6\text{ mm}", "6 mm"),
+        ("Outer Diameter", r"\$19\text{ mm}", "19 mm"),
+        ("Width / Overall Width", r"\$12\text{ mm}", "12 mm"),
+        ("Dynamic Load Rating", r"\$5400\text{ N}", "5400 N"),
+        ("Static Load Rating", r"\$8000\text{ N}", "8000 N"),
+    ]
+    offers = [
+        ("Supplier A", r"\$80.98", "$80.98"),
+        ("Supplier B", r"\$20.60\text{ USD}", "$20.60 USD"),
+        ("Supplier C", r"\$6\text{ per mm}", "$6 per mm"),
+    ]
+    for index, entries in ((3, specifications), (5, offers)):
+        response["text_blocks"][index] = {"type": "list", "list": [
+            {"snippet": f"{label}: ${latex}$", "snippet_latex": [latex]}
+            for label, latex, _ in entries
+        ]}
+    response["reconstructed_markdown"] = "\n\n".join(
+        f"### {heading}\n\n" + "\n".join(f"- {label}: ${latex}$" for label, latex, _ in entries)
+        for heading, entries in zip(HEADINGS[1:], (specifications, offers))
+    )
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert row["compact"]["Technical Specifications"] == [{label: value} for label, _, value in specifications]
+    assert row["compact"]["Sources & Pricing"] == [{label: value} for label, _, value in offers]
+    assert row["result"]["Technical Specifications"] == [response["text_blocks"][3]]
+    assert row["result"]["Sources & Pricing"] == [response["text_blocks"][5]]
+    assert row["markdown"] == response["reconstructed_markdown"]
+    cleaned = wrangles.recipe.run({"wrangles": [{"standardize.clean": {
+        "input": "markdown", "output": "clean", "latex_to_text": True,
+        "collapse_whitespace": False, "trim": False,
+    }}]}, dataframe=pd.DataFrame({"markdown": [row["markdown"]]}))
+    assert cleaned.iloc[0]["clean"] == "\n\n".join(
+        f"### {heading}\n\n" + "\n".join(f"- {label}: {value}" for label, _, value in entries)
+        for heading, entries in zip(HEADINGS[1:], (specifications, offers))
+    )
+
+
 def test_compact_nested_lists_and_tables_are_shallow(ai_mode_provider, provider_response):
     response = deepcopy(provider_response)
     response["text_blocks"][3] = {"type": "list", "list": [{
@@ -776,16 +816,19 @@ def test_unsupported_or_conflicting_options_fail_before_search(ai_mode_provider,
     assert ai_mode_provider[1] == []
 
 
-def test_runner_uses_shared_configuration_and_separate_cleanup(monkeypatch, ai_mode_provider, provider_response):
+def test_runner_uses_shared_configuration_and_separate_cleanup(monkeypatch, tmp_path, ai_mode_provider, provider_response):
     import run_search_ai_mode as runner
 
     dotenv = ModuleType("dotenv")
     dotenv.load_dotenv = lambda *args, **kwargs: None
     monkeypatch.setitem(sys.modules, "dotenv", dotenv)
-    # Intercept Eric's optional local Excel export without writing to his workbook.
-    def no_file_write(df, name, **kwargs):
-        return None
-    monkeypatch.setattr("wrangles.connectors.file.write", no_file_write)
+    # Local trial exports can select fixed headings. Test configurable headings
+    # independently of those selections, and never write to the trial workbook.
+    recipe = yaml.safe_load(runner.RECIPE_FILE.read_text(encoding="utf-8"))
+    recipe.pop("write", None)
+    recipe_file = tmp_path / "search_ai_mode_test.recipe"
+    recipe_file.write_text(yaml.safe_dump(recipe, sort_keys=False), encoding="utf-8")
+    monkeypatch.setattr(runner, "RECIPE_FILE", recipe_file)
     config = deepcopy(runner.AI_MODE_QUERY)
     config[2] = {"Specification Details": 'Keep literal {{ sample }} and "quoted" instructions.'}
     monkeypatch.setattr(runner, "AI_MODE_QUERY", config)

@@ -26,6 +26,10 @@ _MATH_SYMBOLS = {
     "$": "$", "%": "%", "+": "+", "-": "-",
     ",": " ", ";": " ", ":": " ", " ": " ",
 }
+_DOLLAR_MEASUREMENT = re.compile(
+    r"\$(?P<measurement>[+-]?(?:[0-9]+(?:[.,][0-9]+)?|\.[0-9]+) +"
+    r"(?:[µμumnckM]?(?:m|g|N|Pa|W|V|A|Ω|Hz)|VDC|VAC|°[CF]|K|rpm|RPM))"
+)
 
 
 def _link_end(text, start):
@@ -103,7 +107,12 @@ def _latex_to_text(match):
     # formula containing unsupported commands, groups, powers or subscripts.
     if re.search(r"[\\{}^_]", value):
         return original
-    return re.sub(r"[ \t]+", " ", value).strip()
+    value = re.sub(r"[ \t]+", " ", value).strip()
+    # AI-generated LaTeX can put an escaped dollar before a measurement. Only
+    # remove it from a whole number-and-unit expression with a known unit;
+    # amounts, currency codes, per-unit prices and ambiguous text keep theirs.
+    measurement = _DOLLAR_MEASUREMENT.fullmatch(value)
+    return measurement["measurement"] if measurement else value
 
 
 def clean_escaped_text(text, *, unescape_unicode=False, latex_to_text=False):

@@ -46,6 +46,36 @@ def test_latex_units_and_symbols(original, expected):
     assert _clean(original, latex_to_text=True) == expected
 
 
+@pytest.mark.parametrize(("original", "expected"), [
+    (r"$\$6\text{ mm}$", "6 mm"),
+    (r"$\$19\text{ mm}$", "19 mm"),
+    (r"$\$12\text{ mm}$", "12 mm"),
+    (r"$\$5400\text{ N}$", "5400 N"),
+    (r"$\$8000\text{ N}$", "8000 N"),
+    (r"$\$5.4\mathrm{ kN}$", "5.4 kN"),
+    (r"$\$12\text{ VDC}$", "12 VDC"),
+])
+def test_latex_measurements_drop_stray_escaped_dollars(original, expected):
+    assert _clean(original) == original
+    assert _clean(original, latex_to_text=True) == expected
+    assert _clean(expected, latex_to_text=True) == expected
+
+
+@pytest.mark.parametrize(("original", "expected"), [
+    (r"$\$80.98$", "$80.98"),
+    (r"$\$20.60\text{ USD}$", "$20.60 USD"),
+    (r"$\$6\text{ per mm}$", "$6 per mm"),
+    (r"$\$6\text{/mm}$", "$6/mm"),
+    (r"$\$6\text{ each}$", "$6 each"),
+    (r"$\$6\text{ million}$", "$6 million"),
+    (r"$\$6m$", "$6m"),
+    ("$6 mm", "$6 mm"),
+    (r"$\$6\unknown{ mm}$", r"$\$6\unknown{ mm}$"),
+])
+def test_latex_measurement_repair_preserves_currency_and_ambiguous_values(original, expected):
+    assert _clean(original, latex_to_text=True) == expected
+
+
 def test_literal_unicode_escapes_preserve_existing_unicode_and_backslashes():
     original = r"healthcare \u0026 ITE; \u00b0C; \U0001F50C; \uD83D\uDE00; \n \t \text" + " — Café ±"
     expected = r"healthcare & ITE; °C; 🔌; 😀; \n \t \text" + " — Café ±"
