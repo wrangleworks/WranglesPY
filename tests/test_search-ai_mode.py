@@ -226,6 +226,59 @@ def test_compact_price_tables_keep_row_links_and_citations(ai_mode_provider, pro
     assert row["result"]["Sources & Pricing"] == response["text_blocks"][1:]
 
 
+@pytest.mark.parametrize("cell_objects", [False, True])
+def test_compact_price_table_omits_link_labels_and_keeps_missing_url_slot(
+    ai_mode_provider, provider_response, cell_objects,
+):
+    response = deepcopy(provider_response)
+    response["references"] = [
+        {"index": 0, "source": "Google", "link": "https://www.google.com/search?ibp=oshop&prds=productid:123"},
+        {"index": 2, "source": "Supplier B", "link": "https://example.invalid/b"},
+        {"index": 3, "source": "Supplier C", "link": "https://example.invalid/c"},
+    ]
+    table = [
+        ["Supplier", "Price (USD / GBP approx.)", "Link"],
+        ["Supplier A", "$13.00 USD", "Supplier A Product Page"],
+        ["Supplier B", "$18.50 USD (£14.50 approx)", "Supplier B Product Page"],
+        ["Supplier C", "$16.00 USD (£12.50 GBP)", "Supplier C Online Page"],
+    ]
+    detailed = [[{"snippet": cell} for cell in cells] for cells in table]
+    response["text_blocks"] = [
+        {"type": "heading", "snippet": "Sources & Pricing"},
+        {"type": "table", "table": detailed if cell_objects else table, "detailed": detailed,
+         "formatted": [dict(zip(("supplier", "price_usd_gbp_approx", "link"), cells)) for cells in table[1:]]},
+    ]
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert list(zip(row["compact"]["Sources & Pricing"], row["compact"]["references"], strict=True)) == [
+        ({"Supplier B": "$18.50 USD (£14.50 approx)"}, "https://example.invalid/b"),
+        ({"Supplier C": "$16.00 USD (£12.50 GBP)"}, "https://example.invalid/c"),
+        ({"Supplier A": "$13.00 USD"}, ""),
+    ]
+    assert row["result"]["Sources & Pricing"] == response["text_blocks"][1:]
+    assert row["result"]["references"] == response["references"]
+    assert row["markdown"] == response["reconstructed_markdown"]
+
+
+def test_compact_price_table_retains_currency_headers_and_navigation_url(ai_mode_provider, provider_response):
+    response = deepcopy(provider_response)
+    response["references"] = []
+    response["text_blocks"] = [
+        {"type": "heading", "snippet": "Sources & Pricing"},
+        {"type": "table", "table": [
+            ["Supplier", "Price (USD)", "Price (GBP)", "Product Link"],
+            ["Supplier A", "$13.00", "£10.00", {"snippet": "View Product", "snippet_links": [
+                {"text": "View Product", "link": "https://example.invalid/a?utm_source=google"},
+            ]}],
+        ]},
+    ]
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert row["compact"]["Sources & Pricing"] == [{"Supplier A": "Price (USD): $13.00; Price (GBP): £10.00"}]
+    assert row["compact"]["references"] == ["https://example.invalid/a"]
+    assert row["result"]["Sources & Pricing"] == response["text_blocks"][1:]
+
+
 def test_compact_multiple_price_sections_and_offers_share_reference_positions(ai_mode_provider, provider_response):
     response = deepcopy(provider_response)
     response["references"] = [

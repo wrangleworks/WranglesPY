@@ -18,6 +18,7 @@ _FOLLOW_UP = re.compile(
     re.IGNORECASE,
 )
 _PRICING_HEADING = re.compile(r"\b(?:price|prices|pricing)\b", re.IGNORECASE)
+_TABLE_LINK_HEADING = re.compile(r"(?:product\s+)?(?:links?|urls?|pages?)|website", re.IGNORECASE)
 _SPECIFICATION_HEADING = re.compile(r"\bspecifications?\b", re.IGNORECASE)
 _URL_IN_TEXT = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 _GOOGLE_HOST = re.compile(r"(?:^|\.)google\.(?:com|[a-z]{2}|(?:co|com)\.[a-z]{2})$", re.IGNORECASE)
@@ -68,7 +69,7 @@ def _plain_text(value):
     return " ".join(value.split()).strip()
 
 
-def _table_lines(table):
+def _table_lines(table, pricing=False):
     """Flatten each table data row while retaining its links and citation IDs."""
     if not isinstance(table, list):
         return
@@ -76,6 +77,8 @@ def _table_lines(table):
     if not rows:
         return
     headers, rows = (rows[0], rows[1:]) if len(rows) > 1 else ([], rows)
+    headers = [_plain_text(cell.get("snippet") if isinstance(cell, Mapping) else cell) for cell in headers]
+    price_columns = sum(bool(_PRICING_HEADING.search(header)) for header in headers)
     for row in rows:
         cells, links, indexes = [], [], []
         for cell in row:
@@ -96,7 +99,11 @@ def _table_lines(table):
         elif len(cells) > 2:
             details = []
             for index, value in enumerate(cells[1:], 1):
-                label = _plain_text(headers[index]) if index < len(headers) else ""
+                label = headers[index] if index < len(headers) else ""
+                if pricing and _TABLE_LINK_HEADING.fullmatch(label):
+                    continue
+                if pricing and price_columns == 1 and _PRICING_HEADING.search(label):
+                    label = ""
                 if value:
                     details.append(f"{label}: {value}" if label else value)
             yield f"{cells[0]}: {'; '.join(details)}", context
@@ -104,7 +111,7 @@ def _table_lines(table):
             yield cells[0], context
 
 
-def _visible_items(blocks, listed=False):
+def _visible_items(blocks, listed=False, pricing=False):
     """Yield visible text with source context, without turning metadata into prose."""
     if not isinstance(blocks, list):
         return
@@ -116,9 +123,9 @@ def _visible_items(blocks, listed=False):
             continue
         if text:
             yield text, block, listed
-        yield from _visible_items(block.get("list"), listed=True)
-        yield from _visible_items(block.get("text_blocks"), listed=listed)
-        for line, context in _table_lines(block.get("table")):
+        yield from _visible_items(block.get("list"), listed=True, pricing=pricing)
+        yield from _visible_items(block.get("text_blocks"), listed=listed, pricing=pricing)
+        for line, context in _table_lines(block.get("table"), pricing=pricing):
             if line:
                 yield line, context, True
 
@@ -300,8 +307,8 @@ def compact_result(complete, headings):
     """Return shallow content with pricing sections aligned to reference URLs."""
     result, pricing_items = {}, {}
     for heading in headings:
-        items = list(_visible_items(complete.get(heading)))
         pricing = bool(_PRICING_HEADING.search(heading))
+        items = list(_visible_items(complete.get(heading), pricing=pricing))
         if pricing:
             result[heading] = []
             pricing_items[heading] = items

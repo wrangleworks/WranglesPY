@@ -14,6 +14,8 @@ label artifact are intentional test cases.
 Tests derive small in-memory variants for omitted headings, explicit paragraph
 labels with and without inline content, nested lists and tables, supplier price
 qualifiers, colon/dash pricing separators and unattributed pricing notes,
+supplier/price/link tables with reference order differing from supplier order
+and a supplier whose product-page label has no URL,
 specification name/value separators and unlabeled text, missing
 reference URLs, Google product-viewer references with direct inline source links,
 duplicate source URLs, tracking parameters and nested image fields.
