@@ -54,8 +54,15 @@ def test_latex_units_and_symbols(original, expected):
     (r"$\$8000\text{ N}$", "8000 N"),
     (r"$\$5.4\mathrm{ kN}$", "5.4 kN"),
     (r"$\$12\text{ VDC}$", "12 VDC"),
+    (r"$\$6\text{mm}$", "6mm"),
+    (r"$\$6m$", "6m"),
+    (r"$\$2\text{ furlongs/fortnight}$", "2 furlongs/fortnight"),
+    (r"$\$1.5\text{ custom units}$", "1.5 custom units"),
+    (r"$\$6\text{ mm} \times \$12\text{ mm}$", "6 mm × 12 mm"),
+    (r"$\$-20^{\circ}\text{C}$", "-20°C"),
+    (r"$\$0.15\text{ W}\pm 5\%$", "0.15 W± 5%"),
 ])
-def test_latex_measurements_drop_stray_escaped_dollars(original, expected):
+def test_latex_dollars_are_removed_without_recognizing_units(original, expected):
     assert _clean(original) == original
     assert _clean(original, latex_to_text=True) == expected
     assert _clean(expected, latex_to_text=True) == expected
@@ -68,11 +75,20 @@ def test_latex_measurements_drop_stray_escaped_dollars(original, expected):
     (r"$\$6\text{/mm}$", "$6/mm"),
     (r"$\$6\text{ each}$", "$6 each"),
     (r"$\$6\text{ million}$", "$6 million"),
-    (r"$\$6m$", "$6m"),
+    (r"$\$6$", "$6"),
+    (r"$\$0.50$", "$0.50"),
+    (r"$\$.50$", "$.50"),
+    (r"$\$1,234.50$", "$1,234.50"),
+    (r"$\$1,234,567.89\text{ USD}$", "$1,234,567.89 USD"),
+    (r"$\$-6.50$", "$-6.50"),
+    (r"$\$6.00-\$12.00$", "$6.00-$12.00"),
+    (r"$\$6.00\text{ USD}-\$12.00\text{ USD}$", "$6.00 USD-$12.00 USD"),
+    (r"$\$6.00\text{ to }\$12.00\text{ USD per pack}$", "$6.00 to $12.00 USD per pack"),
     ("$6 mm", "$6 mm"),
+    ("$6m", "$6m"),
     (r"$\$6\unknown{ mm}$", r"$\$6\unknown{ mm}$"),
 ])
-def test_latex_measurement_repair_preserves_currency_and_ambiguous_values(original, expected):
+def test_latex_cleanup_preserves_numeric_currency_and_protected_values(original, expected):
     assert _clean(original, latex_to_text=True) == expected
 
 
@@ -105,6 +121,9 @@ def test_unknown_math_currency_and_markdown_escapes_are_preserved(original):
 
 
 @pytest.mark.parametrize("protected", [
+    r"`$\$2\text{ custom units}$`",
+    r"[source](https://example.com/?value=$\$2\text{custom-units}$)",
+    r"$$\$2\text{ custom units}$$",
     r"`$12\text{ VDC}$ \u0026`",
     r"``a ` $12\text{ VDC}$ \u0026``",
     "```python\n" + r"$12\text{ VDC}$ \u0026" + "\n```",

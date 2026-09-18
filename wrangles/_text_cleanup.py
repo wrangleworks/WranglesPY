@@ -26,9 +26,12 @@ _MATH_SYMBOLS = {
     "$": "$", "%": "%", "+": "+", "-": "-",
     ",": " ", ";": " ", ":": " ", " ": " ",
 }
-_DOLLAR_MEASUREMENT = re.compile(
-    r"\$(?P<measurement>[+-]?(?:[0-9]+(?:[.,][0-9]+)?|\.[0-9]+) +"
-    r"(?:[µμumnckM]?(?:m|g|N|Pa|W|V|A|Ω|Hz)|VDC|VAC|°[CF]|K|rpm|RPM))"
+_DOLLAR_AMOUNT = r"\$[+-]?(?:(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?|\.[0-9]+)(?: *USD)?"
+_DOLLAR_CURRENCY = re.compile(
+    _DOLLAR_AMOUNT
+    + r"(?: *(?:[-–—]|to) *" + _DOLLAR_AMOUNT + r")?"
+    + r"(?: +(?:each|per|million|billion)\b[^$]*|/[^$]+)?",
+    re.IGNORECASE,
 )
 
 
@@ -108,11 +111,10 @@ def _latex_to_text(match):
     if re.search(r"[\\{}^_]", value):
         return original
     value = re.sub(r"[ \t]+", " ", value).strip()
-    # AI-generated LaTeX can put an escaped dollar before a measurement. Only
-    # remove it from a whole number-and-unit expression with a known unit;
-    # amounts, currency codes, per-unit prices and ambiguous text keep theirs.
-    measurement = _DOLLAR_MEASUREMENT.fullmatch(value)
-    return measurement["measurement"] if measurement else value
+    # Protect complete numeric dollar amounts and their price qualifiers. Other
+    # escaped dollars inside supported inline math are markup noise, regardless
+    # of the unit names. Ordinary prices outside inline math never reach here.
+    return value if _DOLLAR_CURRENCY.fullmatch(value) else value.replace("$", "")
 
 
 def clean_escaped_text(text, *, unescape_unicode=False, latex_to_text=False):

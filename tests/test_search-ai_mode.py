@@ -208,6 +208,8 @@ def test_latex_measurements_and_prices_remain_distinct(ai_mode_provider, provide
         ("Width / Overall Width", r"\$12\text{ mm}", "12 mm"),
         ("Dynamic Load Rating", r"\$5400\text{ N}", "5400 N"),
         ("Static Load Rating", r"\$8000\text{ N}", "8000 N"),
+        ("Custom Quantity", r"\$2\text{ custom units}", "2 custom units"),
+        ("Compact Unit", r"\$6\text{mm}", "6mm"),
     ]
     offers = [
         ("Supplier A", r"\$80.98", "$80.98"),
