@@ -1,7 +1,9 @@
 """Remove AI Mode UI noise and build a shallow view of requested sections."""
 
 from collections.abc import Mapping
+import html
 import re
+from urllib.parse import parse_qsl, urlsplit
 
 from . import web
 from ._text_cleanup import _link_end
@@ -18,6 +20,7 @@ _FOLLOW_UP = re.compile(
 _PRICING_HEADING = re.compile(r"\b(?:price|prices|pricing)\b", re.IGNORECASE)
 _SPECIFICATION_HEADING = re.compile(r"\bspecifications?\b", re.IGNORECASE)
 _URL_IN_TEXT = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
+_GOOGLE_HOST = re.compile(r"(?:^|\.)google\.(?:com|[a-z]{2}|(?:co|com)\.[a-z]{2})$", re.IGNORECASE)
 
 
 def _without_srsltid(match):
@@ -136,21 +139,75 @@ def _supplier_price(text, links):
     return {supplier.strip(): detail} if detail else text
 
 
+def _specification(text):
+    """Keep each named specification separate, preserving unlabeled text too."""
+    parts = re.split(r"\s*[:：]\s*|\s+[–—]\s+", text, maxsplit=1)
+    if len(parts) == 2 and parts[0].strip() and parts[1].strip():
+        return {parts[0].strip(): parts[1].strip()}
+    return {"text": text}
+
+
+def _snippet_urls(value):
+    """Visit source links attached to visible blocks, including lists and tables."""
+    if isinstance(value, Mapping):
+        links = value.get("snippet_links")
+        if isinstance(links, list):
+            for link in links:
+                if isinstance(link, Mapping):
+                    yield link.get("link")
+        for key in ("list", "text_blocks", "table"):
+            yield from _snippet_urls(value.get(key))
+    elif isinstance(value, list):
+        for child in value:
+            yield from _snippet_urls(child)
+
+
+def _source_url(value):
+    """Return a clean web URL; Google product viewers do not identify a source."""
+    if not isinstance(value, str):
+        return ""
+    value = html.unescape(value).replace(r"\&", "&").strip()
+    try:
+        parts = urlsplit(value)
+        if parts.scheme.lower() not in ("http", "https") or not parts.hostname:
+            return ""
+        if _GOOGLE_HOST.search(parts.hostname):
+            query = dict(parse_qsl(parts.query))
+            if (parts.path.rstrip("/") == "/search" and (query.get("ibp") == "oshop" or "prds" in query)
+                    or parts.path.startswith("/shopping/product/")):
+                return ""
+    except ValueError:
+        return ""
+    return web.clean_link(value, strip_scheme=False, preserve_encoding=True)
+
+
+def _reference_urls(complete, headings):
+    candidates = [reference.get("link") for reference in complete.get("references", [])
+                  if isinstance(reference, Mapping)]
+    for heading in headings:
+        candidates.extend(_snippet_urls(complete.get(heading)))
+    urls, seen = [], set()
+    for candidate in candidates:
+        url = _source_url(candidate)
+        if url and url not in seen:
+            urls.append(url)
+            seen.add(url)
+    return urls
+
+
 def compact_result(complete, headings):
-    """Return heading values as strings, flat string lists or supplier dictionaries."""
+    """Return shallow section values and deduplicated direct source URLs."""
     result = {}
     for heading in headings:
         items = list(_visible_items(complete.get(heading)))
         pricing = bool(_PRICING_HEADING.search(heading))
         if pricing:
             result[heading] = [_supplier_price(text, links) for text, links, _ in items]
-        elif _SPECIFICATION_HEADING.search(heading) or any(listed for _, _, listed in items):
+        elif _SPECIFICATION_HEADING.search(heading):
+            result[heading] = [_specification(text) for text, _, _ in items]
+        elif any(listed for _, _, listed in items):
             result[heading] = [text for text, _, _ in items]
         else:
             result[heading] = "\n\n".join(text for text, _, _ in items)
-    result["references"] = [
-        reference["link"] for reference in complete.get("references", [])
-        if isinstance(reference, Mapping) and isinstance(reference.get("link"), str)
-        and reference["link"].strip()
-    ]
+    result["references"] = _reference_urls(complete, headings)
     return result

@@ -13,8 +13,10 @@ label artifact are intentional test cases.
 
 Tests derive small in-memory variants for omitted headings, explicit paragraph
 labels with and without inline content, nested lists and tables, supplier price
-qualifiers, missing reference URLs, tracking parameters
-and nested image fields. These variants verify the compact, complete and
+qualifiers, specification name/value separators and unlabeled text, missing
+reference URLs, Google product-viewer references with direct inline source links,
+duplicate source URLs, tracking parameters and nested image fields.
+These variants verify the compact, complete and
 Markdown outputs without retaining a real provider export.
 
 This small fixture is authored directly; there is no dataset sampling or

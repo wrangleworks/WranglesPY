@@ -245,9 +245,13 @@ def ai_mode(
         description: |-
           Outputs are ordered [ai_mode_result, ai_mode_result_complete, ai_mode_markdown].
           One output returns compact content for the requested headings only:
-          paragraphs become text, lists and tables become flat lists, and pricing
+          paragraphs become text, lists and tables become flat lists. Headings
+          containing specification or specifications produce name-to-value
+          dictionaries, preserving unlabeled content in a text dictionary. Pricing
           sections contain supplier-to-price dictionaries when the text identifies
-          a supplier. Its references field contains only reference URLs. Section
+          a supplier. Its references field combines direct URLs from provider
+          references and snippet_links in requested sections, removes known tracking
+          parameters and duplicates, and omits Google product-viewer URLs. Section
           content omits links, metadata, viewer labels and recognized follow-up
           invitations; it cleans Unicode escapes and units.
           The optional second output retains section blocks, the complete references

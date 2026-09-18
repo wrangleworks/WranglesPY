@@ -48,7 +48,7 @@ that order. Supply one, two, or three output column names as needed.
 ```text
 ai_mode_result = {
     "Product Description": "The Example Power P12 supplies 12 VDC.",
-    "Technical Specifications": ["Output Voltage: 12 VDC", "Output Current: 5 A"],
+    "Technical Specifications": [{"Output Voltage": "12 VDC"}, {"Output Current": "5 A"}],
     "Sources & Pricing": [{"Supplier A": "$13.17 USD per pack of 10"}],
     "references": ["https://example.invalid/product"]
 }
@@ -64,7 +64,12 @@ ai_mode_markdown = original reconstructed_markdown
 
 The compact result includes the requested headings and a flat list of
 reference URLs. Paragraphs become text; list items and table rows become
-flat lists. Section content omits URLs, block wrappers, citation metadata,
+flat lists. Sections whose heading includes "specification" or "specifications"
+contain single-entry dictionaries such as `{"Inner Bore Diameter": "6 mm"}`.
+Names and values are separated at the first colon or spaced en/em dash;
+units, ranges and repeated specification names are retained. Unlabeled content
+is preserved as `{"text": "original content"}` instead of inventing a name.
+Section content omits URLs, block wrappers, citation metadata,
 Google's product-viewer instruction, and recognized follow-up invitations.
 It reuses `standardize.clean` to repair encoding, Unicode escapes and simple
 LaTeX units. Tables follow the header-and-row structure in the
@@ -84,10 +89,20 @@ URL pruning reuses `wrangles.web.clean_link` with full URLs and remaining
 query encoding preserved. Other query parameters and fragments remain intact.
 Classic search retains the sanitizer's existing defaults.
 
-Complete references retain their original indexes and ordering. Compact
-references contain those same URLs, skipping entries with no URL. Neither
-list is truncated or deduplicated. References are not requested again as a
-heading; an empty provider references list produces an empty compact list.
+Complete references retain their original indexes, ordering and duplicates.
+Compact references combine direct web URLs from that list with `snippet_links`
+in the requested sections, including nested lists and tables. The shared
+`wrangles.web.clean_link` sanitizer removes known tracking parameters such as
+`srsltid` and `utm_source`, preserving full URLs, functional query parameters,
+encoding and fragments. The compact list removes duplicate cleaned URLs and
+keeps first-seen order: provider references first, then section links.
+
+Google product-viewer URLs containing product/catalog IDs are omitted from
+compact references; they remain in the complete output. Supplier URLs are
+collected from the supplied content, without guessing destinations from IDs.
+This populates compact references when the provider's reference list is empty
+but inline supplier links are available. If no direct source URLs were returned,
+compact references remain empty. References are not requested again as a heading.
 
 Heading matching ignores case and whitespace differences. It recognizes native
 heading blocks and paragraph blocks containing an exact requested label, either

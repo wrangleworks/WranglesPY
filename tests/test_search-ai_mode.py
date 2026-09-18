@@ -25,6 +25,12 @@ QUERY_CONFIG = [
     {"query_suffix": "Use these exact headings; no additional sections or questions."},
 ]
 HEADINGS = ["Product Description", "Technical Specifications", "Sources & Pricing"]
+FIXTURE_SNIPPET_URLS = [
+    "https://example.invalid/product?part=P12&variant=1",
+    "https://example.invalid/supplier-1",
+    "https://example.invalid/supplier-2",
+    "https://example.invalid/supplier-3",
+]
 
 
 @pytest.fixture(autouse=True)
@@ -102,13 +108,13 @@ def test_compact_result_contains_core_sections_and_reference_urls(ai_mode_provid
     assert compact["Product Description"] == "The Example Power P12 supplies 12 VDC."
     assert len(compact["Technical Specifications"]) == 12
     assert compact["Technical Specifications"][2:5] == [
-        "Output Voltage: 12 VDC", "Output Current: 5 A", "Output Power: 60 W",
+        {"Output Voltage": "12 VDC"}, {"Output Current": "5 A"}, {"Output Power": "60 W"},
     ]
-    assert all(isinstance(value, str) for value in compact["Technical Specifications"])
+    assert all(isinstance(value, dict) and len(value) == 1 for value in compact["Technical Specifications"])
     assert compact["Sources & Pricing"] == [
         {"Supplier 1": "$21.00"}, {"Supplier 2": "$22.00"}, {"Supplier 3": "$23.00"},
     ]
-    assert compact["references"] == [reference["link"] for reference in provider_response["references"]]
+    assert compact["references"] == [reference["link"] for reference in provider_response["references"]] + FIXTURE_SNIPPET_URLS
     assert row["result"]["Product Description"][0] == provider_response["text_blocks"][1]
     assert row["markdown"] == provider_response["reconstructed_markdown"]
 
@@ -179,10 +185,30 @@ def test_compact_nested_lists_and_tables_are_shallow(ai_mode_provider, provider_
     ai_mode_provider[0]["product"] = response
     row = run_ai_mode().iloc[0]
     assert row["compact"]["Technical Specifications"] == [
-        "Dimensions", "Width: 12 mm", "Voltage: 12 VDC", "Current: 5 A",
+        {"text": "Dimensions"}, {"Width": "12 mm"}, {"Voltage": "12 VDC"}, {"Current": "5 A"},
     ]
     assert row["compact"]["Sources & Pricing"] == [{"Supplier A": "$13.17 USD; Unit: pack of 10"}]
     assert row["result"]["Technical Specifications"] == [response["text_blocks"][3]]
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("Inner Bore Diameter: 6 mm", {"Inner Bore Diameter": "6 mm"}),
+    ("Width：11 mm to 12 mm", {"Width": "11 mm to 12 mm"}),
+    ("Bearing Type – Full complement needle roller", {"Bearing Type": "Full complement needle roller"}),
+    ("Seal — PP style: three-stage sealing", {"Seal": "PP style: three-stage sealing"}),
+    ("Duty cycle: 1:2", {"Duty cycle": "1:2"}),
+    ("Part No.: NATV6-PP-A", {"Part No.": "NATV6-PP-A"}),
+    ("No confirmed specifications available.", {"text": "No confirmed specifications available."}),
+    ("Unspecified:", {"text": "Unspecified:"}),
+])
+def test_compact_specifications_are_name_value_dictionaries(ai_mode_provider, provider_response, text, expected):
+    response = deepcopy(provider_response)
+    response["text_blocks"][3] = {"type": "list", "list": [{"snippet": text}, {"snippet": text}]}
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert row["compact"]["Technical Specifications"] == [expected, expected]
+    assert row["result"]["Technical Specifications"] == [response["text_blocks"][3]]
+    assert row["markdown"] == response["reconstructed_markdown"]
 
 
 def test_compact_references_omit_missing_urls_and_keep_provider_order(ai_mode_provider, provider_response):
@@ -195,7 +221,74 @@ def test_compact_references_omit_missing_urls_and_keep_provider_order(ai_mode_pr
     ]
     ai_mode_provider[0]["product"] = response
     row = run_ai_mode().iloc[0]
-    assert row["compact"]["references"] == ["https://example.invalid/four", "https://example.invalid/zero"]
+    assert row["compact"]["references"] == ["https://example.invalid/four", "https://example.invalid/zero"] + FIXTURE_SNIPPET_URLS
+    assert row["result"]["references"] == response["references"]
+
+
+@pytest.mark.parametrize("provider_references", [False, True])
+def test_compact_references_recover_sources_from_inline_links(ai_mode_provider, provider_response, provider_references):
+    # The provider may omit references or cite its product viewer, while supplier
+    # URLs still appear in snippet_links. Do not invent a viewer-to-merchant match.
+    response = deepcopy(provider_response)
+    viewer = "https://www.google.com/search?q=product&prds=pvt:hg,productid:123,catalogid:456&ibp=oshop"
+    response["text_blocks"][1]["snippet_links"][0]["link"] = viewer
+    response["references"] = ([
+        {"index": 1, "link": viewer},
+        {"index": 4, "link": "https://example.invalid/reference-4"},
+    ] if provider_references else [])
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    expected = (["https://example.invalid/reference-4"] if provider_references else [])
+    assert row["compact"]["references"] == expected + FIXTURE_SNIPPET_URLS[1:]
+    assert row["result"]["references"] == response["references"]
+    assert row["result"]["Product Description"][0]["snippet_links"][0]["link"] == viewer
+    assert row["markdown"] == response["reconstructed_markdown"]
+
+
+def test_compact_references_clean_deduplicate_and_visit_nested_sources(ai_mode_provider, provider_response):
+    clean_url = "https://example.invalid/p?sku=A%20B&blank=&sku=%2B#details"
+    tracked_url = clean_url.replace("#details", "&utm_source=google&srsltid=tracking#details")
+    blocks = [
+        {"type": "heading", "snippet": "Details"},
+        {"type": "list", "list": [{"snippet": "Product", "snippet_links": [{"link": tracked_url}],
+            "text_blocks": [{"type": "paragraph", "snippet": "Nested", "snippet_links": [
+                {"link": "https://example.invalid/nested?x=1&amp;y=2&gclid=tracking"},
+            ]}],
+        }]},
+        {"type": "table", "table": [["Source", "Details"], [
+            {"snippet": "Supplier", "snippet_links": [{"link": r"https://example.invalid/table?sku=A\&fbclid=tracking"}]},
+            "Available",
+        ]]},
+    ]
+    response = {**provider_response, "text_blocks": blocks, "references": [
+        {"index": 4, "link": tracked_url}, {"index": 1, "link": clean_url},
+        {"index": 2, "link": "123456789"}, {"index": 3, "link": None},
+    ], "unrelated": {"snippet_links": [{"link": "https://example.invalid/not-a-source"}]}}
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode(query_config=[{"Details": "Details"}], include_raw_response=True).iloc[0]
+    assert row["compact"]["references"] == [
+        clean_url, "https://example.invalid/nested?x=1&y=2", "https://example.invalid/table?sku=A",
+    ]
+    assert len(row["result"]["references"]) == 4
+    assert [ref["index"] for ref in row["result"]["references"]] == [4, 1, 2, 3]
+    assert "utm_source=google" in row["result"]["references"][0]["link"]
+    assert row["result"]["raw_response"]["unrelated"] == response["unrelated"]
+
+
+@pytest.mark.parametrize("url, expected", [
+    ("https://www.google.com/search?ibp=oshop&prds=productid:123", []),
+    ("https://www.google.co.uk/search?prds=productid:123", []),
+    ("https://www.google.de/shopping/product/123", []),
+    ("https://support.google.com/example", ["https://support.google.com/example"]),
+    ("https://example.invalid/search?prds=123", ["https://example.invalid/search?prds=123"]),
+    ("https://google.com.example.invalid/search?prds=123", ["https://google.com.example.invalid/search?prds=123"]),
+    ("opaque-product-id", []), ("https://[invalid", []), ("javascript:alert(1)", []),
+])
+def test_compact_references_omit_viewer_only_or_invalid_links(ai_mode_provider, provider_response, url, expected):
+    response = {**provider_response, "text_blocks": [], "references": [{"index": 0, "link": url}]}
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert row["compact"]["references"] == expected
     assert row["result"]["references"] == response["references"]
 
 
@@ -369,7 +462,7 @@ def test_paragraph_section_labels_populate_all_outputs(ai_mode_provider, provide
     assert row["compact"]["Sources & Pricing"] == [
         {"Supplier 1": "$21.00"}, {"Supplier 2": "$22.00"}, {"Supplier 3": "$23.00"},
     ]
-    assert row["compact"]["references"] == [ref["link"] for ref in response["references"]]
+    assert row["compact"]["references"] == [ref["link"] for ref in response["references"]] + FIXTURE_SNIPPET_URLS
     assert result["references"] == response["references"]
     assert result["raw_response"] == response
     assert row["markdown"] == response["reconstructed_markdown"]
@@ -685,7 +778,8 @@ def test_runner_uses_shared_configuration_and_separate_cleanup(monkeypatch, ai_m
     compact = df.iloc[0]["ai_mode_result"]
     assert isinstance(compact["Product Description"], str)
     assert len(compact["Specification Details"]) == 12
-    assert compact["references"] == [reference["link"] for reference in provider_response["references"]]
+    assert compact["Specification Details"][2] == {"Output Voltage": "12 VDC"}
+    assert compact["references"] == [reference["link"] for reference in provider_response["references"]] + FIXTURE_SNIPPET_URLS
     outputs = ["ai_mode_result", "ai_mode_result_complete", "ai_mode_markdown"]
     positions = [df.columns.get_loc(column) for column in outputs]
     assert positions == sorted(positions)
