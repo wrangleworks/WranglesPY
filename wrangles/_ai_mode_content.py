@@ -119,9 +119,10 @@ def _visible_items(blocks, listed=False):
 
 
 def _supplier_price(text, links):
-    supplier, separator, detail = text.partition(":")
-    if not separator or not supplier.strip() or not detail.strip():
-        return text
+    parts = re.split(r"\s*[:：]\s*|\s+[–—]\s+", text, maxsplit=1)
+    if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
+        return {"text": text}
+    supplier, detail = parts
     detail = detail.strip()
     # Remove navigation instructions rather than extracting just the first number:
     # ranges, currencies, quantity breaks and per-pack qualifiers must survive.
@@ -136,7 +137,7 @@ def _supplier_price(text, links):
     detail = re.sub(r"\s+(?:via|at|on|from)\s*[.!]?\s*$", "", detail, flags=re.IGNORECASE)
     detail = re.sub(r"^(?:available for|priced at|price is|price:)\s*", "", detail, flags=re.IGNORECASE)
     detail = detail.rstrip(" .")
-    return {supplier.strip(): detail} if detail else text
+    return {supplier.strip(): detail} if detail else {"text": text}
 
 
 def _specification(text):

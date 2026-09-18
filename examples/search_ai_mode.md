@@ -76,11 +76,13 @@ LaTeX units. Tables follow the header-and-row structure in the
 [SerpAPI table example](https://serpapi.com/google-ai-mode-api).
 
 In sections whose heading includes "price", "prices", or "pricing", entries
-written as `Supplier: details` become single-entry dictionaries. Navigation
+written as `Supplier: details`, `Supplier – details` or `Supplier — details`
+become single-entry dictionaries. Navigation
 phrases such as "via Supplier Product Page" are removed. Price ranges,
 currencies, per-pack quantities and other price qualifiers stay as text;
-no currency or price is guessed. Text without an identifiable supplier
-stays a string, and multiple offers from one supplier remain separate entries.
+no currency or price is guessed. Text without an identifiable supplier or value
+is preserved as `{"text": "original content"}`, keeping every pricing entry a
+dictionary. Multiple offers from one supplier remain separate entries.
 
 The complete result preserves paragraphs, lists, tables, nested blocks,
 links, LaTeX and citation indexes, with three noise filters: `srsltid` URL

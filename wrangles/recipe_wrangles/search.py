@@ -249,7 +249,8 @@ def ai_mode(
           containing specification or specifications produce name-to-value
           dictionaries, preserving unlabeled content in a text dictionary. Pricing
           sections contain supplier-to-price dictionaries when the text identifies
-          a supplier. Its references field combines direct URLs from provider
+          a supplier using a colon or spaced en/em dash. Unattributed pricing notes
+          are retained in text dictionaries. Its references field combines direct URLs from provider
           references and snippet_links in requested sections, removes known tracking
           parameters and duplicates, and omits Google product-viewer URLs. Section
           content omits links, metadata, viewer labels and recognized follow-up

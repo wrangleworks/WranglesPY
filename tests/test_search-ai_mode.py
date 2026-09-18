@@ -127,10 +127,11 @@ def test_compact_result_contains_core_sections_and_reference_urls(ai_mode_provid
     ("$13.17 - Check availability on Supplier", "$13.17"),
     ("Contact for quote; currently out of stock", "Contact for quote; currently out of stock"),
 ])
-def test_compact_prices_keep_currency_and_qualifiers(ai_mode_provider, provider_response, detail, expected):
+@pytest.mark.parametrize("separator", [": ", "： ", " – ", " — "])
+def test_compact_prices_keep_currency_and_qualifiers(ai_mode_provider, provider_response, detail, expected, separator):
     response = deepcopy(provider_response)
     response["text_blocks"][5]["list"] = [{
-        "snippet": f"Supplier: {detail}",
+        "snippet": f"Supplier{separator}{detail}",
         "snippet_links": [{"text": "Supplier Product Page", "link": "https://example.invalid/product"}],
     }]
     response["text_blocks"].append({
@@ -142,17 +143,46 @@ def test_compact_prices_keep_currency_and_qualifiers(ai_mode_provider, provider_
     assert row["result"]["Sources & Pricing"] == response["text_blocks"][5:]
 
 
+def test_compact_prices_parse_dashed_supplier_entries(ai_mode_provider, provider_response):
+    snippets = [
+        "Acorn Industrial Services – $13.18 USD",
+        "Klium – $18.60 USD",
+        "HVH Industrial Solutions – $6.32 USD",
+        "RS Components – Check site for regional pricing",
+        "RS - America: $55.98 (bulk tier discounts down to $50.39)",
+        "MSC-Direct — Contact for quote",
+    ]
+    response = deepcopy(provider_response)
+    response["text_blocks"][5]["list"] = [{"snippet": snippet} for snippet in snippets]
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert row["compact"]["Sources & Pricing"] == [
+        {"Acorn Industrial Services": "$13.18 USD"},
+        {"Klium": "$18.60 USD"},
+        {"HVH Industrial Solutions": "$6.32 USD"},
+        {"RS Components": "Check site for regional pricing"},
+        {"RS - America": "$55.98 (bulk tier discounts down to $50.39)"},
+        {"MSC-Direct": "Contact for quote"},
+    ]
+    assert row["result"]["Sources & Pricing"] == [response["text_blocks"][5]]
+    assert row["markdown"] == response["reconstructed_markdown"]
+
+
 def test_compact_prices_keep_multiple_offers_and_unattributed_text(ai_mode_provider, provider_response):
     response = deepcopy(provider_response)
     response["text_blocks"][5]["list"] = [
         {"snippet": "Supplier: $13.17 each"},
         {"snippet": "Supplier: $11.00 each for 100+"},
         {"snippet": "No other prices were disclosed."},
+        {"snippet": "Supplier:"},
+        {"snippet": ": $12.00"},
     ]
     ai_mode_provider[0]["product"] = response
     assert run_ai_mode().iloc[0]["compact"]["Sources & Pricing"] == [
         {"Supplier": "$13.17 each"}, {"Supplier": "$11.00 each for 100+"},
-        "No other prices were disclosed.",
+        {"text": "No other prices were disclosed."},
+        {"text": "Supplier:"},
+        {"text": ": $12.00"},
     ]
 
 
