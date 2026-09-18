@@ -31,6 +31,7 @@ FIXTURE_SNIPPET_URLS = [
     "https://example.invalid/supplier-2",
     "https://example.invalid/supplier-3",
 ]
+FIXTURE_UNPRICED_SOURCES = [{f"Source {index}": ""} for index in range(6)] + [{"example.invalid": ""}]
 
 
 @pytest.fixture(autouse=True)
@@ -111,12 +112,141 @@ def test_compact_result_contains_core_sections_and_reference_urls(ai_mode_provid
         {"Output Voltage": "12 VDC"}, {"Output Current": "5 A"}, {"Output Power": "60 W"},
     ]
     assert all(isinstance(value, dict) and len(value) == 1 for value in compact["Technical Specifications"])
-    assert compact["Sources & Pricing"] == [
+    assert compact["Sources & Pricing"] == FIXTURE_UNPRICED_SOURCES + [
         {"Supplier 1": "$21.00"}, {"Supplier 2": "$22.00"}, {"Supplier 3": "$23.00"},
     ]
     assert compact["references"] == [reference["link"] for reference in provider_response["references"]] + FIXTURE_SNIPPET_URLS
     assert row["result"]["Product Description"][0] == provider_response["text_blocks"][1]
     assert row["markdown"] == provider_response["reconstructed_markdown"]
+
+
+def test_compact_prices_align_with_reference_order_and_keep_unpriced_sources(ai_mode_provider, provider_response):
+    response = deepcopy(provider_response)
+    urls = {name: f"https://example.invalid/{name}" for name in ("maker", "region", "c", "a", "b")}
+    response["references"] = [
+        {"index": 2, "source": "Maker Ltd", "link": urls["maker"]},
+        {"index": 3, "source": "Regional Supply", "link": urls["region"]},
+        {"index": 4, "source": "Supplier C", "link": urls["c"]},
+    ]
+    response["text_blocks"] = [
+        {"type": "heading", "snippet": "Sources & Pricing"},
+        {"type": "list", "list": [
+            {"snippet": "Supplier A: $13.18 USD", "snippet_links": [{"link": urls["a"]}]},
+            {"snippet": "Supplier B: $18.60 USD", "snippet_links": [{"link": urls["b"]}]},
+            {"snippet": "Supplier C: Check site for pricing", "snippet_links": [{"link": urls["c"] + "?utm_source=google"}]},
+        ]},
+    ]
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    compact = row["compact"]
+    assert list(zip(compact["Sources & Pricing"], compact["references"], strict=True)) == [
+        ({"Maker Ltd": ""}, urls["maker"]),
+        ({"Regional Supply": ""}, urls["region"]),
+        ({"Supplier C": "Check site for pricing"}, urls["c"]),
+        ({"Supplier A": "$13.18 USD"}, urls["a"]),
+        ({"Supplier B": "$18.60 USD"}, urls["b"]),
+    ]
+    assert row["result"]["references"] == response["references"]
+    assert row["result"]["Sources & Pricing"] == response["text_blocks"][1:]
+    assert row["markdown"] == response["reconstructed_markdown"]
+
+
+def test_compact_prices_resolve_citation_ids_and_disambiguate_by_source(ai_mode_provider, provider_response):
+    response = deepcopy(provider_response)
+    response["references"] = [
+        {"index": 91, "source": "Supplier A", "link": "https://example.invalid/a"},
+        {"index": 7, "source": "Supplier B", "link": "https://example.invalid/b"},
+    ]
+    response["text_blocks"] = [
+        {"type": "heading", "snippet": "Sources & Pricing"},
+        {"type": "list", "list": [
+            {"snippet": "Merchant: $20", "reference_indexes": [7]},
+            {"snippet": "Supplier A: $10", "reference_indexes": [7, 91]},
+            {"snippet": "Unknown: $30", "reference_indexes": [999]},
+        ]},
+    ]
+    ai_mode_provider[0]["product"] = response
+    compact = run_ai_mode().iloc[0]["compact"]
+    assert list(zip(compact["Sources & Pricing"], compact["references"], strict=True)) == [
+        ({"Supplier A": "$10"}, "https://example.invalid/a"),
+        ({"Merchant": "$20"}, "https://example.invalid/b"),
+        ({"Unknown": "$30"}, ""),
+    ]
+
+
+@pytest.mark.parametrize("ambiguous", [False, True])
+def test_compact_prices_only_infer_unique_source_names(ai_mode_provider, provider_response, ambiguous):
+    response = deepcopy(provider_response)
+    urls = ["https://example.invalid/a"] + (["https://example.invalid/another-a"] if ambiguous else [])
+    response["references"] = [{"index": index, "source": "Supplier A", "link": url} for index, url in enumerate(urls)]
+    response["text_blocks"] = [
+        {"type": "heading", "snippet": "Sources & Pricing"},
+        {"type": "paragraph", "snippet": "Supplier A: $10"},
+    ]
+    ai_mode_provider[0]["product"] = response
+    compact = run_ai_mode().iloc[0]["compact"]
+    assert compact["references"] == urls + ([""] if ambiguous else [])
+    assert compact["Sources & Pricing"] == ([{"Supplier A": ""}] * len(urls) if ambiguous else []) + [{"Supplier A": "$10"}]
+
+
+def test_compact_missing_prices_use_site_names_or_hostnames(ai_mode_provider, provider_response):
+    response = deepcopy(provider_response)
+    response["references"] = [
+        {"index": 0, "source": "Maker & Co", "link": "https://maker.invalid/item"},
+        {"index": 1, "title": "A product title is not a site name", "link": "https://www.catalog.invalid/item"},
+    ]
+    response["text_blocks"] = []
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert row["compact"]["Sources & Pricing"] == [{"Maker & Co": ""}, {"catalog.invalid": ""}]
+    assert row["compact"]["references"] == [ref["link"] for ref in response["references"]]
+    assert row["result"]["Sources & Pricing"] == []
+
+
+def test_compact_price_tables_keep_row_links_and_citations(ai_mode_provider, provider_response):
+    response = deepcopy(provider_response)
+    response["references"] = [
+        {"index": 7, "source": "Supplier B", "link": "https://example.invalid/b"},
+        {"index": 91, "source": "Supplier A", "link": "https://example.invalid/a"},
+    ]
+    response["text_blocks"] = [
+        {"type": "heading", "snippet": "Sources & Pricing"},
+        {"type": "table", "table": [
+            ["Supplier", "Price"],
+            [{"snippet": "Supplier A", "snippet_links": [{"link": "https://example.invalid/a?gclid=tracking"}]}, "$10"],
+            ["B Resale", {"snippet": "$20", "reference_indexes": [7]}],
+        ]},
+    ]
+    ai_mode_provider[0]["product"] = response
+    row = run_ai_mode().iloc[0]
+    assert list(zip(row["compact"]["Sources & Pricing"], row["compact"]["references"], strict=True)) == [
+        ({"B Resale": "$20"}, "https://example.invalid/b"),
+        ({"Supplier A": "$10"}, "https://example.invalid/a"),
+    ]
+    assert row["result"]["Sources & Pricing"] == response["text_blocks"][1:]
+
+
+def test_compact_multiple_price_sections_and_offers_share_reference_positions(ai_mode_provider, provider_response):
+    response = deepcopy(provider_response)
+    response["references"] = [
+        {"index": 0, "source": "Supplier A", "link": "https://example.invalid/a"},
+        {"index": 1, "source": "Supplier B", "link": "https://example.invalid/b"},
+    ]
+    response["text_blocks"] = [
+        {"type": "heading", "snippet": "Retail Pricing"},
+        {"type": "list", "list": [
+            {"snippet": "Supplier A: $10 each", "reference_indexes": [0]},
+            {"snippet": "Supplier A: $9 each for 100+", "reference_indexes": [0]},
+            {"snippet": "Unlinked: $30"},
+        ]},
+        {"type": "heading", "snippet": "Bulk Prices"},
+        {"type": "paragraph", "snippet": "Supplier B: $20 per pack", "reference_indexes": [1]},
+    ]
+    ai_mode_provider[0]["product"] = response
+    compact = run_ai_mode(query_config=[{"Retail Pricing": "Retail"}, {"Bulk Prices": "Bulk"}]).iloc[0]["compact"]
+    assert compact["references"] == ["https://example.invalid/a", "https://example.invalid/a", "https://example.invalid/b", ""]
+    assert compact["Retail Pricing"] == [{"Supplier A": "$10 each"}, {"Supplier A": "$9 each for 100+"}, {"Supplier B": ""}, {"Unlinked": "$30"}]
+    assert compact["Bulk Prices"] == [{"Supplier A": ""}, {"Supplier A": ""}, {"Supplier B": "$20 per pack"}, {"Unlinked": ""}]
 
 
 @pytest.mark.parametrize("detail, expected", [
@@ -139,7 +269,8 @@ def test_compact_prices_keep_currency_and_qualifiers(ai_mode_provider, provider_
     })
     ai_mode_provider[0]["product"] = response
     row = run_ai_mode().iloc[0]
-    assert row["compact"]["Sources & Pricing"] == [{"Supplier": expected}]
+    assert row["compact"]["Sources & Pricing"] == FIXTURE_UNPRICED_SOURCES + [{"Supplier": expected}]
+    assert len(row["compact"]["Sources & Pricing"]) == len(row["compact"]["references"])
     assert row["result"]["Sources & Pricing"] == response["text_blocks"][5:]
 
 
@@ -156,7 +287,7 @@ def test_compact_prices_parse_dashed_supplier_entries(ai_mode_provider, provider
     response["text_blocks"][5]["list"] = [{"snippet": snippet} for snippet in snippets]
     ai_mode_provider[0]["product"] = response
     row = run_ai_mode().iloc[0]
-    assert row["compact"]["Sources & Pricing"] == [
+    assert row["compact"]["Sources & Pricing"] == FIXTURE_UNPRICED_SOURCES + [
         {"Acorn Industrial Services": "$13.18 USD"},
         {"Klium": "$18.60 USD"},
         {"HVH Industrial Solutions": "$6.32 USD"},
@@ -164,6 +295,7 @@ def test_compact_prices_parse_dashed_supplier_entries(ai_mode_provider, provider
         {"RS - America": "$55.98 (bulk tier discounts down to $50.39)"},
         {"MSC-Direct": "Contact for quote"},
     ]
+    assert row["compact"]["references"] == [ref["link"] for ref in response["references"]] + FIXTURE_SNIPPET_URLS[:1] + [""] * len(snippets)
     assert row["result"]["Sources & Pricing"] == [response["text_blocks"][5]]
     assert row["markdown"] == response["reconstructed_markdown"]
 
@@ -178,12 +310,15 @@ def test_compact_prices_keep_multiple_offers_and_unattributed_text(ai_mode_provi
         {"snippet": ": $12.00"},
     ]
     ai_mode_provider[0]["product"] = response
-    assert run_ai_mode().iloc[0]["compact"]["Sources & Pricing"] == [
+    compact = run_ai_mode().iloc[0]["compact"]
+    assert compact["Sources & Pricing"] == FIXTURE_UNPRICED_SOURCES + [
         {"Supplier": "$13.17 each"}, {"Supplier": "$11.00 each for 100+"},
         {"text": "No other prices were disclosed."},
         {"text": "Supplier:"},
         {"text": ": $12.00"},
     ]
+    assert compact["references"][-5:] == [""] * 5
+    assert len(compact["Sources & Pricing"]) == len(compact["references"])
 
 
 def test_compact_text_removes_links_and_cleans_units_and_unicode(ai_mode_provider, provider_response):
@@ -228,7 +363,7 @@ def test_latex_measurements_and_prices_remain_distinct(ai_mode_provider, provide
     ai_mode_provider[0]["product"] = response
     row = run_ai_mode().iloc[0]
     assert row["compact"]["Technical Specifications"] == [{label: value} for label, _, value in specifications]
-    assert row["compact"]["Sources & Pricing"] == [{label: value} for label, _, value in offers]
+    assert row["compact"]["Sources & Pricing"] == FIXTURE_UNPRICED_SOURCES + [{label: value} for label, _, value in offers]
     assert row["result"]["Technical Specifications"] == [response["text_blocks"][3]]
     assert row["result"]["Sources & Pricing"] == [response["text_blocks"][5]]
     assert row["markdown"] == response["reconstructed_markdown"]
@@ -259,7 +394,7 @@ def test_compact_nested_lists_and_tables_are_shallow(ai_mode_provider, provider_
     assert row["compact"]["Technical Specifications"] == [
         {"text": "Dimensions"}, {"Width": "12 mm"}, {"Voltage": "12 VDC"}, {"Current": "5 A"},
     ]
-    assert row["compact"]["Sources & Pricing"] == [{"Supplier A": "$13.17 USD; Unit: pack of 10"}]
+    assert row["compact"]["Sources & Pricing"] == FIXTURE_UNPRICED_SOURCES + [{"Supplier A": "$13.17 USD; Unit: pack of 10"}]
     assert row["result"]["Technical Specifications"] == [response["text_blocks"][3]]
 
 
@@ -531,7 +666,7 @@ def test_paragraph_section_labels_populate_all_outputs(ai_mode_provider, provide
         assert result[heading] == [provider_response["text_blocks"][index * 2 + 1]]
     assert row["compact"]["Product Description"] == "The Example Power P12 supplies 12 VDC."
     assert len(row["compact"]["Technical Specifications"]) == 12
-    assert row["compact"]["Sources & Pricing"] == [
+    assert row["compact"]["Sources & Pricing"] == FIXTURE_UNPRICED_SOURCES + [
         {"Supplier 1": "$21.00"}, {"Supplier 2": "$22.00"}, {"Supplier 3": "$23.00"},
     ]
     assert row["compact"]["references"] == [ref["link"] for ref in response["references"]] + FIXTURE_SNIPPET_URLS

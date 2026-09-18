@@ -44,6 +44,9 @@ def ai_mode(
     ai_mode_result_complete (section blocks, references and meta_data with
     srsltid URL parameters and image fields removed),
     and ai_mode_markdown (the provider's original Markdown string).
+    Compact pricing lists align with references by position. Unpriced references
+    have site-name keys with empty values. Multiple offers repeat their URL;
+    prices without an identifiable source URL pair with an empty reference.
     A string query returns one response; a list returns responses in input order.
     Blank queries return a Skipped response without calling the provider.
     """

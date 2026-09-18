@@ -244,15 +244,21 @@ def ai_mode(
               type: string
         description: |-
           Outputs are ordered [ai_mode_result, ai_mode_result_complete, ai_mode_markdown].
-          One output returns compact content for the requested headings only:
+          One output returns compact content for the requested headings and references:
           paragraphs become text, lists and tables become flat lists. Headings
           containing specification or specifications produce name-to-value
           dictionaries, preserving unlabeled content in a text dictionary. Pricing
           sections contain supplier-to-price dictionaries when the text identifies
           a supplier using a colon or spaced en/em dash. Unattributed pricing notes
-          are retained in text dictionaries. Its references field combines direct URLs from provider
-          references and snippet_links in requested sections, removes known tracking
-          parameters and duplicates, and omits Google product-viewer URLs. Section
+          are retained in text dictionaries. Pricing lists align by position with
+          references, matching cleaned inline URLs, citation IDs or an unambiguous
+          source name. References without prices have an empty string value keyed
+          by the provider's site name, falling back to the URL hostname. Multiple
+          offers for one URL repeat that reference. Prices without an identifiable
+          source URL are retained with an empty reference string.
+          Source URLs come from provider references and snippet_links in requested
+          sections. Before alignment, known tracking parameters and duplicate URLs
+          are removed, and Google product-viewer URLs are omitted. Section
           content omits links, metadata, viewer labels and recognized follow-up
           invitations; it cleans Unicode escapes and units.
           The optional second output retains section blocks, the complete references
@@ -262,8 +268,10 @@ def ai_mode(
           Requested labels match native headings or top-level paragraphs, including
           a label followed by a colon and inline content. Case and whitespace
           differences are ignored; content after an inline label stays in its section.
-          Missing sections have empty lists and parse warnings. If the first heading
-          is omitted and opening paragraphs precede the second requested heading, they
+          Missing sections in the complete output have empty lists and parse warnings.
+          Compact pricing sections still receive an entry for every reference.
+          If the first heading is omitted and opening paragraphs precede the second
+          requested heading, they
           populate the first section with an inferred_headings diagnostic and warning.
           Unknown headings and other preamble blocks remain in meta_data. Blank queries
           return an empty section dictionary with status Skipped and empty Markdown.

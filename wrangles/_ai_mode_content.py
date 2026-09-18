@@ -69,7 +69,7 @@ def _plain_text(value):
 
 
 def _table_lines(table):
-    """SerpAPI's table grid begins with a header row; keep each data row flat."""
+    """Flatten each table data row while retaining its links and citation IDs."""
     if not isinstance(table, list):
         return
     rows = [row for row in table if isinstance(row, list)]
@@ -77,30 +77,35 @@ def _table_lines(table):
         return
     headers, rows = (rows[0], rows[1:]) if len(rows) > 1 else ([], rows)
     for row in rows:
-        cells = []
+        cells, links, indexes = [], [], []
         for cell in row:
             if isinstance(cell, Mapping):
+                if isinstance(cell.get("snippet_links"), list):
+                    links.extend(cell["snippet_links"])
+                if isinstance(cell.get("reference_indexes"), list):
+                    indexes.extend(cell["reference_indexes"])
                 cell = cell.get("snippet", "")
             elif isinstance(cell, (int, float)):
                 cell = str(cell)
             cells.append(_plain_text(cell))
         if not cells:
             continue
+        context = {"snippet_links": links, "reference_indexes": indexes}
         if len(cells) == 2:
-            yield ": ".join(cells)
+            yield ": ".join(cells), context
         elif len(cells) > 2:
             details = []
             for index, value in enumerate(cells[1:], 1):
                 label = _plain_text(headers[index]) if index < len(headers) else ""
                 if value:
                     details.append(f"{label}: {value}" if label else value)
-            yield f"{cells[0]}: {'; '.join(details)}"
+            yield f"{cells[0]}: {'; '.join(details)}", context
         elif cells[0]:
-            yield cells[0]
+            yield cells[0], context
 
 
 def _visible_items(blocks, listed=False):
-    """Visit visible content only, never links, references or other metadata."""
+    """Yield visible text with source context, without turning metadata into prose."""
     if not isinstance(blocks, list):
         return
     for block in blocks:
@@ -110,12 +115,12 @@ def _visible_items(blocks, listed=False):
         if _FOLLOW_UP.match(text):
             continue
         if text:
-            yield text, block.get("snippet_links"), listed
+            yield text, block, listed
         yield from _visible_items(block.get("list"), listed=True)
         yield from _visible_items(block.get("text_blocks"), listed=listed)
-        for line in _table_lines(block.get("table")):
+        for line, context in _table_lines(block.get("table")):
             if line:
-                yield line, None, True
+                yield line, context, True
 
 
 def _supplier_price(text, links):
@@ -196,19 +201,102 @@ def _reference_urls(complete, headings):
     return urls
 
 
+def _reference_sites(complete, urls):
+    """Prefer the provider's site name, falling back to the URL's hostname."""
+    names = {}
+    for reference in complete.get("references", []):
+        if isinstance(reference, Mapping):
+            url = _source_url(reference.get("link"))
+            name = _plain_text(reference.get("source"))
+            if url and name:
+                names.setdefault(url, name)
+    return {url: names.get(url) or urlsplit(url).hostname.removeprefix("www.") for url in urls}
+
+
+def _price_urls(price, context, references, sites):
+    """Associate an offer using inline links, citation IDs or a unique site name."""
+    links = context.get("snippet_links")
+    urls = list(dict.fromkeys(
+        url for link in (links if isinstance(links, list) else [])
+        if isinstance(link, Mapping) and (url := _source_url(link.get("link")))
+    ))
+    if urls:
+        return urls
+    indexes = context.get("reference_indexes")
+    cited_urls = list(dict.fromkeys(
+        url for reference in references
+        if isinstance(reference, Mapping) and isinstance(indexes, list)
+        and "index" in reference and reference["index"] in indexes
+        and (url := _source_url(reference.get("link")))
+    ))
+    if len(cited_urls) == 1:
+        return cited_urls
+    supplier = next(iter(price))
+    if supplier == "text":
+        return []
+
+    def name_key(name):
+        return re.sub(r"[\W_]+", "", name.casefold())
+
+    # Different regional sites or multiple pages for one supplier are ambiguous.
+    # A shared hostname alone does not establish where an offer was published.
+    matches = [url for url in (cited_urls or sites)
+               if name_key(sites[url]) == name_key(supplier)]
+    return matches if len(matches) == 1 else []
+
+
+def _align_pricing(complete, headings, pricing_items):
+    """Build parallel pricing and reference lists without discarding either."""
+    urls = _reference_urls(complete, headings)
+    if not pricing_items:
+        return {}, urls
+    sites = _reference_sites(complete, urls)
+    by_url = {heading: {} for heading in pricing_items}
+    unlinked = []
+    for heading, items in pricing_items.items():
+        for text, context, _ in items:
+            price = _supplier_price(text, context.get("snippet_links"))
+            matches = _price_urls(price, context, complete.get("references", []), sites)
+            if matches:
+                for url in matches:
+                    by_url[heading].setdefault(url, []).append(price)
+            else:
+                unlinked.append((heading, price))
+
+    aligned, references = {heading: [] for heading in pricing_items}, []
+
+    def append_row(url, name, prices):
+        references.append(url)
+        for heading in aligned:
+            aligned[heading].append(dict(prices[heading]) if heading in prices else {name: ""})
+
+    for url in urls:
+        offers = {heading: values.get(url, []) for heading, values in by_url.items()}
+        # Multiple offers for the same URL get separate rows and repeat that URL.
+        for index in range(max(1, *(len(values) for values in offers.values()))):
+            append_row(url, sites[url], {heading: values[index] for heading, values in offers.items()
+                                         if index < len(values)})
+    for heading, price in unlinked:
+        append_row("", next(iter(price)), {heading: price})
+    return aligned, references
+
+
 def compact_result(complete, headings):
-    """Return shallow section values and deduplicated direct source URLs."""
-    result = {}
+    """Return shallow content with pricing sections aligned to reference URLs."""
+    result, pricing_items = {}, {}
     for heading in headings:
         items = list(_visible_items(complete.get(heading)))
         pricing = bool(_PRICING_HEADING.search(heading))
         if pricing:
-            result[heading] = [_supplier_price(text, links) for text, links, _ in items]
+            result[heading] = []
+            pricing_items[heading] = items
         elif _SPECIFICATION_HEADING.search(heading):
             result[heading] = [_specification(text) for text, _, _ in items]
         elif any(listed for _, _, listed in items):
             result[heading] = [text for text, _, _ in items]
         else:
             result[heading] = "\n\n".join(text for text, _, _ in items)
-    result["references"] = _reference_urls(complete, headings)
+    aligned, references = _align_pricing(complete, headings, pricing_items)
+    result.update(aligned)
+    result["references"] = references
     return result
