@@ -2,32 +2,113 @@
 
 Run `run_search_ai_mode.py` in VS Code using the repository's `.venv`
 interpreter. The runner supplies the example records as a DataFrame to
-`wrangles.recipe.run`. Set `SERPAPI_API_KEY` in your environment, or in the
-ignored `.env` file when `python-dotenv` is installed.
-The recipe expands compact fields into columns and writes the selected trial
-results to `ai_mode_results.xlsx`. Terminal pretty-printing is currently
-commented out in the runner.
+`wrangles.recipe.run`. Set `SERPAPI_API_KEY` and `OPENAI_API_KEY` in your
+environment, or in the ignored `.env` file when `python-dotenv` is installed.
+The recipe now compares the existing deterministic result with a subsequent
+`extract.ai` step. The search wrangle's three-output contract is unchanged.
 
-The runner's editable defaults include `NROWS`, concurrency, locale and the
-shared query configuration:
+Each run prints its output paths and writes uniquely named XLSX and JSON files
+under the ignored `.data/` directory. Excel contains the original expanded
+fields beside `ai_mode_result_structured` and `ai_mode_structured_meta`.
+The JSON snapshot contains the entire returned DataFrame, including captured
+complete results, original Markdown, extraction evidence and model output.
+JSON preserves long cell values that Excel cannot hold.
+
+Set `REPLAY_FILE` to a previous JSON snapshot to repeat extraction without
+calling SerpAPI. Relative paths start at the repository directory. Replay uses
+the product rows and complete results saved in that snapshot. Output files get
+new names, so the original evidence stays available. `EXTRACT_ENABLED = False`
+skips extraction and needs no OpenAI key. `WRITE_OUTPUTS = False` disables file
+exports; `PRETTY_PRINT = True` prints the returned records to the terminal.
+
+The runner's editable defaults include `NROWS` (`None` for both sample rows),
+search and extraction concurrency, locale, extraction timeout/retries and
+`EXTRACT_MODEL` (`None` uses the configured `extract.ai` default). The shared
+query configuration is:
 
 ```python
 AI_MODE_QUERY = [
     {"base_query": "Provide the following product information:"},
     {"Product Description": "1-3 sentences including the product name and key features."},
     {"Technical Specifications": "List confirmed technical specifications."},
-    {"Sources & Pricing": "List suppliers and available pricing with source links."},
+    {"Pricing & Sources": "List suppliers and available pricing with source links."},
     {"query_suffix": (
-        "Use the requested headings exactly as written. "
-        "Include only the requested sections, and do not include follow-up questions."
+        "Use the exact information labels as headings. "
+        "Include only the requested sections; no follow-up questions."
     )},
 ]
 ```
 
 `search_ai_mode_test.recipe` uses this same variable for its Jinja query and
 `search.ai_mode.query_config`. The template combines the prefix, ordered
-heading instructions, each row's product details, and suffix. The temporary
-configuration column is removed before searching.
+heading instructions as bullets, a `for this product:` block containing only
+Description/Mfr/MPN, and the suffix. Each product line is prefixed with `>`.
+The temporary configuration column is removed before searching. The trial's
+three heading names are editable constants used by both the prompt and final
+structured-result formatter.
+
+## Downstream extraction trial
+
+The new trial path is:
+
+```text
+search.ai_mode -> ai_mode_result_complete -> prepare_evidence
+  -> extract.ai -> format_product_result -> ai_mode_result_structured
+```
+
+`wrangles/_search_ai_extraction.py` accepts answer content rather than a search
+API envelope. It copies the complete sections and references, restoring any
+unmatched or unsectioned blocks from metadata. Nested lists, unfamiliar blocks,
+and parallel `table`/`detailed`/`formatted` representations remain intact.
+Search transport metadata is omitted from the model input.
+
+The same helper accepts the inner `ai_overview` answer object. A test verifies
+this with a classic-search envelope containing unrelated organic results;
+only the Overview content is used. The future `search.ai_overview` adapter
+will own its API request and any token-based follow-up described by
+[SerpAPI](https://serpapi.com/ai-overview). This slice adds no Overview requests
+or public wrangle/schema changes.
+
+`prepare_evidence` builds a source catalog from provider references followed
+by actual URLs found throughout the structured content, including detailed
+table cells and unfamiliar blocks. It cleans and deduplicates URLs with the
+existing sanitizer, omits Google product viewers, and assigns local IDs such
+as `s1`. Each source keeps its site name (or hostname), provider reference IDs
+and JSON-pointer evidence paths. It never guesses URLs from labels or product
+IDs. The copied provider structure remains available alongside this catalog.
+
+The recipe calls the ordinary `extract.ai` wrangle with product identity and
+this evidence, with web search disabled. Its explicit schema uses fixed fields:
+
+```text
+description: string
+specifications: [{name: string, value: string}]
+offers: [{supplier: string, price: string, source_ids: [string]}]
+```
+
+Instructions tell the extractor to use supplied facts, inspect all preserved
+structures, avoid duplicate interpretations of the same table, retain units
+and price qualifiers, and leave uncertain source associations empty. Empty or
+failed search responses skip extraction. A failed model extraction is recorded
+as an error in `ai_mode_structured_meta`.
+
+`format_product_result` then creates the requested heading-keyed result.
+Specifications become single-entry dictionaries; offers become supplier/price
+dictionaries. URLs come exclusively from the catalog, never from model output.
+Unknown source IDs are flagged. All catalog URLs are retained in order, with
+`{site_name: ""}` for unpriced sources. Multiple offers repeat the corresponding
+URL; unlinked offers are appended with empty references. Pricing and references
+therefore have equal lengths and can be zipped.
+
+`ai_mode_structured_meta` records validation warnings and the model's source
+associations. A `complete` status means the returned shapes and IDs validated;
+it is not a fact-check or proof of the semantic association. The JSON snapshot
+retains `search_ai_evidence` and `search_ai_extracted` for reviewing those
+decisions. The trials have offline regression coverage using the real recipe,
+schema compiler and extraction wrapper with mocked service responses. Live
+accuracy still needs evaluation against actual search responses.
+
+## Existing deterministic outputs
 
 ```yaml
 - search.ai_mode:
@@ -56,13 +137,13 @@ interpret the answer.
 ai_mode_result = {
     "Product Description": "The Example Power P12 supplies 12 VDC.",
     "Technical Specifications": [{"Output Voltage": "12 VDC"}, {"Output Current": "5 A"}],
-    "Sources & Pricing": [{"Supplier A": "$13.17 USD per pack of 10"}],
+    "Pricing & Sources": [{"Supplier A": "$13.17 USD per pack of 10"}],
     "references": ["https://example.invalid/product"]
 }
 ai_mode_result_complete = {
     "Product Description": [original content blocks],
     "Technical Specifications": [original content blocks],
-    "Sources & Pricing": [original content blocks],
+    "Pricing & Sources": [original content blocks],
     "references": [all original reference dictionaries],
     "meta_data": {query, input_row_id, provider metadata, parse diagnostics}
 }

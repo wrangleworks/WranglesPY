@@ -22,7 +22,18 @@ duplicate source URLs, tracking parameters and nested image fields.
 These variants verify the compact, complete and
 Markdown outputs without retaining a real provider export.
 
+`tests/test_search_ai_extraction.py` also authors a small synthetic answer in
+memory. It covers parallel table representations, an unfamiliar comparison
+block, non-positional citation IDs, actual URLs in detailed table cells,
+duplicate URLs and source naming, omitted transport metadata, and unmatched
+content. Its fixed model responses cover aligned and unlinked offers, unknown
+source IDs, skipped/failed rows and mixed-row batches. The real recipe and
+`extract.ai` wrapper run with mocked service endpoints and network access
+blocked. Temporary XLSX/JSON snapshots verify replay and preservation of values
+longer than an Excel cell; no generated workbooks or provider exports are
+committed.
+
 This small fixture is authored directly; there is no dataset sampling or
 generation step. Run its consumer tests from the repository root:
 
-    python -m pytest -q tests/test_search-ai_mode.py
+    python -m pytest -q tests/test_search-ai_mode.py tests/test_search_ai_extraction.py

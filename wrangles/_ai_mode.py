@@ -5,7 +5,7 @@ from copy import deepcopy
 import math
 import unicodedata
 
-from ._ai_mode_content import compact_result, prune_noise
+from ._search_ai_content import compact_result, prune_noise
 
 
 def heading_key(value):

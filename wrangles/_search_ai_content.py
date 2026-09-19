@@ -1,4 +1,4 @@
-"""Remove AI Mode UI noise and build a shallow view of requested sections."""
+"""Shared AI-search cleanup and the original deterministic compact projection."""
 
 from collections.abc import Mapping
 import html

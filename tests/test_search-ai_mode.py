@@ -635,7 +635,7 @@ def test_compact_references_omit_viewer_only_or_invalid_links(ai_mode_provider, 
     ("https://example.invalid/p?sku=A&empty=&sku=B#srsltid=not-a-query", "https://example.invalid/p?sku=A&empty=&sku=B#srsltid=not-a-query"),
 ])
 def test_srsltid_filter_preserves_other_url_content(original, expected):
-    from wrangles._ai_mode_content import prune_noise
+    from wrangles._search_ai_content import prune_noise
     assert prune_noise(original) == expected
 
 
@@ -1083,6 +1083,8 @@ def test_runner_uses_shared_configuration_and_separate_cleanup(monkeypatch, tmp_
     dotenv = ModuleType("dotenv")
     dotenv.load_dotenv = lambda *args, **kwargs: None
     monkeypatch.setitem(sys.modules, "dotenv", dotenv)
+    monkeypatch.setattr(runner, "EXTRACT_ENABLED", False)
+    monkeypatch.setattr(runner, "WRITE_OUTPUTS", False)
     # Local trial exports can select fixed headings. Test configurable headings
     # independently of those selections, and never write to the trial workbook.
     recipe = yaml.safe_load(runner.RECIPE_FILE.read_text(encoding="utf-8"))
@@ -1095,13 +1097,16 @@ def test_runner_uses_shared_configuration_and_separate_cleanup(monkeypatch, tmp_
     monkeypatch.setattr(runner, "AI_MODE_QUERY", config)
     monkeypatch.setattr(runner, "NROWS", 1)
     provider_response["text_blocks"][2]["snippet"] = "Specification Details"
+    provider_response["text_blocks"][4]["snippet"] = "Pricing & Sources"
     df = runner.main()
     assert len(df) == 1
     assert "__ai_mode_query_config" not in df.columns
     query = ai_mode_provider[1][0]["q"]
     assert query.startswith(config[0]["base_query"])
     assert 'Specification Details: Keep literal {{ sample }} and "quoted" instructions.' in query
-    assert "Product Description:" in query and "Sources & Pricing:" in query
+    assert "- Product Description:" in query and "- Pricing & Sources:" in query
+    assert "for this product:" in query and "> Mfr: INA" in query
+    assert "part_codes:" not in query and "query:" not in query
     assert "References:" not in query
     assert "Mfr: INA" in query and "MPN: NATV6-PP-A" in query
     assert query.endswith(config[-1]["query_suffix"])

@@ -5,6 +5,7 @@ tests/temp/*
 !tests/temp/README.md
 
 # Local/generated output files
+.data/
 output_files/*
 !output_files/.gitkeep
 
