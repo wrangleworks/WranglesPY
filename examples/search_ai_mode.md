@@ -4,6 +4,9 @@ Run `run_search_ai_mode.py` in VS Code using the repository's `.venv`
 interpreter. The runner supplies the example records as a DataFrame to
 `wrangles.recipe.run`. Set `SERPAPI_API_KEY` in your environment, or in the
 ignored `.env` file when `python-dotenv` is installed.
+The recipe expands compact fields into columns and writes the selected trial
+results to `ai_mode_results.xlsx`. Terminal pretty-printing is currently
+commented out in the runner.
 
 The runner's editable defaults include `NROWS`, concurrency, locale and the
 shared query configuration:
@@ -44,6 +47,10 @@ configuration column is removed before searching.
 Each row must contain one query string. Explode query lists before searching.
 The outputs are compact result, complete result, and original Markdown, in
 that order. Supply one, two, or three output column names as needed.
+Parsing uses the provider's structured JSON: first group blocks under the
+requested headings, then derive compact values from those groups. The parser
+does not reconstruct sections from Markdown or make another model call to
+interpret the answer.
 
 ```text
 ai_mode_result = {
@@ -77,12 +84,18 @@ LaTeX units. Tables follow the header-and-row structure in the
 
 In sections whose heading includes "price", "prices", or "pricing", entries
 written as `Supplier: details`, `Supplier – details` or `Supplier — details`
-become single-entry dictionaries. Navigation
+become single-entry dictionaries. It also recognizes supplier sentences such
+as `Available at Supplier for $13.17 USD`, including the corresponding
+offered/sold and from/by variations. Navigation
 phrases such as "via Supplier Product Page" are removed. Price ranges,
 currencies, per-pack quantities and other price qualifiers stay as text;
 no currency or price is guessed. Text without an identifiable supplier or value
 is preserved as `{"text": "original content"}`, keeping every pricing entry a
 dictionary. Multiple offers from one supplier remain separate entries.
+Supplier/price/link tables omit navigation columns and a single price-column
+heading from compact values. Currency conversions, quantity columns and labels
+that distinguish multiple price columns are retained. Links and citation IDs
+attached to table cells remain available for associating offers with sources.
 
 The complete result preserves paragraphs, lists, tables, nested blocks,
 links, LaTeX and citation indexes, with three noise filters: `srsltid` URL
@@ -96,15 +109,32 @@ Compact references combine direct web URLs from that list with `snippet_links`
 in the requested sections, including nested lists and tables. The shared
 `wrangles.web.clean_link` sanitizer removes known tracking parameters such as
 `srsltid` and `utm_source`, preserving full URLs, functional query parameters,
-encoding and fragments. The compact list removes duplicate cleaned URLs and
-keeps first-seen order: provider references first, then section links.
+encoding and fragments. The initial URL list removes duplicate cleaned URLs
+and keeps first-seen order: provider references first, then section links.
+
+Compact pricing and references are then aligned by position so they can be
+zipped. Each offer is associated using its inline source URLs first, then
+reference indexes matched against provider reference IDs, then a unique
+normalized supplier/site-name match. Different regional sites or multiple
+pages with the same source name are not resolved by guessing from the domain.
+Inline links can associate an offer with more than one source URL.
+
+Pricing follows reference order, which can differ from the order of offers in
+Google's answer. A reference without an offer receives `{site_name: ""}`, using
+the provider's source name or the URL hostname without `www.`. Multiple offers
+for one URL repeat that URL in the final reference list. Unmatched prices are
+appended with `""` as their reference. If more than one pricing section is
+requested, all pricing lists use the same reference positions and empty-value
+padding.
 
 Google product-viewer URLs containing product/catalog IDs are omitted from
 compact references; they remain in the complete output. Supplier URLs are
 collected from the supplied content, without guessing destinations from IDs.
 This populates compact references when the provider's reference list is empty
 but inline supplier links are available. If no direct source URLs were returned,
-compact references remain empty. References are not requested again as a heading.
+each remaining pricing entry has an empty reference string; without pricing
+entries, compact references remain empty. References are not requested again
+as a heading.
 
 Heading matching ignores case and whitespace differences. It recognizes native
 heading blocks and paragraph blocks containing an exact requested label, either
@@ -120,13 +150,41 @@ fallback requires a successful response and no explicit first heading anywhere
 in the answer. The complete result records `meta_data.inferred_headings` and an `inferred_heading`
 warning; `parse_status` stays `partial` to make the inference visible.
 
-Other missing sections produce empty lists and warnings. Repeated headings
+Other missing sections produce empty lists and warnings in the complete result.
+Compact pricing sections still receive an entry for every source URL.
+Repeated headings
 append to the same section. Unrequested headings and remaining preamble
 content are preserved in
 `meta_data.unmatched_sections` and `meta_data.unsectioned_text_blocks`.
 `meta_data.parse_status` is `complete`, `partial`, `error`, or `skipped`.
 Provider errors remain attached to the input row. Blank queries skip the
 provider and return empty sections and Markdown.
+
+The current parsing boundaries are deliberate and useful when reviewing new
+features:
+
+- Section recognition uses normalized exact labels and colon-delimited labels,
+  not synonyms or semantic matching. Only the narrowly defined missing-first-
+  heading case is inferred.
+- Compact output types are selected by heading words: specification(s) produces
+  name/value dictionaries; price(s)/pricing produces supplier/value dictionaries.
+  Other sections become joined paragraph text or a list when lists/tables occur.
+  The query instructions themselves do not define an output schema.
+- Tables use the `table` rows, treating the first row as headers when there are
+  multiple rows and the first cell as the key. Alternative `detailed` and
+  `formatted` representations are preserved in complete blocks but are not
+  independently parsed or used to recover links.
+- Unrecognized supplier/specification text remains in a `text` dictionary.
+  Price values stay as strings; the parser does not convert currencies, infer
+  missing amounts or resolve Google product IDs to supplier URLs.
+- Unicode and simple inline LaTeX cleanup are conservative. Numeric dollar
+  amounts, ranges and price qualifiers are protected. Unsupported formulas,
+  code and link destinations are left alone by the Unicode/LaTeX conversion.
+- Unknown content block fields remain in the complete result but may not
+  contribute to compact text. Extra top-level provider field names are listed
+  in `meta_data.unmapped_fields`; their values require `include_raw_response`.
+  Parsing warnings describe structural issues, not factual accuracy or
+  confidence in a price/source association.
 
 `base_query` and `query_suffix` are prompt controls. All other configuration
 keys must be unique headings. `references`, `meta_data`, and `raw_response`

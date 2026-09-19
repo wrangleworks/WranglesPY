@@ -1,8 +1,9 @@
-"""Run the two product examples through search.ai_mode and pretty-print them.
+"""Run the two product examples through search.ai_mode and write trial results.
 
 In VS Code, select this repository's .venv interpreter and Run Python File.
 Set SERPAPI_API_KEY in the environment or the ignored repository .env file
 (loading .env requires python-dotenv). Each input row makes one search.
+The recipe writes ai_mode_results.xlsx; terminal pretty-printing is optional.
 """
 
 from pathlib import Path
@@ -105,7 +106,7 @@ def main():
         },
     )
 
-    pprint(results_df.to_dict(orient="records"), sort_dicts=False, width=120)
+    # pprint(results_df.to_dict(orient="records"), sort_dicts=False, width=120)
     return results_df
 
 

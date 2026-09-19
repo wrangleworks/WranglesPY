@@ -53,3 +53,24 @@ wrangles:
 
   - custom.clean_ai_mode_links:
       input: ai_mode_markdown_clean
+
+  - split.dictionary:
+      input: ai_mode_result
+
+write:
+
+  - file:
+      name: ai_mode_results.xlsx
+      columns:
+        - ID
+        - Description
+        - Mfr
+        - MPN
+        - part_codes
+        - search_query
+        - ai_mode_result_complete
+        - Product Description
+        - Technical Specifications
+        - Sources & Pricing
+        - references
+        - ai_mode_markdown_clean
