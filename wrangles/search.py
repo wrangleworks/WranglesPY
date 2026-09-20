@@ -30,30 +30,19 @@ def find_links(
 
 def ai_mode(
     queries: str | list,
-    query_config: list,
     client: str = "serpapi",
     client_config: dict | None = None,
     threads: int = 10,
     include_raw_response: bool = False,
     **kwargs
 ) -> dict | list:
-    """
-    Search Google AI Mode using a shared list of single-entry query dictionaries.
+    """Return ai_mode_results (Markdown body) and ai_mode_metadata (dictionary).
 
-    Each response contains ai_mode_result (compact section content),
-    ai_mode_result_complete (section blocks, references and meta_data with
-    srsltid URL parameters and image fields removed),
-    and ai_mode_markdown (the provider's original Markdown string).
-    Compact pricing lists align with references by position. Unpriced references
-    have site-name keys with empty values. Multiple offers repeat their URL;
-    prices without an identifiable source URL pair with an empty reference.
-    A string query returns one response; a list returns responses in input order.
-    Blank queries return a Skipped response without calling the provider.
+    Search uses output=md. Cleanup and semantic extraction belong in subsequent
+    wrangles. Locale overrides are omitted unless supplied. A string query
+    returns one response; a list returns responses in input order. Blank queries
+    return Skipped without requiring a credential or calling the provider.
     """
-    if client_config is None:
-        client_config = {}
-
-    headings = _ai_mode.query_headings(query_config)
     kwargs = _ai_mode.request_parameters(kwargs)
     if not isinstance(threads, int) or isinstance(threads, bool) or threads < 1:
         raise ValueError("threads must be a positive integer.")
@@ -61,21 +50,16 @@ def ai_mode(
     normalized = [_ai_mode.normalize_query(q) for q in ([queries] if scalar else queries)]
     if not any(normalized):
         responses = [
-            _ai_mode.normalize_response({}, q, headings, i, status="Skipped",
+            _ai_mode.normalize_response("", q, i, status="Skipped",
                                         include_raw_response=include_raw_response)
             for i, q in enumerate(normalized, 1)
         ]
         return responses[0] if scalar else responses
-
-    search_client = _get_client(client, client_config)
-
+    search_client = _get_client(client, client_config or {})
     return search_client.search_batch(
         normalized[0] if scalar else normalized,
-        threads=threads,
-        search_mode="ai",
-        query_config=query_config,
-        include_raw_response=include_raw_response,
-        **kwargs
+        threads=threads, search_mode="ai", include_raw_response=include_raw_response,
+        **kwargs,
     )
 
 

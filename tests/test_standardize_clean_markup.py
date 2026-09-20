@@ -209,17 +209,11 @@ def test_recipe_schema_and_dataframe_accessor_support_options():
     assert accessor_result.equals(recipe_result)
 
 
-def test_trial_link_cleanup_changes_labels_only():
-    from run_search_ai_mode import clean_ai_mode_links
-
+def test_cleanup_preserves_viewer_links_for_subsequent_semantic_extraction():
     label = "PartGo to product viewer dialog for this item."
     url = r"https://www.google.com/search?prds=item(1)&q=product&raw=\u0026"
     raw = f"[{label}]({url})"
     code = f"`{raw}`\n\n```\n{raw}\n```"
     text = "Go to product viewer dialog for this item."
-    data = pd.DataFrame({"original": [raw + "\n\n" + code + "\n\n" + text, None]})
-    output = clean_ai_mode_links(data, input="original", output="clean")
-    assert output.iloc[0]["original"].startswith(raw)
-    assert output["clean"].tolist() == [
-        f"[Part]({url})\n\n{code}\n\n{text}", None
-    ]
+    original = raw + "\n\n" + code + "\n\n" + text
+    assert _clean(original, unescape_unicode=True, latex_to_text=True) == original

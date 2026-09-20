@@ -1,5 +1,6 @@
 import concurrent.futures as _futures
 import re
+import json as _json
 from typing import Union as _Union
 
 # Import our new core web helpers
@@ -236,33 +237,36 @@ class SerpApiWranglesClient:
         except Exception as e:
             return _build_error_classic_response(query, query_index, e)
 
-    def ai_mode_single(self, query, query_config, kwargs=None, query_index=None,
+    def ai_mode_single(self, query, kwargs=None, query_index=None,
                        include_raw_response=False) -> dict:
-        """Return heading sections and the provider Markdown for one query."""
-        headings = _ai_mode.query_headings(query_config)
+        """Retrieve Markdown and separate its metadata; do not parse sections."""
         query = _ai_mode.normalize_query(query)
         kwargs = _ai_mode.request_parameters(kwargs or {})
         if not query:
             return _ai_mode.normalize_response(
-                {}, query, headings, query_index, status="Skipped",
+                "", query, query_index, status="Skipped",
                 include_raw_response=include_raw_response,
             )
         try:
             client = self.client_class(api_key=self.api_key)
-            response = client.search({
-                **kwargs,
-                "engine": "google_ai_mode",
-                "q": query,
-                "output": "json",
+            # Older SerpAPI SDK search() implementations always decode JSON.
+            # Use the SDK's raw request method so Markdown is retrieved once.
+            http_response = client.request("GET", "/search", params={
+                **kwargs, "engine": "google_ai_mode", "q": query, "output": "md",
             })
+            content_type = http_response.headers.get("Content-Type", "").lower()
+            response = http_response.json() if "json" in content_type else http_response.text
+            if isinstance(response, str):
+                response = response.replace(self.api_key, "[redacted]")
+            elif hasattr(response, "items"):
+                response = _json.loads(_json.dumps(dict(response)).replace(self.api_key, "[redacted]"))
             return _ai_mode.normalize_response(
-                response, query, headings, query_index,
-                include_raw_response=include_raw_response,
+                response, query, query_index, include_raw_response=include_raw_response,
             )
         except Exception as error:
             message = str(error).replace(self.api_key, "[redacted]")
             return _ai_mode.normalize_response(
-                {}, query, headings, query_index, error=message or type(error).__name__,
+                "", query, query_index, error=message or type(error).__name__,
                 include_raw_response=include_raw_response,
             )
 
@@ -272,7 +276,6 @@ class SerpApiWranglesClient:
         n_results: int = 10,
         threads: int = 10,
         search_mode: str = "classic",
-        query_config: list | None = None,
         include_raw_response: bool = False,
         **kwargs
     ) -> _Union[dict, list]:
@@ -290,9 +293,8 @@ class SerpApiWranglesClient:
             single_search_fn = self.search_single
             search_options = {"n_results": n_results}
         elif mode in ("ai", "ai_mode", "google_ai_mode"):
-            _ai_mode.query_headings(query_config)
             single_search_fn = self.ai_mode_single
-            search_options = {"query_config": query_config, "include_raw_response": include_raw_response}
+            search_options = {"include_raw_response": include_raw_response}
         else:
             raise ValueError("search_mode must be one of: classic, ai")
 

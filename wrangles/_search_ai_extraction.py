@@ -1,111 +1,44 @@
-"""Evidence and source alignment shared by AI-search extraction recipes.
+"""Validate model-structured AI-search content without interpreting product prose."""
 
-These helpers accept answer content, not a search API envelope. AI Mode's
-grouped complete result and a future adapter's ai_overview object both fit
-this boundary. They never fetch URLs or interpret supplier/attribute prose.
-"""
-
+from collections import Counter
 from collections.abc import Mapping
+import math
 from urllib.parse import urlsplit
 
-from ._search_ai_content import _plain_text, _source_url, prune_noise
+from ._search_ai_content import markdown_urls, source_url
 
 
-def prepare_evidence(answer):
-    """Copy structured answer content and assign IDs to its actual source URLs.
+def format_product_result(extracted, markdown, *, description, specifications, pricing):
+    """Validate evidence URLs and reference IDs, retaining independent offer rows.
 
-    Preserve parallel table representations and unfamiliar content. Transport
-    metadata stays outside the model input; unmatched content from section
-    grouping remains available to the extractor. IDs are local to this answer.
+    Relevance, supplier association, cleanup and price interpretation belong to
+    extract.ai. This function neither fetches sources nor matches supplier names.
     """
-    if not isinstance(answer, Mapping):
-        raise TypeError("AI-search evidence requires an answer dictionary.")
-    content = prune_noise({key: value for key, value in answer.items()
-                           if key not in ("meta_data", "raw_response", "search_metadata", "search_parameters")})
-    metadata = answer.get("meta_data", {})
-    if isinstance(metadata, Mapping):
-        for key in ("unmatched_sections", "unsectioned_text_blocks", "invalid_fields"):
-            if metadata.get(key):
-                content[key] = prune_noise(metadata[key])
-
-    sources, by_url, named_urls = [], {}, set()
-
-    def add(value, path, reference=None):
-        # Entire URLs only: a label or a sentence containing a URL is not a URL.
-        if not isinstance(value, str) or any(char.isspace() for char in value.strip()):
-            return
-        url = _source_url(value)
-        if not url:
-            return
-        if url not in by_url:
-            source = {
-                "id": f"s{len(sources) + 1}", "url": url,
-                "site": urlsplit(url).hostname.removeprefix("www."),
-                "reference_indexes": [], "evidence_paths": [],
-            }
-            sources.append(source)
-            by_url[url] = source
-        source = by_url[url]
-        if path not in source["evidence_paths"]:
-            source["evidence_paths"].append(path)
-        if isinstance(reference, Mapping):
-            name = _plain_text(reference.get("source"))
-            if name and url not in named_urls:
-                source["site"] = name
-                named_urls.add(url)
-            index = reference.get("index")
-            if isinstance(index, int) and not isinstance(index, bool) and index not in source["reference_indexes"]:
-                source["reference_indexes"].append(index)
-
-    references = content.get("references", [])
-    if isinstance(references, list):
-        for index, reference in enumerate(references):
-            if isinstance(reference, Mapping):
-                for key in ("link", "url"):
-                    add(reference.get(key), f"/references/{index}/{key}", reference)
-
-    def visit(value, path=""):
-        if isinstance(value, Mapping):
-            for key, child in value.items():
-                token = str(key).replace("~", "~0").replace("/", "~1")
-                visit(child, f"{path}/{token}")
-        elif isinstance(value, list):
-            for index, child in enumerate(value):
-                visit(child, f"{path}/{index}")
-        elif isinstance(value, str):
-            add(value, path)
-
-    visit(content)
-    return {"content": content, "sources": sources}
-
-
-def format_product_result(extracted, evidence, *, description, specifications, pricing):
-    """Format typed extraction fields and align offers to captured source IDs.
-
-    The model supplies description, specifications [{name, value}] and offers
-    [{supplier, price, source_ids}]. Only the captured catalog supplies URLs.
-    Invalid IDs remain diagnostics; an offer with no valid ID stays unlinked.
-    """
-    warnings, matches = [], []
     result = {description: "", specifications: [], pricing: [], "references": []}
-    valid_record = isinstance(extracted, Mapping)
-    if not valid_record:
-        warnings.append("invalid_extraction")
+    warnings, rejected = [], []
+    valid = isinstance(extracted, Mapping)
+    if not valid:
         extracted = {}
+        warnings.append("invalid_extraction")
 
-    def text(value, path):
+    def text(value, path, nullable=False):
+        if value is None and nullable:
+            return None
         if isinstance(value, str):
-            return _plain_text(value)
+            return value.strip() or (None if nullable else "")
         warnings.append(f"invalid_text: {path}")
-        return ""
+        return None if nullable else ""
 
-    if valid_record:
+    def records(name):
+        value = extracted.get(name, [])
+        if not isinstance(value, list):
+            warnings.append(f"invalid_{name}")
+            return []
+        return value
+
+    if valid:
         result[description] = text(extracted.get("description"), "description")
-    attributes = extracted.get("specifications", [])
-    if not isinstance(attributes, list):
-        warnings.append("invalid_specifications")
-        attributes = []
-    for index, attribute in enumerate(attributes):
+    for index, attribute in enumerate(records("specifications")):
         if not isinstance(attribute, Mapping):
             warnings.append(f"invalid_specification: {index}")
             continue
@@ -115,47 +48,64 @@ def format_product_result(extracted, evidence, *, description, specifications, p
             warnings.append(f"unnamed_specification: {index}")
         result[specifications].append({name or "text": value})
 
-    sources = evidence["sources"]
-    catalog = {source["id"]: source for source in sources}
-    by_source, unlinked = {}, []
-    offers = extracted.get("offers", [])
-    if not isinstance(offers, list):
-        warnings.append("invalid_offers")
-        offers = []
-    for index, offer in enumerate(offers):
+    observed_urls = set(markdown_urls(markdown))
+    references = records("references")
+    counts = Counter(ref["id"].strip() for ref in references
+                     if isinstance(ref, Mapping) and isinstance(ref.get("id"), str))
+    for index, reference in enumerate(references):
+        if not isinstance(reference, Mapping):
+            warnings.append(f"invalid_reference: {index}")
+            continue
+        ref_id = text(reference.get("id"), f"references[{index}].id")
+        url = source_url(reference.get("url"))
+        reason = None
+        if not ref_id or counts[ref_id] != 1:
+            reason = "missing_or_duplicate_reference_id"
+        elif not url or url not in observed_urls:
+            reason = "reference_url_not_in_evidence"
+        if reason:
+            warnings.append(f"{reason}: {index}")
+            rejected.append({"reference": dict(reference), "reason": reason})
+            continue
+        source = text(reference.get("source"), f"references[{index}].source")
+        result["references"].append({"id": ref_id, "source": source or urlsplit(url).hostname, "url": url})
+
+    accepted_ids = {reference["id"] for reference in result["references"]}
+    for index, offer in enumerate(records("offers")):
         if not isinstance(offer, Mapping):
             warnings.append(f"invalid_offer: {index}")
             continue
-        supplier = text(offer.get("supplier"), f"offers[{index}].supplier")
-        price = text(offer.get("price"), f"offers[{index}].price")
-        source_ids = offer.get("source_ids", [])
-        if not isinstance(source_ids, list):
-            warnings.append(f"invalid_source_ids: offers[{index}]")
-            source_ids = []
-        valid_ids = []
-        for source_id in source_ids:
-            if not isinstance(source_id, str) or source_id not in catalog:
-                warnings.append(f"unknown_source_id: offers[{index}]: {source_id}")
-            elif source_id not in valid_ids:
-                valid_ids.append(source_id)
-        matches.append({"offer_index": index, "source_ids": valid_ids, "method": "extract.ai"})
-        if valid_ids:
-            for source_id in valid_ids:
-                key = supplier or catalog[source_id]["site"]
-                by_source.setdefault(source_id, []).append({key: price})
-        else:
-            unlinked.append({supplier or "text": price})
-            warnings.append(f"unlinked_offer: {index}")
-
-    for source in sources:
-        prices = by_source.get(source["id"]) or [{source["site"]: ""}]
-        for price in prices:
-            result[pricing].append(price)
-            result["references"].append(source["url"])
-    for price in unlinked:
-        result[pricing].append(price)
-        result["references"].append("")
+        price = offer.get("price")
+        if price is not None and (isinstance(price, bool) or not isinstance(price, (int, float))
+                                  or not math.isfinite(price) or price < 0):
+            warnings.append(f"invalid_price: {index}")
+            price = None
+        currency = text(offer.get("currency"), f"offers[{index}].currency", nullable=True)
+        if currency:
+            if len(currency) == 3 and currency.isascii() and currency.isalpha():
+                currency = currency.upper()
+            else:
+                warnings.append(f"invalid_currency: {index}")
+                currency = None
+        ref_ids = offer.get("reference_ids", [])
+        if not isinstance(ref_ids, list):
+            warnings.append(f"invalid_reference_ids: {index}")
+            ref_ids = []
+        selected = []
+        for ref_id in ref_ids:
+            if not isinstance(ref_id, str) or ref_id not in accepted_ids:
+                warnings.append(f"unknown_reference_id: offers[{index}]: {ref_id}")
+            elif ref_id not in selected:
+                selected.append(ref_id)
+        result[pricing].append({
+            "price": price, "currency": currency,
+            "uom": text(offer.get("uom"), f"offers[{index}].uom", nullable=True),
+            "source": text(offer.get("source"), f"offers[{index}].source"),
+            "reference_ids": selected,
+            "price_text": text(offer.get("price_text"), f"offers[{index}].price_text"),
+        })
     return result, {
-        "status": "error" if not valid_record else "partial" if warnings else "complete",
-        "warnings": warnings, "source_matches": matches,
+        "status": "error" if not valid else "partial" if warnings else "complete",
+        "warnings": warnings, "rejected_references": rejected,
+        "unselected_source_urls": sorted(observed_urls - {ref["url"] for ref in result["references"]}),
     }

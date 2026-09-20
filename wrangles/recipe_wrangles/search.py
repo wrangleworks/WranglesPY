@@ -195,7 +195,6 @@ def ai_mode(
     df: _pd.DataFrame,
     queries: str,
     id: str,
-    query_config: list,
     output: str | list | None = None,
     client: str = "serpapi",
     api_key: str | None = None,
@@ -205,121 +204,75 @@ def ai_mode(
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Search Google AI Mode and return compact section content, an optional complete result with references and metadata, and optional original Markdown.
+    description: Retrieve Google AI Mode Markdown and metadata. Use standardize.clean and extract.ai afterwards for cleanup and structuring.
     additionalProperties: false
     required:
       - queries
       - id
-      - query_config
       - output
     properties:
       queries:
         type: string
-        description: Column containing one query string per row. Explode lists of queries before searching.
+        description: Column containing one query string per row. Explode query lists before searching.
       id:
         type: string
-        description: Input row ID column. Its value is retained in meta_data.input_row_id.
-      query_config:
-        type: array
-        minItems: 1
-        items:
-          type: object
-          minProperties: 1
-          maxProperties: 1
-          additionalProperties:
-            type: string
-        description: |-
-          Shared list of single-entry dictionaries used to build the Jinja query.
-          base_query and query_suffix contain prompt text and do not become output
-          fields. Other keys are unique requested headings; values are instructions.
-          references, meta_data and raw_response are reserved output keys.
+        description: Input row ID column, retained in metadata.input_row_id.
       output:
         oneOf:
           - type: string
+            minLength: 1
           - type: array
             minItems: 1
-            maxItems: 3
+            maxItems: 2
             uniqueItems: true
             items:
               type: string
+              minLength: 1
         description: |-
-          Outputs are ordered [ai_mode_result, ai_mode_result_complete, ai_mode_markdown].
-          One output returns compact content for the requested headings and references:
-          paragraphs become text, lists and tables become flat lists. Headings
-          containing specification or specifications produce name-to-value
-          dictionaries, preserving unlabeled content in a text dictionary. Pricing
-          sections contain supplier-to-price dictionaries when the text identifies
-          a supplier using a colon, spaced en/em dash, or wording such as
-          "Available at Supplier for price". Supplier/price/link tables omit
-          navigation columns and a single price-column heading, while retaining
-          currency and quantity details. Unattributed pricing notes
-          are retained in text dictionaries. Pricing lists align by position with
-          references, matching cleaned inline URLs, citation IDs or an unambiguous
-          source name. References without prices have an empty string value keyed
-          by the provider's site name, falling back to the URL hostname. Multiple
-          offers for one URL repeat that reference. Prices without an identifiable
-          source URL are retained with an empty reference string.
-          Source URLs come from provider references and snippet_links in requested
-          sections. Before alignment, known tracking parameters and duplicate URLs
-          are removed, and Google product-viewer URLs are omitted. Section
-          content omits links, metadata, viewer labels and recognized follow-up
-          invitations; it cleans Unicode escapes and units.
-          The optional second output retains section blocks, the complete references
-          list and meta_data, removing source_icon and thumbnail fields recursively
-          and stripping srsltid URL parameters. The optional third output is the
-          provider's original reconstructed_markdown, without cleanup or truncation.
-          Requested labels match native headings or top-level paragraphs, including
-          a label followed by a colon and inline content. Case and whitespace
-          differences are ignored; content after an inline label stays in its section.
-          Missing sections in the complete output have empty lists and parse warnings.
-          Compact pricing sections still receive an entry for every reference.
-          If the first heading is omitted and opening paragraphs precede the second
-          requested heading, they
-          populate the first section with an inferred_headings diagnostic and warning.
-          Unknown headings and other preamble blocks remain in meta_data. Blank queries
-          return an empty section dictionary with status Skipped and empty Markdown.
+          Outputs are ordered [ai_mode_results, ai_mode_metadata]. The first is
+          the untouched Markdown body; the optional second is the YAML frontmatter
+          as a JSON-compatible dictionary, with query, query_index, input_row_id,
+          search_id, status and error. Search requests output=md. It does not parse
+          headings, select references, clean the body or extract prices. Blank
+          queries have status Skipped. Missing/malformed metadata, provider errors
+          and empty successful answers are explicit errors; non-success rows must
+          not be passed to extraction. query_config and the previous three-output
+          compact/complete/Markdown contract are no longer supported.
       client:
         type: string
-        enum:
-          - serpapi
+        enum: [serpapi]
         default: serpapi
-        description: Search provider.
       api_key:
         type: string
-        description: Search API key. Defaults to the SERPAPI_API_KEY environment variable.
+        description: Search key; defaults to SERPAPI_API_KEY.
       threads:
         type: integer
         minimum: 1
         default: 10
-        description: Number of concurrent queries.
       include_raw_response:
         type: boolean
         default: false
-        description: Include the provider response under raw_response inside ai_mode_result_complete for diagnostics, applying the same image-field and srsltid filtering. The compact output never includes it.
+        description: Retain the untouched Markdown response including frontmatter under metadata.raw_response for trial capture and replay.
       country:
-        type: string
-        description: "Optional country code override. Alias: gl. Omitted unless supplied."
+        type: [string, 'null']
+        description: "Optional country code. Alias: gl. Null or empty means omit."
       gl:
-        type: string
-        description: Optional country code override. Omitted unless supplied.
+        type: [string, 'null']
+        description: Optional country code; omitted unless supplied.
       language:
-        type: string
-        description: "Optional language code override. Alias: hl. Omitted unless supplied."
+        type: [string, 'null']
+        description: "Optional language code. Alias: hl. Null or empty means omit."
       hl:
-        type: string
-        description: Optional language code override. Omitted unless supplied.
+        type: [string, 'null']
+        description: Optional language code; omitted unless supplied.
       location:
-        type: string
-        description: Optional geographic search location. Omitted unless supplied.
+        type: [string, 'null']
+        description: Optional city or geographic location; omitted unless supplied.
       device:
         type: string
-        enum:
-          - desktop
-          - mobile
-          - tablet
-        description: Device type.
+        enum: [desktop, mobile, tablet]
+        description: Optional device override.
     """
-    _ai_mode.query_headings(query_config)
     kwargs = _ai_mode.request_parameters(kwargs)
     if not isinstance(queries, str) or not queries:
         raise ValueError("search.ai_mode requires one query column.")
@@ -327,32 +280,25 @@ def ai_mode(
         output = queries
     columns = [output] if isinstance(output, str) else output
     if (
-        not isinstance(columns, list) or len(columns) not in (1, 2, 3)
+        not isinstance(columns, list) or len(columns) not in (1, 2)
         or any(not isinstance(name, str) or not name for name in columns)
         or len(set(columns)) != len(columns)
     ):
-        raise ValueError("search.ai_mode requires 1, 2 or 3 distinct output columns [ai_mode_result, ai_mode_result_complete, ai_mode_markdown].")
-
+        raise ValueError("search.ai_mode requires 1 or 2 distinct output columns [ai_mode_results, ai_mode_metadata].")
     row_ids = df[id].tolist()
     query_values = [
         "" if value is _pd.NA or value is _pd.NaT else _ai_mode.normalize_query(value)
         for value in df[queries].tolist()
     ]
     responses = _search_core.ai_mode(
-        queries=query_values,
-        query_config=query_config,
-        client=client,
-        client_config={"api_key": api_key},
-        threads=threads,
-        include_raw_response=include_raw_response,
-        **kwargs,
+        queries=query_values, client=client, client_config={"api_key": api_key},
+        threads=threads, include_raw_response=include_raw_response, **kwargs,
     )
     if len(responses) != len(df):
         raise RuntimeError("AI Mode response count does not match the input row count.")
     for row_id, response in zip(row_ids, responses):
-        response["ai_mode_result_complete"]["meta_data"]["input_row_id"] = row_id
-    payloads = ("ai_mode_result", "ai_mode_result_complete", "ai_mode_markdown")
-    for column, payload in zip(columns, payloads):
+        response["ai_mode_metadata"]["input_row_id"] = row_id
+    for column, payload in zip(columns, ("ai_mode_results", "ai_mode_metadata")):
         df[column] = [response[payload] for response in responses]
     _logging.info(f": Wrangling :: ai_mode summary :: {len(query_values)} queries processed")
     return df

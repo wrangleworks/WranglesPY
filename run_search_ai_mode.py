@@ -1,4 +1,4 @@
-"""Compare deterministic AI Mode parsing with a downstream extract.ai step.
+"""Retrieve AI Mode Markdown, clean it, and structure it with extract.ai.
 
 In VS Code, select this repository's .venv interpreter and Run Python File.
 Set SERPAPI_API_KEY and OPENAI_API_KEY in the environment or ignored .env file
@@ -10,7 +10,6 @@ from datetime import datetime
 import json
 from pathlib import Path
 from pprint import pprint
-import re
 
 import pandas as pd
 
@@ -24,8 +23,12 @@ WRITE_OUTPUTS = True  # Unique Excel/JSON filenames preserve earlier trial evide
 PRETTY_PRINT = False
 NROWS = None  # None = all input rows; 1 = a one-row trial.
 THREADS = 1
+LOCATION = None  # Example: "Austin, Texas, United States"; None omits the override.
+COUNTRY = None  # SerpAPI gl, e.g. "us" or "uk".
+LANGUAGE = None  # SerpAPI hl, e.g. "en".
 EXTRACT_ENABLED = True
 EXTRACT_MODEL = None  # None uses the configured extract.ai default.
+EXTRACT_REASONING = {"effort": "low"}  # Source/offer matching benefits from reasoning.
 EXTRACT_THREADS = 1
 EXTRACT_TIMEOUT = 60
 EXTRACT_RETRIES = 1
@@ -64,56 +67,41 @@ INPUT_ROWS = [
 # ---------------------------------------------------------------------------
 
 
-def clean_ai_mode_links(df, input, output=None):
-    """Remove Google's viewer instruction from link labels for this trial."""
-    from wrangles._text_cleanup import map_markdown_prose
-
-    viewer_label = re.compile(
-        r'(\[(?:\\.|[^\]\\\n])*?)\s*'
-        r'Go to product viewer dialog for this item\.(?=\]\()'
-    )
-
-    def clean(value):
-        if not isinstance(value, str):
-            return value
-        return map_markdown_prose(
-            value, lambda prose: viewer_label.sub(lambda match: match[1].rstrip(), prose)
-        )
-
-    df[output or input] = df[input].map(clean)
+def capture_search_response(df, input, metadata, prefix):
+    """Save raw provider Markdown outside Excel, then remove it from metadata."""
+    for index, value in enumerate(df[metadata], 1):
+        raw = value.pop("raw_response", None)
+        if isinstance(raw, str) and raw:
+            path = Path(f"{prefix}_row{index:03d}.md")
+            path.write_text(raw, encoding="utf-8")
+            value["raw_response_file"] = str(path)
     return df
 
 
-def prepare_search_evidence(df, input, output, enabled=True):
-    """Adapt the complete result to the shared answer-content boundary."""
-    from wrangles._search_ai_extraction import prepare_evidence
-
-    df[output] = df[input].map(prepare_evidence)
+def prepare_search_extraction(df, input, metadata, enabled=True):
+    """Only successful, nonempty Markdown answers enter the model call."""
     df["__search_ai_ready"] = [
-        bool(enabled and answer.get("meta_data", {}).get("status") == "Success"
-             and any(captured["content"].values()))
-        for answer, captured in zip(df[input], df[output])
+        bool(enabled and meta.get("status") == "Success" and isinstance(body, str) and body.strip())
+        for body, meta in zip(df[input], df[metadata])
     ]
-    # Keep this column present even when all searches failed or extraction is off.
     df["search_ai_extracted"] = None
     return df
 
 
-def format_search_extraction(df, input, evidence, output, diagnostics):
-    """Build the trial view; source URLs always come from the captured catalog."""
+def format_search_extraction(df, input, markdown, output, diagnostics):
+    """Validate extracted references and keep pricing as independent records."""
     from wrangles._search_ai_extraction import format_product_result
 
     results, metadata = [], []
-    for extracted, captured, ready in zip(df[input], df[evidence], df["__search_ai_ready"]):
+    for extracted, body, ready in zip(df[input], df[markdown], df["__search_ai_ready"]):
         if ready:
             result, diagnostic = format_product_result(
-                extracted, captured, description=DESCRIPTION_HEADING,
+                extracted, body, description=DESCRIPTION_HEADING,
                 specifications=SPECIFICATIONS_HEADING, pricing=PRICING_HEADING,
             )
         else:
-            # Keep the display schema stable for skipped rows and all-empty runs.
             result = {DESCRIPTION_HEADING: "", SPECIFICATIONS_HEADING: [], PRICING_HEADING: [], "references": []}
-            diagnostic = {"status": "skipped", "warnings": [], "source_matches": []}
+            diagnostic = {"status": "skipped", "warnings": [], "rejected_references": []}
         results.append(result)
         metadata.append(diagnostic)
     df[output], df[diagnostics] = results, metadata
@@ -141,9 +129,11 @@ def main():
         if not replay_path.is_absolute():
             replay_path = REPOSITORY / replay_path
         input_df = pd.DataFrame(json.loads(replay_path.read_text(encoding="utf-8")))
-        required = {"ID", "Description", "Mfr", "MPN", "ai_mode_result", "ai_mode_result_complete", "ai_mode_markdown"}
+        required = {"ID", "Description", "Mfr", "MPN", "ai_mode_results", "ai_mode_metadata"}
         if missing := required - set(input_df.columns):
             raise ValueError(f"Replay snapshot is missing columns: {', '.join(sorted(missing))}")
+        if "search_query" not in input_df:
+            input_df["search_query"] = [metadata.get("query", "") for metadata in input_df["ai_mode_metadata"]]
     if NROWS is not None:
         input_df = input_df.head(NROWS)
 
@@ -159,16 +149,18 @@ def main():
     variables = {
         "AI_MODE_QUERY": AI_MODE_QUERY,
         "THREADS": THREADS,
+        "LOCATION": LOCATION, "COUNTRY": COUNTRY, "LANGUAGE": LANGUAGE,
+        "RAW_OUTPUT_PREFIX": str(output_stem),
         "RUN_SEARCH": REPLAY_FILE is None,
         "WRITE_OUTPUTS": WRITE_OUTPUTS,
         "XLSX_OUTPUT_FILE": str(output_stem.with_suffix(".xlsx")),
         "JSON_OUTPUT_FILE": str(output_stem.with_suffix(".json")),
         "EXTRACT_ENABLED": EXTRACT_ENABLED,
         "EXTRACT_MODEL": EXTRACT_MODEL,
+        "EXTRACT_REASONING": EXTRACT_REASONING,
         "EXTRACT_THREADS": EXTRACT_THREADS,
         "EXTRACT_TIMEOUT": EXTRACT_TIMEOUT,
         "EXTRACT_RETRIES": EXTRACT_RETRIES,
-        "DISPLAY_RESULT": "ai_mode_result_structured" if EXTRACT_ENABLED else "ai_mode_result",
     }
     if not EXTRACT_ENABLED:
         # Recipe variables resolve before step conditions. A skipped extraction
@@ -178,7 +170,7 @@ def main():
     results_df = wrangles.recipe.run(
         str(RECIPE_FILE),
         dataframe=input_df,
-        functions=[clean_ai_mode_links, prepare_search_evidence, format_search_extraction],
+        functions=[capture_search_response, prepare_search_extraction, format_search_extraction],
         variables=variables,
     )
 

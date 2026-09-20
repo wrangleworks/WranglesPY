@@ -1,16 +1,19 @@
-"""Offline evidence-to-extract.ai trials, independent of the search engine."""
+"""Offline Markdown-to-extract.ai trials and evidence validation."""
 
-from collections import UserDict
 from copy import deepcopy
 import json
+from pathlib import Path
 import sys
 from types import ModuleType
 
+import pandas as pd
 import pytest
+import requests
 
 import run_search_ai_mode as runner
-from wrangles import _ai_mode, ai_cache
-from wrangles._search_ai_extraction import prepare_evidence, format_product_result
+from wrangles import ai_cache
+from wrangles._search_ai_content import markdown_urls, source_url
+from wrangles._search_ai_extraction import format_product_result
 
 
 LABELS = {"description": "Product Description", "specifications": "Specifications", "pricing": "Pricing"}
@@ -32,127 +35,121 @@ def offline(monkeypatch):
 
 
 @pytest.fixture
-def answer():
+def markdown():
+    return (Path(__file__).parent / "fixtures/search_ai_mode/response.md").read_text(encoding="utf-8")
+
+
+@pytest.fixture
+def extracted():
     return {
-        "text_blocks": [
-            {"type": "heading", "snippet": "Product Description"},
-            {"type": "paragraph", "snippet": "A synthetic product."},
-            {"type": "heading", "snippet": "Specifications"},
-            {"type": "list", "list": [{"snippet": r"Pitch: $1/2$ inch", "reference_indexes": [91]}]},
-            {"type": "heading", "snippet": "Pricing"},
-            {"type": "table", "table": [["Supplier", "Price", "Link"], ["Supplier A", "$13.15 USD", "Product Page"]],
-             "detailed": [[{"snippet": "Supplier"}, {"snippet": "Price"}, {"snippet": "Link"}],
-                          [{"snippet": "Supplier A"}, {"snippet": "$13.15 USD"},
-                           {"snippet": "Product Page", "snippet_links": [{"link": SUPPLIER + "&srsltid=tracking"}]}]],
-             "formatted": [{"supplier": "Supplier A", "price": "$13.15 USD", "link": "Product Page"}]},
-            {"type": "comparison", "comparison": [{"feature": "New provider shape", "values": ["a", "b"]}]},
-        ],
-        "references": [{"index": 91, "source": "Manufacturer", "link": MAKER, "thumbnail": "image"}],
+        "description": "A synthetic product.",
+        "specifications": [{"name": "Voltage", "value": "12 VDC"}],
+        "offers": [{"price": 13.15, "currency": "USD", "uom": "pack", "source": "Supplier A",
+                    "reference_ids": ["02"], "price_text": "$13.15 USD per pack of 10, excluding VAT"}],
+        "references": [{"id": "01", "source": "Manufacturer", "url": MAKER},
+                       {"id": "02", "source": "Supplier A", "url": SUPPLIER}],
     }
 
 
-def test_mode_and_overview_share_evidence_without_flattening(answer):
-    original = deepcopy(answer)
-    mode_response = {**answer, "search_metadata": {"status": "Success"}, "reconstructed_markdown": "Original Markdown"}
-    complete = _ai_mode.normalize_response(mode_response, "query", list(LABELS.values()))["ai_mode_result_complete"]
-    mode = prepare_evidence(complete)
-    classic_response = {"organic_results": [{"link": "https://unrelated.invalid/"}], "ai_overview": answer}
-    overview = prepare_evidence(classic_response["ai_overview"])
-    for evidence in (mode, overview):
-        assert [(source["id"], source["url"], source["reference_indexes"]) for source in evidence["sources"]] == [
-            ("s1", MAKER, [91]), ("s2", SUPPLIER, []),
-        ]
-        assert "unrelated.invalid" not in json.dumps(evidence)
-        assert "meta_data" not in evidence["content"]
-    assert mode["content"]["Pricing"][0]["table"] == answer["text_blocks"][5]["table"]
-    assert overview["content"]["text_blocks"][-1] == answer["text_blocks"][-1]
-    assert overview["content"]["text_blocks"][5]["formatted"] == answer["text_blocks"][5]["formatted"]
-    assert "/text_blocks/5/detailed/1/2/snippet_links/0/link" in overview["sources"][1]["evidence_paths"]
-    assert answer == original
-
-
-def test_evidence_keeps_unmatched_content_and_sources_but_not_transport_metadata(answer):
-    complete = {"Product Description": [], "references": answer["references"], "raw_response": {"secret_transport": "omit"},
-                "meta_data": {"query": "do not repeat", "google_ai_mode_url": "https://google.invalid/transport",
-                              "unmatched_sections": [{"heading": {"snippet": "Unexpected label"},
-                                                      "text_blocks": answer["text_blocks"]}],
-                              "unsectioned_text_blocks": [{"snippet": "Opening facts"}]}}
-    evidence = prepare_evidence(complete)
-    assert evidence["content"]["unsectioned_text_blocks"] == [{"snippet": "Opening facts"}]
-    assert evidence["content"]["unmatched_sections"][0]["heading"]["snippet"] == "Unexpected label"
-    assert [source["url"] for source in evidence["sources"]] == [MAKER, SUPPLIER]
-    assert "secret_transport" not in json.dumps(evidence) and "google.invalid" not in json.dumps(evidence)
-
-
-def test_catalog_deduplicates_urls_and_preserves_provider_ids():
-    evidence = prepare_evidence({
-        "references": [{"index": 91, "link": SUPPLIER + "&utm_source=google"},
-                       {"index": 7, "source": "Supplier", "link": SUPPLIER},
-                       {"index": 8, "source": "Google", "link": "https://www.google.com/search?ibp=oshop&prds=123"}],
-        "text_blocks": [{"formatted": [{"link": SUPPLIER.replace("&", "&amp;")}],
-                         "table": [["Link"], [SUPPLIER]], "snippet": "Product Page"}],
-    })
-    assert len(evidence["sources"]) == 1
-    assert evidence["sources"][0]["reference_indexes"] == [91, 7]
-    assert evidence["sources"][0]["site"] == "Supplier"
-    assert evidence["sources"][0]["url"] == SUPPLIER
-    assert len(evidence["sources"][0]["evidence_paths"]) == 4
-
-
-def test_offers_follow_catalog_order_keep_all_sources_and_flag_unknown_ids(answer):
-    evidence = prepare_evidence(answer)
-    extracted = {"description": "Product.", "specifications": [{"name": "Pitch", "value": "1/2 inch"}], "offers": [
-        {"supplier": "Supplier A", "price": "$13.15 USD", "source_ids": ["s2", "s2"]},
-        {"supplier": "Unknown supplier", "price": "$8", "source_ids": ["https://invented.invalid/item"]},
-        {"supplier": "Supplier A", "price": "$12 USD for 10+", "source_ids": ["s2"]},
-    ]}
+def test_selected_references_and_offers_are_independent(markdown, extracted):
     original = deepcopy(extracted)
-    result, metadata = format_product_result(extracted, evidence, **LABELS)
-    assert result["Specifications"] == [{"Pitch": "1/2 inch"}]
-    assert list(zip(result["Pricing"], result["references"], strict=True)) == [
-        ({"Manufacturer": ""}, MAKER),
-        ({"Supplier A": "$13.15 USD"}, SUPPLIER),
-        ({"Supplier A": "$12 USD for 10+"}, SUPPLIER),
-        ({"Unknown supplier": "$8"}, ""),
-    ]
-    assert any("unknown_source_id" in warning for warning in metadata["warnings"])
-    assert metadata["status"] == "partial"
-    assert "https://invented.invalid/item" not in result["references"]
+    result, meta = format_product_result(extracted, markdown, **LABELS)
+    assert meta["status"] == "complete"
+    assert len(result["references"]) == 2 and len(result["Pricing"]) == 1
+    assert result["Pricing"] == extracted["offers"]
+    assert result["references"] == extracted["references"]
+    assert "https://dictionary.invalid/product" in meta["unselected_source_urls"]
     assert extracted == original
 
 
-@pytest.mark.parametrize("extracted", [None, "Failed", []])
-def test_failed_extraction_is_explicit_and_preserves_reference_slots(answer, extracted):
-    result, metadata = format_product_result(extracted, prepare_evidence(answer), **LABELS)
-    assert metadata["status"] == "error"
-    assert result["Pricing"] == [{"Manufacturer": ""}, {"supplier.invalid": ""}]
-    assert result["references"] == [MAKER, SUPPLIER]
+def test_multiple_prices_and_uncertain_associations_are_preserved(markdown, extracted):
+    extracted["offers"].extend([
+        {**extracted["offers"][0], "price": 12, "price_text": "$12 per pack for 5+ packs"},
+        {"price": None, "currency": None, "uom": None, "source": "Unknown", "reference_ids": [], "price_text": "Call for quote"},
+    ])
+    result, meta = format_product_result(extracted, markdown, **LABELS)
+    assert len(result["Pricing"]) == 3 and len(result["references"]) == 2
+    assert result["Pricing"][2] == extracted["offers"][2]
+    assert meta["status"] == "complete"
+
+
+def test_invented_urls_and_unknown_ids_are_rejected_without_guessing(markdown, extracted):
+    extracted["references"].append({"id": "03", "source": "Supplier A", "url": "https://supplier.invalid/invented"})
+    extracted["offers"][0]["reference_ids"] = ["03", "99"]
+    result, meta = format_product_result(extracted, markdown, **LABELS)
+    assert [reference["id"] for reference in result["references"]] == ["01", "02"]
+    assert result["Pricing"][0]["reference_ids"] == []
+    assert result["Pricing"][0]["price"] == 13.15
+    assert meta["status"] == "partial" and len(meta["rejected_references"]) == 1
+
+
+def test_duplicate_reference_ids_do_not_establish_a_match(markdown, extracted):
+    extracted["references"][0]["id"] = "02"
+    result, meta = format_product_result(extracted, markdown, **LABELS)
+    assert result["references"] == [] and result["Pricing"][0]["reference_ids"] == []
+    assert len(meta["rejected_references"]) == 2
+
+
+@pytest.mark.parametrize("price", [True, "$13.15", -2, float("inf"), float("nan")])
+def test_invalid_numeric_prices_are_not_coerced(markdown, extracted, price):
+    extracted["offers"][0]["price"] = price
+    result, meta = format_product_result(extracted, markdown, **LABELS)
+    assert result["Pricing"][0]["price"] is None
+    assert result["Pricing"][0]["price_text"] == extracted["offers"][0]["price_text"]
+    assert meta["status"] == "partial"
+
+
+def test_currency_and_uom_are_never_inferred(markdown, extracted):
+    extracted["offers"][0].update(currency="$", uom=None)
+    result, meta = format_product_result(extracted, markdown, **LABELS)
+    assert result["Pricing"][0]["currency"] is None and result["Pricing"][0]["uom"] is None
+    assert meta["status"] == "partial"
+
+
+@pytest.mark.parametrize("value", [None, "not JSON", []])
+def test_failed_extraction_does_not_create_placeholder_prices(markdown, value):
+    result, meta = format_product_result(value, markdown, **LABELS)
+    assert meta["status"] == "error"
+    assert result == {"Product Description": "", "Specifications": [], "Pricing": [], "references": []}
+
+
+def test_url_collection_preserves_functional_parameters_and_nested_destinations():
+    markdown = r'''[Product](https://shop.invalid/a_(b)?variant=1&currency=USD&srsltid=x "Product title")
+[Other](<https://other.invalid/a_(b)> "Title")
+[ref]: https://ref.invalid/specs
+Bare (https://bare.invalid/a_(b)).
+Bare escaped \(https://bare-escaped.invalid/a\-b\).
+[Escaped](https://escaped.invalid/a\(b\)?a=1\&amp;b=2)
+![Icon](https://image.invalid/icon.png)
+[Viewer](https://www.google.com/search?ibp=oshop&prds=productid:123)
+[Opaque](https://www.google.com/goto?url=opaque)
+'''
+    assert set(markdown_urls(markdown)) == {
+        "https://shop.invalid/a_(b)?variant=1&currency=USD", "https://other.invalid/a_(b)",
+        "https://ref.invalid/specs", "https://bare.invalid/a_(b)", "https://bare-escaped.invalid/a-b", "https://escaped.invalid/a(b)?a=1&b=2",
+    }
+    assert source_url("https://x.invalid/?x=1&currency=USD") == "https://x.invalid/?x=1&currency=USD"
 
 
 @pytest.fixture
-def trial_extraction():
-    return {"description": "A synthetic product.", "specifications": [{"name": "Pitch", "value": "1/2 inch"}],
-            "offers": [{"supplier": "Supplier A", "price": "$13.15 USD", "source_ids": ["s2"]}]}
-
-
-@pytest.fixture
-def trial(monkeypatch, tmp_path, answer, trial_extraction):
-    import serpapi
+def trial(monkeypatch, tmp_path, markdown, extracted):
     from wrangles import extract
+    responses, searches, extractions = {}, [], []
 
-    response = {**deepcopy(answer), "search_metadata": {"status": "Success", "id": "synthetic"},
-                "search_parameters": {"gl": "us", "hl": "en"}, "reconstructed_markdown": "# Original\n\n" + "Evidence " * 5000}
-    searches, extractions = [], []
-
-    def search(client, params):
-        searches.append(params)
-        return UserDict(deepcopy(response))
+    def search(session, method, url, params, **kwargs):
+        assert method == "GET" and url == "https://serpapi.com/search"
+        searches.append({key: value for key, value in params.items() if key != "api_key"})
+        response = responses.get(params["q"], responses.get("default", markdown))
+        http = requests.Response()
+        http.status_code, http.encoding = 200, "utf-8"
+        http.headers["Content-Type"] = "text/markdown" if isinstance(response, str) else "application/json"
+        http._content = (response if isinstance(response, str) else json.dumps(response)).encode("utf-8")
+        return http
 
     class Response:
         ok, status_code, headers = True, 200, {}
-
         def json(self):
-            return {"output": [{"type": "message", "content": [{"type": "output_text", "text": json.dumps({"search_ai_extracted": trial_extraction})}]}]}
+            return {"output": [{"type": "message", "content": [{"type": "output_text", "text": json.dumps({"search_ai_extracted": extracted})}]}]}
 
     def post(**kwargs):
         extractions.append(kwargs["json"])
@@ -163,147 +160,107 @@ def trial(monkeypatch, tmp_path, answer, trial_extraction):
     monkeypatch.setitem(sys.modules, "dotenv", dotenv)
     monkeypatch.setenv("SERPAPI_API_KEY", "offline-search")
     monkeypatch.setenv("OPENAI_API_KEY", "offline-extract")
-    monkeypatch.setattr(serpapi.Client, "search", search)
+    monkeypatch.setattr(requests.Session, "request", search)
     monkeypatch.setattr(extract._openai_responses._requests, "post", post)
-    monkeypatch.setattr(runner, "OUTPUT_DIRECTORY", tmp_path)
-    monkeypatch.setattr(runner, "WRITE_OUTPUTS", False)
-    monkeypatch.setattr(runner, "EXTRACT_ENABLED", True)
-    monkeypatch.setattr(runner, "EXTRACT_MODEL", None)
-    monkeypatch.setattr(runner, "NROWS", 1)
-    monkeypatch.setattr(runner, "REPLAY_FILE", None)
-    return searches, extractions, response
+    for name, value in {"OUTPUT_DIRECTORY": tmp_path, "WRITE_OUTPUTS": False, "EXTRACT_ENABLED": True,
+                        "EXTRACT_MODEL": None, "NROWS": 1, "REPLAY_FILE": None,
+                        "LOCATION": None, "COUNTRY": None, "LANGUAGE": None}.items():
+        monkeypatch.setattr(runner, name, value)
+    return searches, extractions, responses
 
 
-def test_trial_uses_real_extract_ai_schema_and_preserves_search_outputs(trial):
-    searches, extractions, response = trial
-    df = runner.main()
-    expected_query = (
+def test_trial_cleans_before_extraction_and_uses_typed_offer_schema(trial):
+    searches, extractions, _ = trial
+    row = runner.main().iloc[0]
+    expected = (
         "Search for INA NATV6-PP-A INA NATV6-PP-A YOKE TYPE TRACK ROLLERS NATV..-PP FULL COMPLEMENT NEEDL. "
         "Summarize information in 3 sections: Product Description | Specifications (as name value pairs) | "
         "Pricing (including the supplier name and source link)."
     )
-    assert searches == [{"engine": "google_ai_mode", "q": expected_query, "output": "json"}]
+    assert searches == [{"engine": "google_ai_mode", "q": expected, "output": "md"}]
     assert len(extractions) == 1
     request = extractions[0]
-    assert request["text"]["format"]["strict"] is True
-    assert "tools" not in request  # No second web search.
-    assert "detailed" in json.dumps(request["input"])
-    assert "search_metadata" not in json.dumps(request["input"])
-    assert df.iloc[0]["ai_mode_result_structured"]["references"] == [MAKER, SUPPLIER]
-    assert df.iloc[0]["ai_mode_structured_meta"]["status"] == "complete"
-    assert df.iloc[0]["ai_mode_markdown"] == response["reconstructed_markdown"]
-    assert df.iloc[0]["ai_mode_result_complete"]["Pricing"][0]["formatted"] == response["text_blocks"][5]["formatted"]
-    assert all(column in df for column in ("ai_mode_result", "ai_mode_result_complete", "ai_mode_markdown"))
+    assert request["text"]["format"]["strict"] is True and "tools" not in request
+    assert request["reasoning"] == {"effort": "low"}
+    assert "Build references BEFORE offers" in request["instructions"]
+    assert "Example P101 specifications" in request["instructions"]
+    fields = list(request["text"]["format"]["schema"]["properties"]["search_ai_extracted"]["properties"])
+    assert fields.index("references") < fields.index("offers")
+    evidence = json.dumps(request["input"], ensure_ascii=False)
+    assert "12 VDC" in evidence and "\u03bc" in evidence
+    assert "search_metadata" not in evidence
+    # Unsupported formulas stay intact for semantic extraction.
+    assert r"$\frac{1}{2}\text{ in}$" in row["ai_mode_results_clean"]
+    assert "$13.15 USD per pack of 10, excluding VAT" in row["ai_mode_results_clean"]
+    assert r"$12\text{ VDC}$" in row["ai_mode_results"]
+    assert row["references"][0]["id"] == "01"
+    assert row["Pricing"][0]["reference_ids"] == ["02"]
+    assert row["ai_mode_structured_meta"]["status"] == "complete"
+    schema_text = json.dumps(request["text"]["format"]["schema"])
+    assert '"number"' in schema_text and '"null"' in schema_text
+    assert all(field in schema_text for field in ("currency", "uom", "price_text", "reference_ids", "references"))
 
 
-def test_json_snapshot_replays_without_search_or_excel_truncation(trial, monkeypatch, tmp_path):
-    searches, extractions, response = trial
+def test_trial_exposes_locale_controls(trial, monkeypatch):
+    monkeypatch.setattr(runner, "LOCATION", "London, England, United Kingdom")
+    monkeypatch.setattr(runner, "COUNTRY", "uk")
+    monkeypatch.setattr(runner, "LANGUAGE", "en")
+    runner.main()
+    assert {key: trial[0][0][key] for key in ("location", "gl", "hl")} == {
+        "location": "London, England, United Kingdom", "gl": "uk", "hl": "en",
+    }
+
+
+def test_snapshot_replays_without_search_and_raw_markdown_stays_outside_excel(trial, monkeypatch, tmp_path, markdown):
     monkeypatch.setattr(runner, "WRITE_OUTPUTS", True)
     first = runner.main()
     snapshot, = tmp_path.glob("*.json")
-    saved = json.loads(snapshot.read_text(encoding="utf-8"))
-    assert saved[0]["ai_mode_markdown"] == response["reconstructed_markdown"]
-    assert len(saved[0]["ai_mode_markdown"]) > 32767
-    assert len(list(tmp_path.glob("*.xlsx"))) == 1
-    ai_cache.clear()
-    monkeypatch.setattr(runner, "REPLAY_FILE", snapshot)
-    monkeypatch.delenv("SERPAPI_API_KEY")
-    second = runner.main()
-    assert len(searches) == 1 and len(extractions) == 2
-    assert len(list(tmp_path.glob("*.json"))) == 2
-    assert first.iloc[0]["ai_mode_result_structured"] == second.iloc[0]["ai_mode_result_structured"]
-    assert first.iloc[0]["search_query"] == second.iloc[0]["search_query"]
-
-
-def test_nested_section_labels_reach_extraction_and_displayed_columns(trial, trial_extraction, monkeypatch, tmp_path):
-    import pandas as pd
-
-    searches, extractions, response = trial
-    response["references"] = []
-    response["text_blocks"] = [{"type": "list", "list": [
-        {"snippet": "Product Description: A synthetic product."},
-        {"snippet": "Specifications:", "list": [{"snippet": r"Pitch: $1/2$ inch"}]},
-        {"snippet": "Pricing:", "list": [{"snippet": "Supplier A: £8.22 (excluding VAT)",
-                                                   "snippet_links": [{"text": "Supplier A", "link": SUPPLIER}]}]},
-    ]}]
-    trial_extraction["offers"] = [{"supplier": "Supplier A", "price": "£8.22 (excluding VAT)", "source_ids": ["s1"]}]
-    monkeypatch.setattr(runner, "WRITE_OUTPUTS", True)
-
-    df = runner.main()
-    row = df.iloc[0]
-    assert len(searches) == len(extractions) == 1
-    assert row["ai_mode_result"]["Product Description"] == ""
-    assert row["ai_mode_result_complete"]["meta_data"]["missing_headings"] == list(LABELS.values())
-    assert row["search_ai_evidence"]["content"]["unsectioned_text_blocks"] == response["text_blocks"]
-    assert "unsectioned_text_blocks" in json.dumps(extractions[0]["input"])
-    assert row["ai_mode_structured_meta"]["status"] == "complete"
-    for heading in (*LABELS.values(), "references"):
-        assert row[heading] == row["ai_mode_result_structured"][heading]
-    assert row["Product Description"] == "A synthetic product."
-    assert row["Specifications"] == [{"Pitch": "1/2 inch"}]
-    assert list(zip(row["Pricing"], row["references"], strict=True)) == [
-        ({"Supplier A": "£8.22 (excluding VAT)"}, SUPPLIER),
-    ]
+    raw, = tmp_path.glob("*.md")
+    assert raw.read_text(encoding="utf-8") == markdown
+    assert "raw_response" not in first.iloc[0]["ai_mode_metadata"]
     workbook, = tmp_path.glob("*.xlsx")
     exported = pd.read_excel(workbook).iloc[0]
-    assert exported["Product Description"] == row["Product Description"]
-    assert "1/2 inch" in exported["Specifications"]
-    assert "£8.22 (excluding VAT)" in exported["Pricing"]
-    assert SUPPLIER in exported["references"]
-    assert "ai_mode_result" in exported.index
+    assert "reference_ids" in exported["Pricing"] and "12 VDC" in exported["Specifications"]
+    monkeypatch.setattr(runner, "REPLAY_FILE", snapshot)
+    # The transport metadata can recover a missing display-only query column.
+    records = json.loads(snapshot.read_text(encoding="utf-8"))
+    records[0].pop("search_query")
+    snapshot.write_text(json.dumps(records), encoding="utf-8")
+    monkeypatch.delenv("SERPAPI_API_KEY")
+    ai_cache.clear()
+    second = runner.main()
+    assert len(trial[0]) == 1 and len(trial[1]) == 2
+    assert first.iloc[0]["ai_mode_results"] == second.iloc[0]["ai_mode_results"]
+    assert first.iloc[0]["search_query"] == second.iloc[0]["search_query"]
+    assert first.iloc[0]["ai_mode_result_structured"] == second.iloc[0]["ai_mode_result_structured"]
 
 
 @pytest.mark.parametrize("state", ["error", "disabled", "blank", "processing"])
-def test_trial_skips_extraction_without_successful_search(trial, monkeypatch, state):
-    searches, extractions, response = trial
-    if state == "error":
-        response["error"] = "Synthetic provider error"
-    elif state == "disabled":
+def test_trial_skips_unusable_answers(trial, monkeypatch, markdown, state):
+    if state == "disabled":
         monkeypatch.setattr(runner, "EXTRACT_ENABLED", False)
         monkeypatch.delenv("OPENAI_API_KEY")
-    elif state == "processing":
-        response["search_metadata"]["status"] = "Processing"
     else:
-        response["text_blocks"] = []
-        response["references"] = []
-        response["reconstructed_markdown"] = ""
-    df = runner.main()
-    assert extractions == []
-    assert df.iloc[0]["ai_mode_structured_meta"]["status"] == "skipped"
-    assert df.iloc[0]["ai_mode_result_structured"] == {
-        "Product Description": "", "Specifications": [], "Pricing": [], "references": [],
-    }
-    if state == "disabled":
-        for heading in (*LABELS.values(), "references"):
-            assert df.iloc[0][heading] == df.iloc[0]["ai_mode_result"][heading]
-    else:
-        assert not any(df.iloc[0][heading] for heading in (*LABELS.values(), "references"))
+        response = {"error": "Synthetic failure"} if state == "error" else (
+            "---\nsearch_metadata:\n  status: Success\n---\n" if state == "blank" else markdown.replace("status: Success", "status: Processing")
+        )
+        trial[2]["default"] = response
+    row = runner.main().iloc[0]
+    assert not trial[1]
+    assert row["ai_mode_structured_meta"]["status"] == "skipped"
+    assert row["Pricing"] == [] and row["references"] == []
 
 
-def test_trial_keeps_mixed_success_and_failure_on_their_input_rows(trial, monkeypatch):
-    import serpapi
-
-    searches, extractions, response = trial
-    original_search = serpapi.Client.search
-
-    def search(client, params):
-        result = original_search(client, params)
-        if params["q"].startswith("Search for Example FAILED-2 "):
-            result["error"] = "Synthetic second-row failure"
-        return result
-
-    monkeypatch.setattr(serpapi.Client, "search", search)
-    # Keep this two-row regression independent of user-editable trial samples.
+def test_mixed_success_and_failure_keep_their_rows(trial, monkeypatch, markdown):
+    trial[2]["Search for Example FAILED-2 Failed product. Summarize information in 3 sections: "
+             "Product Description | Specifications (as name value pairs) | Pricing (including the supplier name and source link)."] = {"error": "Synthetic failure"}
     monkeypatch.setattr(runner, "INPUT_ROWS", [
-        {"ID": 14, "Description": "Synthetic successful product", "Mfr": "Example", "MPN": "OK-1", "part_codes": ["OK-1"]},
-        {"ID": 27, "Description": "Synthetic failed product", "Mfr": "Example", "MPN": "FAILED-2", "part_codes": ["FAILED-2"]},
+        {"ID": 14, "Description": "Working product", "Mfr": "Example", "MPN": "OK-1"},
+        {"ID": 27, "Description": "Failed product", "Mfr": "Example", "MPN": "FAILED-2"},
     ])
     monkeypatch.setattr(runner, "NROWS", None)
     df = runner.main()
-    assert len(searches) == 2 and len(extractions) == 1
     assert df["ID"].tolist() == [14, 27]
-    assert df.iloc[0]["ai_mode_result_structured"]["references"] == [MAKER, SUPPLIER]
-    assert not any(df.iloc[1]["ai_mode_result_structured"].values())
-    assert not any(df.iloc[1][heading] for heading in (*LABELS.values(), "references"))
-    assert df.iloc[1]["ai_mode_result_complete"]["meta_data"]["error"] == "Synthetic second-row failure"
-    assert df.iloc[1]["ai_mode_structured_meta"]["status"] == "skipped"
+    assert len(trial[1]) == 1
+    assert df.iloc[0]["Pricing"][0]["price"] == 13.15
+    assert df.iloc[1]["Pricing"] == [] and df.iloc[1]["ai_mode_metadata"]["status"] == "Error"
