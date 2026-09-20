@@ -1,9 +1,31 @@
 import logging as _logging
 import pandas as _pd
+from .. import _ai_mode
 
 # Import the combined core wrangles
 from .. import search as _search_core
 from .. import format as _format
+
+
+def _normalize_search_kwargs(kwargs: dict) -> dict:
+  params = dict(kwargs or {})
+
+  if "country" in params and "gl" not in params:
+    params["gl"] = params.pop("country")
+  if "language" in params and "hl" not in params:
+    params["hl"] = params.pop("language")
+
+  if "google_domain" in params and ("gl" in params or "hl" in params):
+    raise ValueError(
+      "google_domain cannot be combined with country/language (or gl/hl). "
+      "Use google_domain alone, or use country/language without google_domain."
+    )
+
+  # Keep existing defaults for classic locale controls unless google_domain is explicitly provided.
+  if "google_domain" not in params:
+    params.setdefault("gl", "us")
+    params.setdefault("hl", "en")
+  return params
 
 def find_links(
     df: _pd.DataFrame,
@@ -63,6 +85,9 @@ def find_links(
         type: string
         description: "Language code for search results (default 'en'). Alias: hl."
         default: en
+      google_domain:
+        type: string
+        description: Google domain for search results (e.g., google.com, google.co.uk).
       location:
         type: string
         description: Location for search results (e.g., 'Austin, Texas').
@@ -77,12 +102,7 @@ def find_links(
     if output is None: output = queries
 
     client_config = {"api_key": api_key}
-            
-    if "country" in kwargs and "gl" not in kwargs: kwargs["gl"] = kwargs.pop("country")
-    if "language" in kwargs and "hl" not in kwargs: kwargs["hl"] = kwargs.pop("language")
-
-    kwargs.setdefault("gl", "us")
-    kwargs.setdefault("hl", "en")
+    kwargs = _normalize_search_kwargs(kwargs)
 
     if not isinstance(queries, list): queries = [queries]
     if not isinstance(output, list): output = [output]
@@ -170,6 +190,118 @@ def find_links(
 
     return df
 
+
+def ai_mode(
+    df: _pd.DataFrame,
+    queries: str,
+    id: str,
+    output: str | list | None = None,
+    client: str = "serpapi",
+    api_key: str | None = None,
+    threads: int = 10,
+    include_raw_response: bool = False,
+    **kwargs
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Retrieve Google AI Mode Markdown and metadata. Use standardize.clean and extract.ai afterwards for cleanup and structuring.
+    additionalProperties: false
+    required:
+      - queries
+      - id
+      - output
+    properties:
+      queries:
+        type: string
+        description: Column containing one query string per row. Explode query lists before searching.
+      id:
+        type: string
+        description: Input row ID column, retained in metadata.input_row_id.
+      output:
+        oneOf:
+          - type: string
+            minLength: 1
+          - type: array
+            minItems: 1
+            maxItems: 2
+            uniqueItems: true
+            items:
+              type: string
+              minLength: 1
+        description: |-
+          Outputs are ordered [ai_mode_results, ai_mode_metadata]. The first is
+          the untouched Markdown body; the optional second is the YAML frontmatter
+          as a JSON-compatible dictionary, with query, query_index, input_row_id,
+          search_id, status and error. Search requests output=md. It does not parse
+          headings, select references, clean the body or extract prices. Blank
+          queries have status Skipped. Missing/malformed metadata, provider errors
+          and empty successful answers are explicit errors; non-success rows must
+          not be passed to extraction. query_config and the previous three-output
+          compact/complete/Markdown contract are no longer supported.
+      client:
+        type: string
+        enum: [serpapi]
+        default: serpapi
+      api_key:
+        type: string
+        description: Search key; defaults to SERPAPI_API_KEY.
+      threads:
+        type: integer
+        minimum: 1
+        default: 10
+      include_raw_response:
+        type: boolean
+        default: false
+        description: Retain the untouched Markdown response including frontmatter under metadata.raw_response for trial capture and replay.
+      country:
+        type: [string, 'null']
+        description: "Optional country code. Alias: gl. Null or empty means omit."
+      gl:
+        type: [string, 'null']
+        description: Optional country code; omitted unless supplied.
+      language:
+        type: [string, 'null']
+        description: "Optional language code. Alias: hl. Null or empty means omit."
+      hl:
+        type: [string, 'null']
+        description: Optional language code; omitted unless supplied.
+      location:
+        type: [string, 'null']
+        description: Optional city or geographic location; omitted unless supplied.
+      device:
+        type: string
+        enum: [desktop, mobile, tablet]
+        description: Optional device override.
+    """
+    kwargs = _ai_mode.request_parameters(kwargs)
+    if not isinstance(queries, str) or not queries:
+        raise ValueError("search.ai_mode requires one query column.")
+    if output is None:
+        output = queries
+    columns = [output] if isinstance(output, str) else output
+    if (
+        not isinstance(columns, list) or len(columns) not in (1, 2)
+        or any(not isinstance(name, str) or not name for name in columns)
+        or len(set(columns)) != len(columns)
+    ):
+        raise ValueError("search.ai_mode requires 1 or 2 distinct output columns [ai_mode_results, ai_mode_metadata].")
+    row_ids = df[id].tolist()
+    query_values = [
+        "" if value is _pd.NA or value is _pd.NaT else _ai_mode.normalize_query(value)
+        for value in df[queries].tolist()
+    ]
+    responses = _search_core.ai_mode(
+        queries=query_values, client=client, client_config={"api_key": api_key},
+        threads=threads, include_raw_response=include_raw_response, **kwargs,
+    )
+    if len(responses) != len(df):
+        raise RuntimeError("AI Mode response count does not match the input row count.")
+    for row_id, response in zip(row_ids, responses):
+        response["ai_mode_metadata"]["input_row_id"] = row_id
+    for column, payload in zip(columns, ("ai_mode_results", "ai_mode_metadata")):
+        df[column] = [response[payload] for response in responses]
+    _logging.info(f": Wrangling :: ai_mode summary :: {len(query_values)} queries processed")
+    return df
 
 
 def retrieve_link_content(

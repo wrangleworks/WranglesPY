@@ -255,6 +255,24 @@ def test_compiler_maps_safe_legacy_schema_forms_and_rejects_unsupported_ones(cap
         )
 
 
+@pytest.mark.parametrize(("definition", "value"), [
+    ({"type": ["number", "null"], "nullable": True}, 12.5),
+    ({"type": ["string", "null"], "nullable": True}, "USD"),
+    ({"anyOf": [{"type": "number"}, {"type": "null"}], "nullable": True}, 12.5),
+])
+def test_existing_null_union_does_not_warn_about_nullable_migration(caplog, definition, value):
+    import jsonschema
+
+    with caplog.at_level(logging.WARNING, logger="wrangles.ai_definition"):
+        compiled = ai_definition.compile_definition(
+            {"value": definition}, model="gpt-5.4-mini",
+        )
+
+    jsonschema.validate({"value": value}, compiled.root_schema)
+    jsonschema.validate({"value": None}, compiled.root_schema)
+    assert "mapped nullable: true" not in caplog.text
+
+
 def test_compiler_infers_container_types_from_schema_keywords(caplog):
     with caplog.at_level(logging.WARNING, logger="wrangles.ai_definition"):
         compiled = ai_definition.compile_definition(

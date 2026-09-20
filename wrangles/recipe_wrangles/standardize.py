@@ -48,6 +48,8 @@ def clean(
     preserve_line_breaks: bool = False,
     trim: bool = True,
     separator: str = ' ',
+    unescape_unicode: bool = False,
+    latex_to_text: bool = False,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -116,6 +118,14 @@ def clean(
         type: boolean
         default: true
         description: Remove leading and trailing whitespace.
+      unescape_unicode:
+        type: boolean
+        default: false
+        description: Decode literal printable Unicode escapes in prose, preserving code and Markdown link destinations.
+      latex_to_text:
+        type: boolean
+        default: false
+        description: Convert supported inline LaTeX units, symbols and numeric fractions to readable text. Preserve numeric dollar amounts, ranges and explicit price qualifiers; remove extra dollar signs from other supported inline math. Preserve unsupported formulas. Set collapse_whitespace and trim to false to retain Markdown layout.
       separator:
         type: string
         default: " "
@@ -142,6 +152,8 @@ def clean(
         'collapse_whitespace': collapse_whitespace,
         'preserve_line_breaks': preserve_line_breaks,
         'trim': trim,
+        'unescape_unicode': unescape_unicode,
+        'latex_to_text': latex_to_text,
         **kwargs
     }
 

@@ -7,6 +7,7 @@ from ftfy import fix_text as _fix_text
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
+from ._text_cleanup import clean_escaped_text as _clean_escaped_text
 
 
 _SUPPORTED_FTFY_KWARGS = frozenset(_TextFixerConfig._fields) | {
@@ -81,6 +82,8 @@ def clean(
     collapse_whitespace: bool = True,
     preserve_line_breaks: bool = False,
     trim: bool = True,
+    unescape_unicode: bool = False,
+    latex_to_text: bool = False,
     **kwargs
 ) -> _Union[str, list]:
     """
@@ -102,6 +105,13 @@ def clean(
     :param preserve_line_breaks: Preserve line breaks while collapsing other
         whitespace.
     :param trim: Remove leading and trailing whitespace.
+    :param unescape_unicode: Decode literal printable Unicode escapes in prose.
+        Code and Markdown link destinations are preserved. Defaults to false.
+    :param latex_to_text: Convert supported inline LaTeX units, symbols and numeric
+        fractions to readable text. Preserve numeric dollar amounts, ranges and explicit price
+        qualifiers; remove extra dollar signs from other supported inline math.
+        Unsupported formulas are preserved. Defaults to false.
+        Use collapse_whitespace=False and trim=False to retain Markdown layout.
     :param kwargs: Additional options forwarded to ``ftfy.fix_text``.
     :return: A cleaned string or shape-preserving list.
     """
@@ -125,6 +135,13 @@ def clean(
         if not isinstance(value, str):
             results.append(value)
             continue
+
+        if unescape_unicode or latex_to_text:
+            value = _clean_escaped_text(
+                value,
+                unescape_unicode=unescape_unicode,
+                latex_to_text=latex_to_text,
+            )
 
         cleaned = _fix_text(
             value,

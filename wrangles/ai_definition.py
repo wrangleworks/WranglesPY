@@ -876,8 +876,6 @@ class _Compiler:
         if nullable is not None:
             if not isinstance(nullable, bool):
                 self.error(path, "nullable must be true or false.")
-            if nullable:
-                self.migration(f"{path} mapped nullable: true to a null type union.")
 
         schema_type = node.get("type")
         if isinstance(schema_type, str):
@@ -917,6 +915,7 @@ class _Compiler:
             node["type"] = list(_DEFAULT_SCALAR_TYPES)
 
         nullable_allowed = nullable if nullable is not None else nullable_default
+        null_added = False
         if nullable_allowed:
             if node.get("anyOf"):
                 if not any(
@@ -931,6 +930,7 @@ class _Compiler:
                     for option in node["anyOf"]
                 ):
                     node["anyOf"].append({"type": "null", "nullable": False})
+                    null_added = True
             else:
                 schema_type = node.get("type")
                 schema_types = (
@@ -940,11 +940,14 @@ class _Compiler:
                 )
                 if "null" not in schema_types:
                     schema_types.append("null")
+                    null_added = True
                 node["type"] = schema_types
         elif isinstance(node.get("type"), list) and "null" in node["type"]:
             self.error(path, "nullable false conflicts with a type containing null.")
         elif isinstance(node.get("enum"), list) and None in node["enum"]:
             self.error(path, "nullable false conflicts with an enum containing null.")
+        if nullable and null_added:
+            self.migration(f"{path} mapped nullable: true to a null type union.")
 
         declared_types = (
             node.get("type")

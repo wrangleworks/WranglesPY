@@ -5,6 +5,7 @@ tests/temp/*
 !tests/temp/README.md
 
 # Local/generated output files
+.data/
 output_files/*
 !output_files/.gitkeep
 
@@ -124,6 +125,8 @@ venv.bak/
 docs/*
 !docs/extract_ai_user_guide.md
 !docs/github-app-deployment.md
+!docs/search_ai_mode.md
+!docs/search_ai_overview_research.md
 .DS_Store
 
 # Spyder project settings
