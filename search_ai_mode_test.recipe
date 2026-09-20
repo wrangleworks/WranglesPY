@@ -15,17 +15,16 @@ wrangles:
       output: search_query
       template:
         string: |-
-          {% for entry in __ai_mode_query_config %}{% if 'base_query' in entry %}{{ entry.base_query }}
-          {% endif %}{% endfor %}
-          {% for entry in __ai_mode_query_config %}{% for heading, instruction in entry.items() %}{% if heading not in ['base_query', 'query_suffix'] %}- {{ heading | trim }}: {{ instruction }}
-          {% endif %}{% endfor %}{% endfor %}
-          for this product:
-
-          {% for line in Description.splitlines() %}> {{ line }}
-          {% endfor %}> Mfr: {{ Mfr }}
-          > MPN: {{ MPN }}
-
-          {% for entry in __ai_mode_query_config %}{% if 'query_suffix' in entry %}{{ entry.query_suffix }}{% endif %}{% endfor %}
+          {%- set sections = namespace(labels=[]) -%}
+          {%- for entry in __ai_mode_query_config -%}
+            {%- for heading, instruction in entry.items() -%}
+              {%- if heading not in ['base_query', 'query_suffix'] -%}
+                {%- set label = (heading | trim) ~ (' (' ~ (instruction | trim) ~ ')' if instruction | trim else '') -%}
+                {%- set sections.labels = sections.labels + [label] -%}
+              {%- endif -%}
+            {%- endfor -%}
+          {%- endfor -%}
+          Search for {{ Mfr.split() | join(' ') }} {{ MPN.split() | join(' ') }} {{ Description.split() | join(' ') }}. {% for entry in __ai_mode_query_config %}{% if 'base_query' in entry %}{{ entry.base_query }} {% endif %}{% endfor %}{{ sections.labels | join(' | ') }}.{% for entry in __ai_mode_query_config %}{% if entry.get('query_suffix') %} {{ entry.query_suffix }}{% endif %}{% endfor %}
 
   - drop:
       if: ${RUN_SEARCH}
@@ -151,8 +150,8 @@ write:
         - search_query
         - ai_mode_result_complete
         - Product Description
-        - Technical Specifications
-        - Pricing & Sources
+        - Specifications
+        - Pricing
         - references
         - ai_mode_markdown_clean
         - ai_mode_result_structured

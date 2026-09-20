@@ -30,17 +30,14 @@ EXTRACT_THREADS = 1
 EXTRACT_TIMEOUT = 60
 EXTRACT_RETRIES = 1
 DESCRIPTION_HEADING = "Product Description"
-SPECIFICATIONS_HEADING = "Technical Specifications"
-PRICING_HEADING = "Pricing & Sources"
+SPECIFICATIONS_HEADING = "Specifications"
+PRICING_HEADING = "Pricing"
 AI_MODE_QUERY = [
-    {"base_query": "Provide the following product information:"},
-    {DESCRIPTION_HEADING: "1-3 sentences including the product name and key features."},
-    {SPECIFICATIONS_HEADING: "List confirmed technical specifications."},
-    {PRICING_HEADING: "List suppliers and available pricing with source links."},
-    {"query_suffix": (
-        "Use the exact information labels as headings. "
-        "Include only the requested sections; no follow-up questions."
-    )},
+    {"base_query": "Summarize information in 3 sections:"},
+    {DESCRIPTION_HEADING: ""},
+    {SPECIFICATIONS_HEADING: "as name value pairs"},
+    {PRICING_HEADING: "including the supplier name and source link"},
+    {"query_suffix": ""},
 ]
 
 # User-supplied examples, 2026-09-17; JSON-style records, without generated data.

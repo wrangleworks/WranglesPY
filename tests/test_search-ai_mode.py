@@ -1094,21 +1094,21 @@ def test_runner_uses_shared_configuration_and_separate_cleanup(monkeypatch, tmp_
     monkeypatch.setattr(runner, "RECIPE_FILE", recipe_file)
     config = deepcopy(runner.AI_MODE_QUERY)
     config[2] = {"Specification Details": 'Keep literal {{ sample }} and "quoted" instructions.'}
+    config[-1] = {"query_suffix": "Keep only these sections."}
     monkeypatch.setattr(runner, "AI_MODE_QUERY", config)
     monkeypatch.setattr(runner, "NROWS", 1)
     provider_response["text_blocks"][2]["snippet"] = "Specification Details"
-    provider_response["text_blocks"][4]["snippet"] = "Pricing & Sources"
+    provider_response["text_blocks"][4]["snippet"] = "Pricing"
     df = runner.main()
     assert len(df) == 1
     assert "__ai_mode_query_config" not in df.columns
     query = ai_mode_provider[1][0]["q"]
-    assert query.startswith(config[0]["base_query"])
-    assert 'Specification Details: Keep literal {{ sample }} and "quoted" instructions.' in query
-    assert "- Product Description:" in query and "- Pricing & Sources:" in query
-    assert "for this product:" in query and "> Mfr: INA" in query
+    assert query.startswith("Search for INA NATV6-PP-A ")
+    assert config[0]["base_query"] in query
+    assert 'Specification Details (Keep literal {{ sample }} and "quoted" instructions.)' in query
+    assert "Product Description | Specification Details" in query and " | Pricing (" in query
     assert "part_codes:" not in query and "query:" not in query
     assert "References:" not in query
-    assert "Mfr: INA" in query and "MPN: NATV6-PP-A" in query
     assert query.endswith(config[-1]["query_suffix"])
     result = df.iloc[0]["ai_mode_result_complete"]
     assert result["Specification Details"] == [provider_response["text_blocks"][3]]

@@ -8,8 +8,8 @@ The recipe now compares the existing deterministic result with a subsequent
 `extract.ai` step. The search wrangle's three-output contract is unchanged.
 
 Each run prints its output paths and writes uniquely named XLSX and JSON files
-under the ignored `.data/` directory. Excel's Product Description, Technical
-Specifications, Pricing & Sources and references columns expand
+under the ignored `.data/` directory. Excel's Product Description,
+Specifications, Pricing and references columns expand
 `ai_mode_result_structured`, the downstream extraction result.
 `ai_mode_structured_meta` reports its status; `ai_mode_result` retains the old
 deterministic result for comparison. When extraction is disabled, the main
@@ -33,21 +33,24 @@ query configuration is:
 
 ```python
 AI_MODE_QUERY = [
-    {"base_query": "Provide the following product information:"},
-    {"Product Description": "1-3 sentences including the product name and key features."},
-    {"Technical Specifications": "List confirmed technical specifications."},
-    {"Pricing & Sources": "List suppliers and available pricing with source links."},
-    {"query_suffix": (
-        "Use the exact information labels as headings. "
-        "Include only the requested sections; no follow-up questions."
-    )},
+    {"base_query": "Summarize information in 3 sections:"},
+    {"Product Description": ""},
+    {"Specifications": "as name value pairs"},
+    {"Pricing": "including the supplier name and source link"},
+    {"query_suffix": ""},
 ]
 ```
 
 `search_ai_mode_test.recipe` uses this same variable for its Jinja query and
-`search.ai_mode.query_config`. The template combines the prefix, ordered
-heading instructions as bullets, a `for this product:` block containing only
-Description/Mfr/MPN, and the suffix. Each product line is prefixed with `>`.
+`search.ai_mode.query_config`. The template begins with `Search for <Mfr> <MPN>
+<Description>.`, collapsing input whitespace to spaces. It then adds the
+configured summary instruction, headings separated by `|`, and optional suffix.
+Nonempty heading instructions appear in parentheses. For example:
+
+```text
+Search for RENOLD GY08B2S26I RENOLD SYNERGY GY08B2S26I DUPLEX CONN LINK. Summarize information in 3 sections: Product Description | Specifications (as name value pairs) | Pricing (including the supplier name and source link).
+```
+
 The temporary configuration column is removed before searching. The trial's
 three heading names are editable constants used by both the prompt and final
 structured-result formatter.
@@ -70,6 +73,10 @@ runs; our code does not consume Google's browser token stream. SerpAPI owns the
 capture of that content. This does not independently guarantee that every
 Google result was captured, even when SerpAPI reports `Success`.
 See the [SerpAPI completion and async documentation](https://serpapi.com/google-ai-mode-api).
+SerpAPI also supports `output=md`, but the current `search.ai_mode` wrangle
+requests JSON for its three structured outputs. A Markdown transport experiment
+should use the SerpAPI client directly and compare with `reconstructed_markdown`
+from the same search ID before changing that public contract.
 The runner extracts only successful, nonempty responses. It does not poll a
 `Processing` job or implement the asynchronous Search Archive workflow. The
 `EXTRACT_TIMEOUT` setting applies to the later extraction call, not the search.
@@ -170,14 +177,14 @@ interpret the answer.
 ```text
 ai_mode_result = {
     "Product Description": "The Example Power P12 supplies 12 VDC.",
-    "Technical Specifications": [{"Output Voltage": "12 VDC"}, {"Output Current": "5 A"}],
-    "Pricing & Sources": [{"Supplier A": "$13.17 USD per pack of 10"}],
+    "Specifications": [{"Output Voltage": "12 VDC"}, {"Output Current": "5 A"}],
+    "Pricing": [{"Supplier A": "$13.17 USD per pack of 10"}],
     "references": ["https://example.invalid/product"]
 }
 ai_mode_result_complete = {
     "Product Description": [original content blocks],
-    "Technical Specifications": [original content blocks],
-    "Pricing & Sources": [original content blocks],
+    "Specifications": [original content blocks],
+    "Pricing": [original content blocks],
     "references": [all original reference dictionaries],
     "meta_data": {query, input_row_id, provider metadata, parse diagnostics}
 }

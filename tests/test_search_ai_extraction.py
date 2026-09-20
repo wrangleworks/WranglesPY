@@ -13,7 +13,7 @@ from wrangles import _ai_mode, ai_cache
 from wrangles._search_ai_extraction import prepare_evidence, format_product_result
 
 
-LABELS = {"description": "Product Description", "specifications": "Technical Specifications", "pricing": "Pricing & Sources"}
+LABELS = {"description": "Product Description", "specifications": "Specifications", "pricing": "Pricing"}
 MAKER = "https://maker.invalid/specs"
 SUPPLIER = "https://supplier.invalid/item?variant=1&currency=USD"
 
@@ -37,9 +37,9 @@ def answer():
         "text_blocks": [
             {"type": "heading", "snippet": "Product Description"},
             {"type": "paragraph", "snippet": "A synthetic product."},
-            {"type": "heading", "snippet": "Technical Specifications"},
+            {"type": "heading", "snippet": "Specifications"},
             {"type": "list", "list": [{"snippet": r"Pitch: $1/2$ inch", "reference_indexes": [91]}]},
-            {"type": "heading", "snippet": "Pricing & Sources"},
+            {"type": "heading", "snippet": "Pricing"},
             {"type": "table", "table": [["Supplier", "Price", "Link"], ["Supplier A", "$13.15 USD", "Product Page"]],
              "detailed": [[{"snippet": "Supplier"}, {"snippet": "Price"}, {"snippet": "Link"}],
                           [{"snippet": "Supplier A"}, {"snippet": "$13.15 USD"},
@@ -64,7 +64,7 @@ def test_mode_and_overview_share_evidence_without_flattening(answer):
         ]
         assert "unrelated.invalid" not in json.dumps(evidence)
         assert "meta_data" not in evidence["content"]
-    assert mode["content"]["Pricing & Sources"][0]["table"] == answer["text_blocks"][5]["table"]
+    assert mode["content"]["Pricing"][0]["table"] == answer["text_blocks"][5]["table"]
     assert overview["content"]["text_blocks"][-1] == answer["text_blocks"][-1]
     assert overview["content"]["text_blocks"][5]["formatted"] == answer["text_blocks"][5]["formatted"]
     assert "/text_blocks/5/detailed/1/2/snippet_links/0/link" in overview["sources"][1]["evidence_paths"]
@@ -108,8 +108,8 @@ def test_offers_follow_catalog_order_keep_all_sources_and_flag_unknown_ids(answe
     ]}
     original = deepcopy(extracted)
     result, metadata = format_product_result(extracted, evidence, **LABELS)
-    assert result["Technical Specifications"] == [{"Pitch": "1/2 inch"}]
-    assert list(zip(result["Pricing & Sources"], result["references"], strict=True)) == [
+    assert result["Specifications"] == [{"Pitch": "1/2 inch"}]
+    assert list(zip(result["Pricing"], result["references"], strict=True)) == [
         ({"Manufacturer": ""}, MAKER),
         ({"Supplier A": "$13.15 USD"}, SUPPLIER),
         ({"Supplier A": "$12 USD for 10+"}, SUPPLIER),
@@ -125,7 +125,7 @@ def test_offers_follow_catalog_order_keep_all_sources_and_flag_unknown_ids(answe
 def test_failed_extraction_is_explicit_and_preserves_reference_slots(answer, extracted):
     result, metadata = format_product_result(extracted, prepare_evidence(answer), **LABELS)
     assert metadata["status"] == "error"
-    assert result["Pricing & Sources"] == [{"Manufacturer": ""}, {"supplier.invalid": ""}]
+    assert result["Pricing"] == [{"Manufacturer": ""}, {"supplier.invalid": ""}]
     assert result["references"] == [MAKER, SUPPLIER]
 
 
@@ -177,19 +177,11 @@ def trial(monkeypatch, tmp_path, answer, trial_extraction):
 def test_trial_uses_real_extract_ai_schema_and_preserves_search_outputs(trial):
     searches, extractions, response = trial
     df = runner.main()
-    expected_query = """Provide the following product information:
-
-- Product Description: 1-3 sentences including the product name and key features.
-- Technical Specifications: List confirmed technical specifications.
-- Pricing & Sources: List suppliers and available pricing with source links.
-
-for this product:
-
-> INA NATV6-PP-A YOKE TYPE TRACK ROLLERS NATV..-PP FULL COMPLEMENT NEEDL
-> Mfr: INA
-> MPN: NATV6-PP-A
-
-Use the exact information labels as headings. Include only the requested sections; no follow-up questions."""
+    expected_query = (
+        "Search for INA NATV6-PP-A INA NATV6-PP-A YOKE TYPE TRACK ROLLERS NATV..-PP FULL COMPLEMENT NEEDL. "
+        "Summarize information in 3 sections: Product Description | Specifications (as name value pairs) | "
+        "Pricing (including the supplier name and source link)."
+    )
     assert searches == [{"engine": "google_ai_mode", "q": expected_query, "output": "json"}]
     assert len(extractions) == 1
     request = extractions[0]
@@ -200,7 +192,7 @@ Use the exact information labels as headings. Include only the requested section
     assert df.iloc[0]["ai_mode_result_structured"]["references"] == [MAKER, SUPPLIER]
     assert df.iloc[0]["ai_mode_structured_meta"]["status"] == "complete"
     assert df.iloc[0]["ai_mode_markdown"] == response["reconstructed_markdown"]
-    assert df.iloc[0]["ai_mode_result_complete"]["Pricing & Sources"][0]["formatted"] == response["text_blocks"][5]["formatted"]
+    assert df.iloc[0]["ai_mode_result_complete"]["Pricing"][0]["formatted"] == response["text_blocks"][5]["formatted"]
     assert all(column in df for column in ("ai_mode_result", "ai_mode_result_complete", "ai_mode_markdown"))
 
 
@@ -230,8 +222,8 @@ def test_nested_section_labels_reach_extraction_and_displayed_columns(trial, tri
     response["references"] = []
     response["text_blocks"] = [{"type": "list", "list": [
         {"snippet": "Product Description: A synthetic product."},
-        {"snippet": "Technical Specifications:", "list": [{"snippet": r"Pitch: $1/2$ inch"}]},
-        {"snippet": "Pricing & Sources:", "list": [{"snippet": "Supplier A: £8.22 (excluding VAT)",
+        {"snippet": "Specifications:", "list": [{"snippet": r"Pitch: $1/2$ inch"}]},
+        {"snippet": "Pricing:", "list": [{"snippet": "Supplier A: £8.22 (excluding VAT)",
                                                    "snippet_links": [{"text": "Supplier A", "link": SUPPLIER}]}]},
     ]}]
     trial_extraction["offers"] = [{"supplier": "Supplier A", "price": "£8.22 (excluding VAT)", "source_ids": ["s1"]}]
@@ -248,15 +240,15 @@ def test_nested_section_labels_reach_extraction_and_displayed_columns(trial, tri
     for heading in (*LABELS.values(), "references"):
         assert row[heading] == row["ai_mode_result_structured"][heading]
     assert row["Product Description"] == "A synthetic product."
-    assert row["Technical Specifications"] == [{"Pitch": "1/2 inch"}]
-    assert list(zip(row["Pricing & Sources"], row["references"], strict=True)) == [
+    assert row["Specifications"] == [{"Pitch": "1/2 inch"}]
+    assert list(zip(row["Pricing"], row["references"], strict=True)) == [
         ({"Supplier A": "£8.22 (excluding VAT)"}, SUPPLIER),
     ]
     workbook, = tmp_path.glob("*.xlsx")
     exported = pd.read_excel(workbook).iloc[0]
     assert exported["Product Description"] == row["Product Description"]
-    assert "1/2 inch" in exported["Technical Specifications"]
-    assert "£8.22 (excluding VAT)" in exported["Pricing & Sources"]
+    assert "1/2 inch" in exported["Specifications"]
+    assert "£8.22 (excluding VAT)" in exported["Pricing"]
     assert SUPPLIER in exported["references"]
     assert "ai_mode_result" in exported.index
 
@@ -279,7 +271,7 @@ def test_trial_skips_extraction_without_successful_search(trial, monkeypatch, st
     assert extractions == []
     assert df.iloc[0]["ai_mode_structured_meta"]["status"] == "skipped"
     assert df.iloc[0]["ai_mode_result_structured"] == {
-        "Product Description": "", "Technical Specifications": [], "Pricing & Sources": [], "references": [],
+        "Product Description": "", "Specifications": [], "Pricing": [], "references": [],
     }
     if state == "disabled":
         for heading in (*LABELS.values(), "references"):
@@ -296,7 +288,7 @@ def test_trial_keeps_mixed_success_and_failure_on_their_input_rows(trial, monkey
 
     def search(client, params):
         result = original_search(client, params)
-        if "MPN: FAILED-2" in params["q"]:
+        if params["q"].startswith("Search for Example FAILED-2 "):
             result["error"] = "Synthetic second-row failure"
         return result
 
