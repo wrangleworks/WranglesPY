@@ -13,6 +13,34 @@ and live/offline commands. Credentials are loaded from the repository's `.env`,
 and relative replay/output paths start at the repository regardless of the
 current working directory.
 
+## Why Markdown and downstream extraction
+
+The trials led to a separation between retrieving search evidence and
+interpreting product information:
+
+- Google's answer structure varied between headings, paragraphs, nested lists
+  and tables. Supplier names, prices and references also appeared in different
+  shapes. Section-specific parsing in the search wrangle accumulated fragile
+  rules for each variation.
+- In three same-search-ID comparisons (INA, Renold and Belden), the body returned
+  by SerpAPI `output=md` matched `reconstructed_markdown` after removing
+  frontmatter and surrounding whitespace. Markdown simplifies retrieval; these
+  trials did not demonstrate more accurate or more complete search results.
+- Some API answers contained fewer specifications, prices or references than
+  browser answers. Neither the response format nor our tests established the
+  cause. Locale, browser session and generation variability remain possible
+  factors; a successful request does not guarantee browser-equivalent coverage.
+- Product identity now leads the query. `search.ai_mode` retains the original
+  Markdown and separates metadata, `standardize.clean` repairs supported
+  encoding/LaTeX artifacts, and `extract.ai` interprets identity, specifications,
+  offers, source relevance and price-to-reference associations. Reference IDs
+  connect offers to sources instead of relying on aligned list positions.
+
+The raw response remains available for diagnosis and replay. Extraction can
+still make mistakes or find an uncertain product match; it cannot recover
+information absent from the retrieved answer. AI Overview remains a separate
+enhancement, with reusable content helpers available for that future work.
+
 ## Pipeline and outputs
 
 ```text
@@ -64,7 +92,8 @@ This **replaces the experimental compact/complete/Markdown output contract**.
 Remove `query_config` from `search.ai_mode`, change its outputs to the two shown
 above, and perform structuring in subsequent wrangles. `query_config` is no
 longer needed for response parsing. `n_results`, `num` and `google_domain` are
-unsupported. Classic search behavior is unchanged.
+unsupported. These AI Mode parameter/output changes do not apply to
+`search.retrieve_links`.
 
 ## Query and locale controls
 
