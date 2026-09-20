@@ -1086,6 +1086,84 @@ class TestConvertParse:
             "enabled": True,
         }
 
+    def test_yaml_numeric_resolution_preserves_identifiers(self):
+        df = wrangles.DataFrame({
+            "column": [
+                "{part: 00123, code: 12:34, time: 12:34.5, hex: 0xFF, "
+                "binary: 0b10, decimal: 01.5, quantity: 12, zero: 0, "
+                "negative: -12, fraction: 1.25, exponent: 1e3, "
+                "small: -1.5e-2}"
+            ]
+        }).wrangles.convert.parse(input="column", expected="dictionary")
+
+        assert df["column"][0] == {
+            "part": "00123",
+            "code": "12:34",
+            "time": "12:34.5",
+            "hex": "0xFF",
+            "binary": "0b10",
+            "decimal": "01.5",
+            "quantity": 12,
+            "zero": 0,
+            "negative": -12,
+            "fraction": 1.25,
+            "exponent": 1000.0,
+            "small": -0.015,
+        }
+
+    @pytest.mark.parametrize("loader_name", ["SafeLoader", "CSafeLoader"])
+    @pytest.mark.parametrize("quoted", [False, True])
+    def test_yaml_aliases_are_rejected(self, monkeypatch, loader_name, quoted):
+        import yaml
+        from wrangles.recipe_wrangles import convert
+
+        if not hasattr(yaml, loader_name):
+            pytest.skip(f"PyYAML {loader_name} is unavailable")
+        loader = type("ObjectLoader", (getattr(yaml, loader_name),), {
+            "yaml_implicit_resolvers": convert._ObjectYAMLLoader.yaml_implicit_resolvers,
+        })
+        monkeypatch.setattr(convert, "_ObjectYAMLLoader", loader)
+        value = (
+            "a: &a [one, two]\n"
+            "b: &b [*a, *a, *a]\n"
+            "c: [*b, *b, *b]"
+        )
+        if quoted:
+            value = _json.dumps(value)
+        df = wrangles.DataFrame({"column": [value]})
+
+        with pytest.raises(ValueError, match="Unable to convert value"):
+            df.wrangles.convert.parse(input="column")
+
+        result = df.wrangles.convert.parse(input="column", default={})
+        assert result["column"][0] == {}
+
+    @pytest.mark.parametrize("value", [
+        "&a [one, two]",
+        "&a [*a]",
+        "{part: !!int 00123}",
+        "{time: !!float '12:34.5'}",
+    ])
+    def test_yaml_anchors_and_tags_are_rejected(self, value):
+        with pytest.raises(ValueError, match="Unable to convert value"):
+            wrangles.DataFrame({"column": [value]}).wrangles.convert.parse(input="column")
+
+    def test_quoted_yaml_markers_remain_literal_text(self):
+        df = wrangles.DataFrame({
+            "column": ["{alias: '*part', anchor: '&part', tag: '!!int 00123'}"]
+        }).wrangles.convert.parse(input="column")
+
+        assert df["column"][0] == {
+            "alias": "*part", "anchor": "&part", "tag": "!!int 00123",
+        }
+
+    def test_existing_yaml_converter_keeps_yaml_resolution(self):
+        df = wrangles.DataFrame({
+            "column": ["{part: 00123, code: 12:34, enabled: yes}"]
+        }).wrangles.convert.from_yaml(input="column")
+
+        assert df["column"][0] == {"part": 83, "code": 754, "enabled": True}
+
     def test_existing_objects_are_normalized(self):
         df = wrangles.recipe.run(
             """
@@ -1104,6 +1182,45 @@ class TestConvertParse:
             "number": 2,
             "values": [1, 2],
         }
+
+    def test_numpy_defaults_are_normalized_and_independent(self):
+        default = {"number": _np.int64(2), "values": _np.array([1, 2])}
+        values = ["", "{bad", "[1, 2]"]
+        df = wrangles.DataFrame({"first": values, "second": values})
+        result = df.wrangles.convert.parse(
+            input=["first", "second"], expected="dictionary", default=default,
+        )
+
+        records = result.to_dict("records")
+        expected = {"number": 2, "values": [1, 2]}
+        assert records == [{"first": expected, "second": expected}] * 3
+        assert _json.loads(_json.dumps(records, allow_nan=False)) == records
+        result["first"][0]["values"].append(3)
+        assert result["first"][1]["values"] == [1, 2]
+        assert result["second"][0]["values"] == [1, 2]
+        assert default["values"].tolist() == [1, 2]
+
+    @pytest.mark.parametrize("value", ["", "{bad", "{}"])
+    @pytest.mark.parametrize("default", [
+        {"value": _np.float64("nan")},
+        {"value": {1, 2}},
+        {"value": b"bytes"},
+        {1: "non-string key"},
+    ])
+    def test_non_json_defaults_are_rejected(self, value, default):
+        with pytest.raises(ValueError, match="Invalid default.*column"):
+            wrangles.DataFrame({"column": [value]}).wrangles.convert.parse(
+                input="column", default=default,
+            )
+
+    def test_recursive_default_is_rejected(self):
+        default = {}
+        default["self"] = default
+
+        with pytest.raises(ValueError, match="Invalid default.*column"):
+            wrangles.DataFrame({"column": [""]}).wrangles.convert.parse(
+                input="column", default=default,
+            )
 
     def test_expected_types_and_per_column_defaults(self):
         df = wrangles.recipe.run(
@@ -1131,6 +1248,33 @@ class TestConvertParse:
 
         assert df["dictionary result"].tolist() == [{}, {}]
         assert df["array result"].tolist() == [[], [1, 2]]
+
+    @pytest.mark.parametrize("expected", [
+        "any", "dictionary", "list", "scalar",
+        ["any"], ["dictionary", "list", "scalar"],
+    ])
+    def test_expected_schema_accepts_supported_categories(self, expected):
+        import jsonschema
+        import yaml
+
+        schema = yaml.safe_load(wrangles.recipe._recipe_wrangles.convert.parse.__doc__)
+        jsonschema.Draft7Validator.check_schema(schema)
+        jsonschema.Draft7Validator(schema).validate({"input": "column", "expected": expected})
+
+    @pytest.mark.parametrize("expected", [
+        "banana", ["banana"], ["dictionary", "banana"], 1, None,
+    ])
+    def test_expected_schema_rejects_unsupported_categories(self, expected):
+        import jsonschema
+        import yaml
+
+        schema = yaml.safe_load(wrangles.recipe._recipe_wrangles.convert.parse.__doc__)
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.Draft7Validator(schema).validate({"input": "column", "expected": expected})
+        with pytest.raises(ValueError):
+            wrangles.DataFrame({"column": ["{}"]}).wrangles.convert.parse(
+                input="column", expected=expected,
+            )
 
     def test_explicit_null_default(self):
         df = wrangles.recipe.run(

@@ -26,9 +26,9 @@ class _ObjectYAMLLoader(_YAMLLoader):
     """
     Safe YAML loader with JSON-like scalar resolution.
 
-    PyYAML's default YAML 1.1 resolver converts values such as "yes", "on",
-    and ISO dates to bool/date objects. Those conversions are surprising when
-    YAML is being used as a tolerant parser for JSON-like data.
+    Preserve YAML-only numeric forms, "yes", "on", and ISO dates as text.
+    Their implicit conversions are surprising when YAML is being used as a
+    tolerant parser for JSON-like data.
     """
 
 
@@ -38,6 +38,8 @@ _ObjectYAMLLoader.yaml_implicit_resolvers = {
         for tag, regexp in resolvers
         if tag not in (
             "tag:yaml.org,2002:bool",
+            "tag:yaml.org,2002:float",
+            "tag:yaml.org,2002:int",
             "tag:yaml.org,2002:timestamp",
         )
     ]
@@ -47,6 +49,19 @@ _ObjectYAMLLoader.add_implicit_resolver(
     "tag:yaml.org,2002:bool",
     _re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$"),
     list("tTfF"),
+)
+_ObjectYAMLLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:int",
+    _re.compile(r"^-?(?:0|[1-9][0-9]*)$"),
+    list("-0123456789"),
+)
+_ObjectYAMLLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:float",
+    _re.compile(
+        r"^-?(?:(?:0|[1-9][0-9]*)\.[0-9]+(?:[eE][-+]?[0-9]+)?|"
+        r"(?:0|[1-9][0-9]*)[eE][-+]?[0-9]+)$"
+    ),
+    list("-0123456789"),
 )
 
 # Pre-compiled regex for sentence case: matches the first non-whitespace character
@@ -499,6 +514,13 @@ def _parse_object_text_once(value: str):
         pass
 
     try:
+        # Scan before loading: CSafeLoader does not use Python compose_node
+        # overrides, and expanding aliases during normalization can be costly.
+        for token in _yaml.scan(value, Loader=_ObjectYAMLLoader):
+            if isinstance(token, (_yaml.tokens.AnchorToken, _yaml.tokens.AliasToken)):
+                raise ValueError("YAML anchors and aliases are not supported")
+            if isinstance(token, _yaml.tokens.TagToken):
+                raise ValueError("Explicit YAML tags are not supported")
         return _yaml.load(value, Loader=_ObjectYAMLLoader)
     except _yaml.YAMLError as error:
         raise ValueError("Value is not valid JSON, Python, or YAML") from error
@@ -551,7 +573,9 @@ def parse(
     type: object
     description: >-
       Parse JSON, Python, YAML, or human-readable JSON-like structures into
-      JSON-compatible Python values.
+      JSON-compatible Python values. YAML-only numeric forms such as 00123
+      and 12:34 remain strings. YAML anchors, aliases, and explicit tags
+      are not supported.
     additionalProperties: false
     required:
       - input
@@ -575,21 +599,20 @@ def parse(
           Value to return for missing, invalid, or type-mismatched rows.
           If input is a list, default may be a single value applied to every
           column or a list containing one value per input column.
+          Defaults must be JSON-compatible; NumPy values are normalized and
+          mutable defaults are copied independently for each row.
       expected:
-        type:
-          - string
-          - array
         description: >-
           Required result category. Use any, dictionary, list, or scalar.
           A list may provide one category per input column.
         default: any
-        items:
-          type: string
-          enum:
-            - any
-            - dictionary
-            - list
-            - scalar
+        oneOf:
+          - type: string
+            enum: [any, dictionary, list, scalar]
+          - type: array
+            items:
+              type: string
+              enum: [any, dictionary, list, scalar]
     """
     if output is None:
         output = input
@@ -617,6 +640,15 @@ def parse(
         defaults,
         expected_types,
     ):
+        if col_default is not _DEFAULT_NOT_SET:
+            try:
+                col_default = _normalize_json_compatible(col_default)
+            except (TypeError, ValueError) as error:
+                raise ValueError(
+                    f"Invalid default for column '{input_column}' "
+                    f"in convert.parse: {error}"
+                ) from error
+
         def _convert_value(value):
             if _is_missing_object_value(value):
                 if col_default is _DEFAULT_NOT_SET:
