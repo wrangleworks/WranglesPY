@@ -10,13 +10,15 @@ from datetime import datetime
 import json
 from pathlib import Path
 from pprint import pprint
+import sys
 
 import pandas as pd
 
 
 # ---- Editable run defaults -------------------------------------------------
-REPOSITORY = Path(__file__).resolve().parent
-RECIPE_FILE = REPOSITORY / "search_ai_mode_test.recipe"
+FIXTURE_DIRECTORY = Path(__file__).resolve().parent
+REPOSITORY = FIXTURE_DIRECTORY.parents[2]
+RECIPE_FILE = FIXTURE_DIRECTORY / "search_ai_mode_test.recipe"
 REPLAY_FILE = None  # A prior JSON snapshot; relative paths start at REPOSITORY.
 OUTPUT_DIRECTORY = REPOSITORY / ".data"
 WRITE_OUTPUTS = True  # Unique Excel/JSON filenames preserve earlier trial evidence.
@@ -27,7 +29,7 @@ LOCATION = None  # Example: "Austin, Texas, United States"; None omits the overr
 COUNTRY = None  # SerpAPI gl, e.g. "us" or "uk".
 LANGUAGE = None  # SerpAPI hl, e.g. "en".
 EXTRACT_ENABLED = True
-EXTRACT_MODEL = None  # None uses the configured extract.ai default.
+EXTRACT_MODEL = "gpt-5.6-luna"  # None uses the configured extract.ai default.
 EXTRACT_REASONING = {"effort": "low"}  # Source/offer matching benefits from reasoning.
 EXTRACT_THREADS = 1
 EXTRACT_TIMEOUT = 60
@@ -44,7 +46,7 @@ AI_MODE_QUERY = [
                      "5 sources, 3 prices), but do not ask follow-on questions."},
 ]
 
-# User-supplied examples, 2026-09-17; JSON-style records, without generated data.
+# Three user-supplied product examples; JSON-style records, without generated data.
 INPUT_ROWS = [
     {
         "ID": 1,
@@ -63,6 +65,14 @@ INPUT_ROWS = [
         "MPN": "GY08B2S26I",
         "part_codes": ["GY08B2S26I"],
         "query": "RENOLD SYNERGY GY08B2S26I DUPLEX CONN LINK",
+    },
+    {
+        "ID": 3,
+        "Description": "Fiber Optic Cable	1 FI3F001N0W	Belden",
+        "Mfr": "Belden",
+        "MPN": "FI3F001N0W",
+        "part_codes": ["FI3F001N0W"],
+        "query": "Belden FI3F001N0W Fiber Optic Cable 1 FI3F001N0W Belden",
     },
 ]
 # ---------------------------------------------------------------------------
@@ -114,6 +124,10 @@ def validate_search_sources(df, input, references, pricing, diagnostics):
 def main():
     if NROWS is not None and NROWS < 1:
         raise ValueError("NROWS must be None for all rows, or a positive integer.")
+
+    # Use this checkout when VS Code launches the fixture as a standalone file.
+    if str(REPOSITORY) not in sys.path:
+        sys.path.insert(0, str(REPOSITORY))
 
     # Existing environment values take precedence; never put a key in the recipe.
     try:

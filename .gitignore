@@ -125,6 +125,7 @@ venv.bak/
 docs/*
 !docs/extract_ai_user_guide.md
 !docs/github-app-deployment.md
+!docs/search_ai_mode.md
 .DS_Store
 
 # Spyder project settings

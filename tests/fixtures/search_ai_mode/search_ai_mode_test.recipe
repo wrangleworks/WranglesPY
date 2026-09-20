@@ -1,4 +1,4 @@
-# Run with run_search_ai_mode.py, which supplies the input DataFrame and settings.
+# Run with the adjacent run_search_ai_mode.py, which supplies the input DataFrame and settings.
 # Required input columns: ID, Description, Mfr, MPN.
 # Credentials: SERPAPI_API_KEY for search, OPENAI_API_KEY for extraction.
 

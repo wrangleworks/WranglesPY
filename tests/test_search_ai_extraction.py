@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 import requests
 
-import run_search_ai_mode as runner
+from tests.fixtures.search_ai_mode import run_search_ai_mode as runner
 from wrangles import ai_cache
 from wrangles._search_ai_content import markdown_urls, source_url
 from wrangles._search_ai_extraction import validate_sources

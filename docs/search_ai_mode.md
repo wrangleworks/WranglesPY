@@ -1,9 +1,17 @@
 # AI Mode Markdown trials
 
-Run `run_search_ai_mode.py` in VS Code with the repository's `.venv`
+Run [run_search_ai_mode.py](../tests/fixtures/search_ai_mode/run_search_ai_mode.py)
+in VS Code with the repository's `.venv`
 interpreter. The runner passes its JSON-style sample records as a DataFrame to
 `wrangles.recipe.run`. Set `SERPAPI_API_KEY` and `OPENAI_API_KEY` in your
 existing environment, or the ignored `.env` file when `python-dotenv` is installed.
+
+The runner and [recipe](../tests/fixtures/search_ai_mode/search_ai_mode_test.recipe)
+live together in `tests/fixtures/search_ai_mode/`. The fixture
+[README](../tests/fixtures/search_ai_mode/README.md) describes their sample data
+and live/offline commands. Credentials are loaded from the repository's `.env`,
+and relative replay/output paths start at the repository regardless of the
+current working directory.
 
 ## Pipeline and outputs
 
