@@ -169,9 +169,10 @@ def trial(monkeypatch, tmp_path, markdown, extracted):
     return searches, extractions, responses
 
 
-def test_trial_cleans_before_extraction_and_uses_typed_offer_schema(trial):
+def test_trial_cleans_before_extraction_and_uses_typed_offer_schema(trial, caplog):
     searches, extractions, _ = trial
     row = runner.main().iloc[0]
+    assert "mapped nullable: true" not in caplog.text
     expected = (
         "Search for INA NATV6-PP-A INA NATV6-PP-A YOKE TYPE TRACK ROLLERS NATV..-PP FULL COMPLEMENT NEEDL. "
         "Summarize information in 3 sections: Product Description | Specifications (as name value pairs) | "
