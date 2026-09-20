@@ -58,6 +58,9 @@ wrangles:
       uncurl_quotes: false
       unescape_html: false
 
+  - custom.clean_ai_mode_links:
+      input: ai_mode_results_clean
+
   - custom.prepare_search_extraction:
       input: ai_mode_results_clean
       metadata: ai_mode_metadata

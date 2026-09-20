@@ -51,6 +51,8 @@ search.ai_mode (output=md)
   -> ai_mode_metadata (JSON-compatible frontmatter and transport status)
 standardize.clean
   -> ai_mode_results_clean
+custom.clean_ai_mode_links
+  -> ai_mode_results_clean (viewer-label repair)
 merge.to_dict
   -> Input Product Information (Mfr, MPN, Description)
 extract.ai
@@ -130,6 +132,13 @@ The recipe immediately applies `standardize.clean` with `unescape_unicode`
 and `latex_to_text`. It preserves Markdown line breaks and destinations, and
 leaves unsupported formulas intact for the model. Raw and cleaned bodies are
 separate columns. Cleanup controls remain opt-in for other recipes.
+
+The trial then applies `custom.clean_ai_mode_links` to the cleaned column. It
+removes the exact trailing text `Go to product viewer dialog for this item.`
+from Markdown link labels before extraction. Product wording, escaped
+punctuation, link destinations and code examples are retained. The original
+`ai_mode_results` remains untouched. This repairs the label only; it does not
+turn a Google viewer link into a supplier URL or add it to accepted references.
 
 `merge.to_dict` builds **Input Product Information** from `Mfr`, `MPN` and
 `Description`, retaining blank fields. `extract.ai` receives that dictionary

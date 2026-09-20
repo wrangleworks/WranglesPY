@@ -10,6 +10,7 @@ from datetime import datetime
 import json
 from pathlib import Path
 from pprint import pprint
+import re
 import sys
 
 import pandas as pd
@@ -86,6 +87,26 @@ def capture_search_response(df, input, metadata, prefix):
             path = Path(f"{prefix}_row{index:03d}.md")
             path.write_text(raw, encoding="utf-8")
             value["raw_response_file"] = str(path)
+    return df
+
+
+def clean_ai_mode_links(df, input, output=None):
+    """Remove Google's viewer instruction from Markdown link labels only."""
+    from wrangles._text_cleanup import map_markdown_prose
+
+    viewer_label = re.compile(
+        r'(\[(?:\\.|[^\]\\\n])*?)\s*'
+        r'Go to product viewer dialog for this item\.(?=\]\()'
+    )
+
+    def clean(value):
+        if not isinstance(value, str):
+            return value
+        return map_markdown_prose(
+            value, lambda prose: viewer_label.sub(lambda match: match[1].rstrip(), prose)
+        )
+
+    df[output or input] = df[input].map(clean)
     return df
 
 
@@ -188,7 +209,7 @@ def main():
     results_df = wrangles.recipe.run(
         str(RECIPE_FILE),
         dataframe=input_df,
-        functions=[capture_search_response, prepare_search_extraction, validate_search_sources],
+        functions=[capture_search_response, clean_ai_mode_links, prepare_search_extraction, validate_search_sources],
         variables=variables,
     )
 

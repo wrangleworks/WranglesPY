@@ -42,9 +42,12 @@ def markdown():
 
 
 @pytest.fixture
-def extracted(markdown):
+def extracted():
     return {
-        "Product Description": markdown.split("### Product Description\n\n", 1)[1].split("\n\n### Specifications", 1)[0],
+        "Product Description": (
+            "The [Example P12](https://www.google.com/search?ibp=oshop&prds=productid:123)"
+            " supplies regulated power."
+        ),
         "Match Confidence": "Uncertain",
         "Specifications": [{"name": "Voltage", "value": "12 VDC"}],
         "Pricing": [{"price": 13.15, "currency": "USD", "uom": "pack", "source": "Supplier A",
@@ -52,6 +55,34 @@ def extracted(markdown):
         "references": [{"id": "01", "source": "Manufacturer", "url": MAKER},
                        {"id": "02", "source": "Supplier A", "url": SUPPLIER}],
     }
+
+
+def test_viewer_label_cleanup_preserves_product_wording_links_and_raw_evidence():
+    # User-reported wording with a shortened, synthetic viewer destination.
+    label = r"Renold Gy08B duplex roller chain connecting/roller link \(GY08B2S26I\)"
+    viewer_text = "Go to product viewer dialog for this item."
+    url = r"https://www.google.com/search?ibp=oshop&prds=item(123)&q=product&raw=\u0026"
+    price_text = (
+        " typically ranges in price from $6.00 to $18.77 USD per individual link"
+        " depending on the industrial supplier. [0]"
+    )
+    sentence = f"The [{label}{viewer_text}]({url}){price_text}"
+    expected = f"The [{label}]({url}){price_text}"
+    protected = "\n\n".join([
+        f"`{sentence}`",
+        f"```\n{sentence}\n```",
+        f"    {sentence}",
+        viewer_text,
+        f"[Supplier]({SUPPLIER})",
+    ])
+    original = sentence + "\n\n" + protected
+    df = pd.DataFrame({"raw": [original, None, 42]})
+
+    cleaned = runner.clean_ai_mode_links(df, input="raw", output="clean")
+    assert cleaned["raw"].tolist() == [original, None, 42]
+    assert cleaned["clean"].tolist() == [expected + "\n\n" + protected, None, 42]
+    repeated = runner.clean_ai_mode_links(cleaned.copy(), input="clean")
+    assert repeated.equals(cleaned)
 
 
 def test_selected_references_and_offers_are_independent(markdown, extracted):
@@ -198,6 +229,7 @@ def test_trial_uses_direct_outputs_and_separate_input_identity(trial, extracted,
     assert "verbatim" in properties["Product_Description"]["description"]
     evidence = json.dumps(request["input"], ensure_ascii=False)
     assert "12 VDC" in evidence and "\u03bc" in evidence
+    assert "Go to product viewer dialog for this item." not in evidence
     assert "search_metadata" not in evidence
     identity = {field: runner.INPUT_ROWS[0][field] for field in ("Mfr", "MPN", "Description")}
     assert row["Input Product Information"] == identity
@@ -212,6 +244,7 @@ def test_trial_uses_direct_outputs_and_separate_input_identity(trial, extracted,
     assert r"$\frac{1}{2}\text{ in}$" in row["ai_mode_results_clean"]
     assert "$13.15 USD per pack of 10, excluding VAT" in row["ai_mode_results_clean"]
     assert r"$12\text{ VDC}$" in row["ai_mode_results"]
+    assert "Example P12Go to product viewer dialog for this item." in row["ai_mode_results"]
     assert row["references"][0]["id"] == "01"
     assert row["Pricing"][0]["reference_ids"] == ["02"]
     assert row["Product Description"] == extracted["Product Description"]
@@ -270,6 +303,7 @@ def test_snapshot_replays_without_search_and_raw_markdown_stays_outside_excel(tr
     second = runner.main()
     assert len(trial[0]) == 1 and len(trial[1]) == 2
     assert first.iloc[0]["ai_mode_results"] == second.iloc[0]["ai_mode_results"]
+    assert first.iloc[0]["ai_mode_results_clean"] == second.iloc[0]["ai_mode_results_clean"]
     assert first.iloc[0]["search_query"] == second.iloc[0]["search_query"]
     for column in ("Product Description", "Match Confidence", "Specifications", "Pricing", "references"):
         assert first.iloc[0][column] == second.iloc[0][column]
