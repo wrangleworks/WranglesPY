@@ -24,8 +24,6 @@ WRITE_OUTPUTS = True  # Unique Excel/JSON filenames preserve earlier trial evide
 PRETTY_PRINT = False
 NROWS = None  # None = all input rows; 1 = a one-row trial.
 THREADS = 1
-COUNTRY = "us"
-LANGUAGE = "en"
 EXTRACT_ENABLED = True
 EXTRACT_MODEL = None  # None uses the configured extract.ai default.
 EXTRACT_THREADS = 1
@@ -164,8 +162,6 @@ def main():
     variables = {
         "AI_MODE_QUERY": AI_MODE_QUERY,
         "THREADS": THREADS,
-        "COUNTRY": COUNTRY,
-        "LANGUAGE": LANGUAGE,
         "RUN_SEARCH": REPLAY_FILE is None,
         "WRITE_OUTPUTS": WRITE_OUTPUTS,
         "XLSX_OUTPUT_FILE": str(output_stem.with_suffix(".xlsx")),

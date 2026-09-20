@@ -190,7 +190,7 @@ for this product:
 > MPN: NATV6-PP-A
 
 Use the exact information labels as headings. Include only the requested sections; no follow-up questions."""
-    assert searches[0]["q"] == expected_query
+    assert searches == [{"engine": "google_ai_mode", "q": expected_query, "output": "json"}]
     assert len(extractions) == 1
     request = extractions[0]
     assert request["text"]["format"]["strict"] is True

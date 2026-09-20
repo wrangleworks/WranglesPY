@@ -298,21 +298,19 @@ def ai_mode(
         description: Include the provider response under raw_response inside ai_mode_result_complete for diagnostics, applying the same image-field and srsltid filtering. The compact output never includes it.
       country:
         type: string
-        default: us
-        description: "Country code. Alias: gl."
+        description: "Optional country code override. Alias: gl. Omitted unless supplied."
       gl:
         type: string
-        description: Country code.
+        description: Optional country code override. Omitted unless supplied.
       language:
         type: string
-        default: en
-        description: "Language code. Alias: hl."
+        description: "Optional language code override. Alias: hl. Omitted unless supplied."
       hl:
         type: string
-        description: Language code.
+        description: Optional language code override. Omitted unless supplied.
       location:
         type: string
-        description: Geographic search location.
+        description: Optional geographic search location. Omitted unless supplied.
       device:
         type: string
         enum:

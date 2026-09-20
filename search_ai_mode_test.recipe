@@ -42,8 +42,6 @@ wrangles:
         - ai_mode_markdown
       client: serpapi
       threads: ${THREADS}
-      country: ${COUNTRY}
-      language: ${LANGUAGE}
 
   # Preserve structural evidence. This helper also accepts an Overview answer.
   - custom.prepare_search_evidence:

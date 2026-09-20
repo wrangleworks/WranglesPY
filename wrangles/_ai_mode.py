@@ -81,8 +81,6 @@ def request_parameters(kwargs):
             if parameter in params and params[parameter] != value:
                 raise ValueError(f"Conflicting {alias} and {parameter} values.")
             params[parameter] = value
-    params.setdefault("gl", "us")
-    params.setdefault("hl", "en")
     return params
 
 

@@ -27,7 +27,7 @@ skips extraction and needs no OpenAI key. `WRITE_OUTPUTS = False` disables file
 exports; `PRETTY_PRINT = True` prints the returned records to the terminal.
 
 The runner's editable defaults include `NROWS` (`None` for all sample rows),
-search and extraction concurrency, locale, extraction timeout/retries and
+search and extraction concurrency, extraction timeout/retries and
 `EXTRACT_MODEL` (`None` uses the configured `extract.ai` default). The shared
 query configuration is:
 
@@ -57,6 +57,12 @@ The template uses only `Description`, `Mfr` and `MPN` from each sample record;
 sent to SerpAPI as `q`. The separate input `query` and `part_codes` fields are
 carried through for reference or later validation and are not interpolated into
 the search query.
+
+The trial omits country, language and geographic location overrides. The search
+wrangle does not add US/English defaults when these are omitted. Explicit
+`country`/`gl`, `language`/`hl` and `location` options remain available. Omitting
+them leaves localization to the provider; it does not reproduce browser session
+or location context.
 
 The client uses SerpAPI's synchronous request mode (`async` defaults to false).
 Its SDK receives and decodes a complete JSON response before our normalizer
