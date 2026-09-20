@@ -3,6 +3,7 @@
 from copy import deepcopy
 import json
 from pathlib import Path
+import re
 import sys
 from types import ModuleType
 
@@ -13,12 +14,13 @@ import requests
 import run_search_ai_mode as runner
 from wrangles import ai_cache
 from wrangles._search_ai_content import markdown_urls, source_url
-from wrangles._search_ai_extraction import format_product_result
+from wrangles._search_ai_extraction import validate_sources
 
 
-LABELS = {"description": "Product Description", "specifications": "Specifications", "pricing": "Pricing"}
 MAKER = "https://maker.invalid/specs"
 SUPPLIER = "https://supplier.invalid/item?variant=1&currency=USD"
+SUFFIX = ("Summarize the information you found (e.g. matched the part number, "
+          "5 sources, 3 prices), but do not ask follow-on questions.")
 
 
 @pytest.fixture(autouse=True)
@@ -40,11 +42,12 @@ def markdown():
 
 
 @pytest.fixture
-def extracted():
+def extracted(markdown):
     return {
-        "description": "A synthetic product.",
-        "specifications": [{"name": "Voltage", "value": "12 VDC"}],
-        "offers": [{"price": 13.15, "currency": "USD", "uom": "pack", "source": "Supplier A",
+        "Product Description": markdown.split("### Product Description\n\n", 1)[1].split("\n\n### Specifications", 1)[0],
+        "Match Confidence": "Uncertain",
+        "Specifications": [{"name": "Voltage", "value": "12 VDC"}],
+        "Pricing": [{"price": 13.15, "currency": "USD", "uom": "pack", "source": "Supplier A",
                     "reference_ids": ["02"], "price_text": "$13.15 USD per pack of 10, excluding VAT"}],
         "references": [{"id": "01", "source": "Manufacturer", "url": MAKER},
                        {"id": "02", "source": "Supplier A", "url": SUPPLIER}],
@@ -53,64 +56,64 @@ def extracted():
 
 def test_selected_references_and_offers_are_independent(markdown, extracted):
     original = deepcopy(extracted)
-    result, meta = format_product_result(extracted, markdown, **LABELS)
+    references, offers, meta = validate_sources(extracted["references"], extracted["Pricing"], markdown)
     assert meta["status"] == "complete"
-    assert len(result["references"]) == 2 and len(result["Pricing"]) == 1
-    assert result["Pricing"] == extracted["offers"]
-    assert result["references"] == extracted["references"]
+    assert len(references) == 2 and len(offers) == 1
+    assert offers == extracted["Pricing"]
+    assert references == extracted["references"]
     assert "https://dictionary.invalid/product" in meta["unselected_source_urls"]
     assert extracted == original
 
 
 def test_multiple_prices_and_uncertain_associations_are_preserved(markdown, extracted):
-    extracted["offers"].extend([
-        {**extracted["offers"][0], "price": 12, "price_text": "$12 per pack for 5+ packs"},
+    extracted["Pricing"].extend([
+        {**extracted["Pricing"][0], "price": 12, "price_text": "$12 per pack for 5+ packs"},
         {"price": None, "currency": None, "uom": None, "source": "Unknown", "reference_ids": [], "price_text": "Call for quote"},
     ])
-    result, meta = format_product_result(extracted, markdown, **LABELS)
-    assert len(result["Pricing"]) == 3 and len(result["references"]) == 2
-    assert result["Pricing"][2] == extracted["offers"][2]
+    references, offers, meta = validate_sources(extracted["references"], extracted["Pricing"], markdown)
+    assert len(offers) == 3 and len(references) == 2
+    assert offers[2] == extracted["Pricing"][2]
     assert meta["status"] == "complete"
 
 
 def test_invented_urls_and_unknown_ids_are_rejected_without_guessing(markdown, extracted):
     extracted["references"].append({"id": "03", "source": "Supplier A", "url": "https://supplier.invalid/invented"})
-    extracted["offers"][0]["reference_ids"] = ["03", "99"]
-    result, meta = format_product_result(extracted, markdown, **LABELS)
-    assert [reference["id"] for reference in result["references"]] == ["01", "02"]
-    assert result["Pricing"][0]["reference_ids"] == []
-    assert result["Pricing"][0]["price"] == 13.15
+    extracted["Pricing"][0]["reference_ids"] = ["03", "99"]
+    references, offers, meta = validate_sources(extracted["references"], extracted["Pricing"], markdown)
+    assert [reference["id"] for reference in references] == ["01", "02"]
+    assert offers[0]["reference_ids"] == []
+    assert offers[0]["price"] == 13.15
     assert meta["status"] == "partial" and len(meta["rejected_references"]) == 1
 
 
 def test_duplicate_reference_ids_do_not_establish_a_match(markdown, extracted):
     extracted["references"][0]["id"] = "02"
-    result, meta = format_product_result(extracted, markdown, **LABELS)
-    assert result["references"] == [] and result["Pricing"][0]["reference_ids"] == []
+    references, offers, meta = validate_sources(extracted["references"], extracted["Pricing"], markdown)
+    assert references == [] and offers[0]["reference_ids"] == []
     assert len(meta["rejected_references"]) == 2
 
 
 @pytest.mark.parametrize("price", [True, "$13.15", -2, float("inf"), float("nan")])
 def test_invalid_numeric_prices_are_not_coerced(markdown, extracted, price):
-    extracted["offers"][0]["price"] = price
-    result, meta = format_product_result(extracted, markdown, **LABELS)
-    assert result["Pricing"][0]["price"] is None
-    assert result["Pricing"][0]["price_text"] == extracted["offers"][0]["price_text"]
+    extracted["Pricing"][0]["price"] = price
+    _, offers, meta = validate_sources(extracted["references"], extracted["Pricing"], markdown)
+    assert offers[0]["price"] is None
+    assert offers[0]["price_text"] == extracted["Pricing"][0]["price_text"]
     assert meta["status"] == "partial"
 
 
 def test_currency_and_uom_are_never_inferred(markdown, extracted):
-    extracted["offers"][0].update(currency="$", uom=None)
-    result, meta = format_product_result(extracted, markdown, **LABELS)
-    assert result["Pricing"][0]["currency"] is None and result["Pricing"][0]["uom"] is None
+    extracted["Pricing"][0].update(currency="$", uom=None)
+    _, offers, meta = validate_sources(extracted["references"], extracted["Pricing"], markdown)
+    assert offers[0]["currency"] is None and offers[0]["uom"] is None
     assert meta["status"] == "partial"
 
 
-@pytest.mark.parametrize("value", [None, "not JSON", []])
+@pytest.mark.parametrize("value", [None, "not JSON", {}])
 def test_failed_extraction_does_not_create_placeholder_prices(markdown, value):
-    result, meta = format_product_result(value, markdown, **LABELS)
+    references, offers, meta = validate_sources(value, value, markdown)
     assert meta["status"] == "error"
-    assert result == {"Product Description": "", "Specifications": [], "Pricing": [], "references": []}
+    assert references == [] and offers == []
 
 
 def test_url_collection_preserves_functional_parameters_and_nested_destinations():
@@ -149,7 +152,9 @@ def trial(monkeypatch, tmp_path, markdown, extracted):
     class Response:
         ok, status_code, headers = True, 200, {}
         def json(self):
-            return {"output": [{"type": "message", "content": [{"type": "output_text", "text": json.dumps({"search_ai_extracted": extracted})}]}]}
+            # The shared compiler maps API-safe property names back to recipe columns.
+            payload = {key.replace(" ", "_"): value for key, value in extracted.items()}
+            return {"output": [{"type": "message", "content": [{"type": "output_text", "text": json.dumps(payload)}]}]}
 
     def post(**kwargs):
         extractions.append(kwargs["json"])
@@ -169,14 +174,14 @@ def trial(monkeypatch, tmp_path, markdown, extracted):
     return searches, extractions, responses
 
 
-def test_trial_cleans_before_extraction_and_uses_typed_offer_schema(trial, caplog):
+def test_trial_uses_direct_outputs_and_separate_input_identity(trial, extracted, caplog):
     searches, extractions, _ = trial
     row = runner.main().iloc[0]
     assert "mapped nullable: true" not in caplog.text
     expected = (
         "Search for INA NATV6-PP-A INA NATV6-PP-A YOKE TYPE TRACK ROLLERS NATV..-PP FULL COMPLEMENT NEEDL. "
         "Summarize information in 3 sections: Product Description | Specifications (as name value pairs) | "
-        "Pricing (including the supplier name and source link)."
+        "Pricing (including the supplier name and source link). " + SUFFIX
     )
     assert searches == [{"engine": "google_ai_mode", "q": expected, "output": "md"}]
     assert len(extractions) == 1
@@ -185,21 +190,52 @@ def test_trial_cleans_before_extraction_and_uses_typed_offer_schema(trial, caplo
     assert request["reasoning"] == {"effort": "low"}
     assert "Build references BEFORE offers" in request["instructions"]
     assert "Example P101 specifications" in request["instructions"]
-    fields = list(request["text"]["format"]["schema"]["properties"]["search_ai_extracted"]["properties"])
-    assert fields.index("references") < fields.index("offers")
+    schema = request["text"]["format"]["schema"]
+    assert schema["additionalProperties"] is False
+    properties = schema["properties"]
+    assert list(properties) == ["Product_Description", "Match_Confidence", "Specifications", "references", "Pricing"]
+    assert properties["Match_Confidence"]["enum"] == ["Certain", "Likely", "Uncertain"]
+    assert "verbatim" in properties["Product_Description"]["description"]
     evidence = json.dumps(request["input"], ensure_ascii=False)
     assert "12 VDC" in evidence and "\u03bc" in evidence
     assert "search_metadata" not in evidence
+    identity = {field: runner.INPUT_ROWS[0][field] for field in ("Mfr", "MPN", "Description")}
+    assert row["Input Product Information"] == identity
+    model_input = json.loads(request["input"][0]["content"].removeprefix("DATA:\n"))
+    assert model_input == {"Input Product Information": identity, "ai_mode_results_clean": row["ai_mode_results_clean"]}
+    example_inputs = [json.loads(value) for value in re.findall(r"<input>(.*?)</input>", request["instructions"])]
+    assert len(example_inputs) == 2
+    for example_input in example_inputs:
+        assert example_input.keys() == model_input.keys()
+        assert example_input["Input Product Information"].keys() == identity.keys()
     # Unsupported formulas stay intact for semantic extraction.
     assert r"$\frac{1}{2}\text{ in}$" in row["ai_mode_results_clean"]
     assert "$13.15 USD per pack of 10, excluding VAT" in row["ai_mode_results_clean"]
     assert r"$12\text{ VDC}$" in row["ai_mode_results"]
     assert row["references"][0]["id"] == "01"
     assert row["Pricing"][0]["reference_ids"] == ["02"]
+    assert row["Product Description"] == extracted["Product Description"]
+    assert row["Product Description"] in row["ai_mode_results_clean"]
+    assert row["Specifications"] == extracted["Specifications"]
+    assert "search_ai_extracted" not in row and "ai_mode_result_structured" not in row
     assert row["ai_mode_structured_meta"]["status"] == "complete"
     schema_text = json.dumps(request["text"]["format"]["schema"])
     assert '"number"' in schema_text and '"null"' in schema_text
     assert all(field in schema_text for field in ("currency", "uom", "price_text", "reference_ids", "references"))
+
+
+@pytest.mark.parametrize("confidence", ["Certain", "Likely", "Uncertain"])
+def test_confidence_is_returned_unchanged_in_its_own_column(trial, extracted, confidence):
+    extracted["Match Confidence"] = confidence
+    row = runner.main().iloc[0]
+    assert row["Match Confidence"] == confidence
+    assert row["Product Description"] == extracted["Product Description"]
+
+
+def test_blank_identity_fields_remain_in_input_dictionary(trial, monkeypatch):
+    monkeypatch.setattr(runner, "INPUT_ROWS", [{"ID": 1, "Mfr": "", "MPN": "P12", "Description": ""}])
+    row = runner.main().iloc[0]
+    assert row["Input Product Information"] == {"Mfr": "", "MPN": "P12", "Description": ""}
 
 
 def test_trial_exposes_locale_controls(trial, monkeypatch):
@@ -226,6 +262,8 @@ def test_snapshot_replays_without_search_and_raw_markdown_stays_outside_excel(tr
     # The transport metadata can recover a missing display-only query column.
     records = json.loads(snapshot.read_text(encoding="utf-8"))
     records[0].pop("search_query")
+    records[0]["search_ai_extracted"] = {"description": "obsolete extraction"}
+    records[0]["ai_mode_result_structured"] = {"Product Description": "obsolete display"}
     snapshot.write_text(json.dumps(records), encoding="utf-8")
     monkeypatch.delenv("SERPAPI_API_KEY")
     ai_cache.clear()
@@ -233,7 +271,9 @@ def test_snapshot_replays_without_search_and_raw_markdown_stays_outside_excel(tr
     assert len(trial[0]) == 1 and len(trial[1]) == 2
     assert first.iloc[0]["ai_mode_results"] == second.iloc[0]["ai_mode_results"]
     assert first.iloc[0]["search_query"] == second.iloc[0]["search_query"]
-    assert first.iloc[0]["ai_mode_result_structured"] == second.iloc[0]["ai_mode_result_structured"]
+    for column in ("Product Description", "Match Confidence", "Specifications", "Pricing", "references"):
+        assert first.iloc[0][column] == second.iloc[0][column]
+    assert "search_ai_extracted" not in second and "ai_mode_result_structured" not in second
 
 
 @pytest.mark.parametrize("state", ["error", "disabled", "blank", "processing"])
@@ -250,11 +290,12 @@ def test_trial_skips_unusable_answers(trial, monkeypatch, markdown, state):
     assert not trial[1]
     assert row["ai_mode_structured_meta"]["status"] == "skipped"
     assert row["Pricing"] == [] and row["references"] == []
+    assert row["Product Description"] == "" and row["Match Confidence"] == "Uncertain"
 
 
 def test_mixed_success_and_failure_keep_their_rows(trial, monkeypatch, markdown):
     trial[2]["Search for Example FAILED-2 Failed product. Summarize information in 3 sections: "
-             "Product Description | Specifications (as name value pairs) | Pricing (including the supplier name and source link)."] = {"error": "Synthetic failure"}
+             "Product Description | Specifications (as name value pairs) | Pricing (including the supplier name and source link). " + SUFFIX] = {"error": "Synthetic failure"}
     monkeypatch.setattr(runner, "INPUT_ROWS", [
         {"ID": 14, "Description": "Working product", "Mfr": "Example", "MPN": "OK-1"},
         {"ID": 27, "Description": "Failed product", "Mfr": "Example", "MPN": "FAILED-2"},

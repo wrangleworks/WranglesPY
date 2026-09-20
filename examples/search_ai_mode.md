@@ -13,10 +13,12 @@ search.ai_mode (output=md)
   -> ai_mode_metadata (JSON-compatible frontmatter and transport status)
 standardize.clean
   -> ai_mode_results_clean
+merge.to_dict
+  -> Input Product Information (Mfr, MPN, Description)
 extract.ai
-  -> search_ai_extracted (description, specifications, offers, references)
-validate supplied URLs, IDs and field types
-  -> ai_mode_result_structured + ai_mode_structured_meta
+  -> Product Description, Match Confidence, Specifications, references, Pricing
+validate source URLs and offer references in place
+  -> ai_mode_structured_meta
 ```
 
 The search wrangle retrieves one answer per input row. It does not group
@@ -61,13 +63,13 @@ unsupported. Classic search behavior is unchanged.
 The editable defaults near the top of the runner contain the input records,
 paths, heading configuration, row limit, concurrency, extraction model,
 reasoning, timeout/retries and locale. `NROWS = None` processes all rows.
-The trial uses low reasoning effort for source/offer associations; change
+The trial uses low reasoning effort for identity and source/offer associations; change
 `EXTRACT_REASONING` alongside `EXTRACT_MODEL` to evaluate other settings.
 
 The recipe's Jinja template begins with product identity:
 
 ```text
-Search for RENOLD GY08B2S26I RENOLD SYNERGY GY08B2S26I DUPLEX CONN LINK. Summarize information in 3 sections: Product Description | Specifications (as name value pairs) | Pricing (including the supplier name and source link).
+Search for RENOLD GY08B2S26I RENOLD SYNERGY GY08B2S26I DUPLEX CONN LINK. Summarize information in 3 sections: Product Description | Specifications (as name value pairs) | Pricing (including the supplier name and source link). Summarize the information you found (e.g. matched the part number, 5 sources, 3 prices), but do not ask follow-on questions.
 ```
 
 `AI_MODE_QUERY` drives the prompt's summary instruction, heading labels and
@@ -90,19 +92,44 @@ and `latex_to_text`. It preserves Markdown line breaks and destinations, and
 leaves unsupported formulas intact for the model. Raw and cleaned bodies are
 separate columns. Cleanup controls remain opt-in for other recipes.
 
-`extract.ai` receives the cleaned body plus the original manufacturer, part
-number and description. Web search is disabled. It interprets prose, lists,
-tables and links; removes UI text and follow-up invitations; and selects
-references relevant to the exact product. Near-match parts and unrelated
-pages must not support product-specific claims. Relevant sources without
-prices stay in references without generating empty offers.
-One synthetic extraction example demonstrates inline supplier links, an
-unpriced manufacturer source, a mismatched part and an unrelated dictionary
-link. Quoted offers remain even when no usable supporting link was supplied.
+`merge.to_dict` builds **Input Product Information** from `Mfr`, `MPN` and
+`Description`, retaining blank fields. `extract.ai` receives that dictionary
+alongside `ai_mode_results_clean`. The original input identity and the search
+evidence have distinct labels. Web search is disabled.
 
-The final display columns are Product Description (string), Specifications
-(list of single-entry name/value dictionaries), Pricing (list of offer records),
-and references (list of reference records). An offer has this shape:
+The extraction definition uses the final column names directly under `output:`;
+there is no outer extraction object, presentation wrapper or dictionary-split
+step. The outputs are:
+
+- **Product Description**: the field definition asks for a verbatim copy of the
+  description passage from cleaned Markdown, excluding its heading and retaining
+  its wording and Markdown. No downstream helper rewrites it. The strict schema
+  controls output keys and types; faithful copying is a model instruction.
+- **Match Confidence**: `Certain`, `Likely` or `Uncertain`, assessing product
+  identity against all three input fields. Certain requires matching manufacturer
+  and exact part number plus a compatible description; Likely indicates a probable
+  match with incomplete identity evidence; Uncertain covers conflicts, different
+  variants or insufficient evidence. An answer that repeats the requested MPN
+  while citing only other parts is Uncertain; discarded references still count
+  when evaluating that conflict. It is not a rating of price accuracy or
+  reference count. Skipped extraction defaults to Uncertain.
+- **Specifications**: a list of records such as `{"name": "Voltage", "value": "12 VDC"}`.
+- **references**: selected relevant source records, including sources without prices.
+- **Pricing**: offer records associated with references by ID.
+
+For specifications, pricing and references, extraction interprets prose, lists,
+tables and links and removes residual formatting and UI text. Near-match parts
+and unrelated pages must not support product-specific claims. Quoted offers
+remain even when no usable supporting link was supplied. The search's concluding
+summary remains in the Markdown; it is not appended to Product Description.
+
+`record_examples` is a list. Each example's `input` is a dictionary matching one
+DataFrame row: `Input Product Information` and `ai_mode_results_clean`. Its
+`output` is a dictionary with the five direct output keys. The examples cover
+supplier-link association and mismatched reference evidence whose claimed product
+description is retained verbatim while confidence is Uncertain.
+
+An offer has this shape:
 
 ```json
 {
@@ -129,9 +156,10 @@ currency and unit are `null`; a dollar sign alone does not imply USD, and the
 unit is never assumed to be each. `price_text` preserves ranges, quantities,
 taxes, shipping and availability without currency conversion or unit pricing.
 
-The final validator checks only field shapes, finite nonnegative amounts,
-reference-ID integrity and whether each cleaned source URL occurs in the supplied
-Markdown. It reuses the existing URL sanitizer to remove tracking parameters
+The final validator checks only reference and offer shapes, finite nonnegative
+amounts, reference-ID integrity and whether each cleaned source URL occurs in
+the supplied Markdown. It leaves Product Description, Match Confidence and
+Specifications unchanged. It reuses the existing URL sanitizer to remove tracking parameters
 such as `srsltid` while preserving functional parameters. It rejects invented
 URLs, Google product viewers and opaque redirects. It does not fetch sources,
 match supplier names, decide relevance or reconstruct missing destinations.
@@ -157,10 +185,13 @@ artifacts when a spreadsheet cell is too small.
 
 Set `REPLAY_FILE` to a new-contract JSON snapshot to repeat cleanup and extraction
 without calling SerpAPI. Relative paths start at the repository. New output
-names preserve the earlier evidence. Snapshots from the retired three-output
+names preserve the earlier evidence. Replaying earlier Markdown snapshots drops
+the retired `search_ai_extracted` and `ai_mode_result_structured` wrapper columns.
+Snapshots from the retired three-output
 contract must be recaptured or converted first. `EXTRACT_ENABLED = False`
-skips the model call and needs no OpenAI key; the structured fields remain empty
-with a `skipped` diagnostic. `WRITE_OUTPUTS = False` disables exports, and
+skips the model call and needs no OpenAI key; the structured fields remain empty,
+Match Confidence is Uncertain, and diagnostics say `skipped`.
+`WRITE_OUTPUTS = False` disables exports, and
 `PRETTY_PRINT = True` prints returned records.
 
 Offline tests cover Markdown transport, metadata errors, locale mapping, raw
@@ -172,4 +203,4 @@ services, source validation and cleanup. Run:
 ```
 
 Use a new `--basetemp` path for each trial. Live extraction quality should be
-reviewed against the retained original Markdown and `search_ai_extracted`.
+reviewed against the retained original Markdown and the direct extraction columns.

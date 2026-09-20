@@ -40,7 +40,8 @@ AI_MODE_QUERY = [
     {DESCRIPTION_HEADING: ""},
     {SPECIFICATIONS_HEADING: "as name value pairs"},
     {PRICING_HEADING: "including the supplier name and source link"},
-    {"query_suffix": ""},
+    {"query_suffix": "Summarize the information you found (e.g. matched the part number, "
+                     "5 sources, 3 prices), but do not ask follow-on questions."},
 ]
 
 # User-supplied examples, 2026-09-17; JSON-style records, without generated data.
@@ -84,27 +85,29 @@ def prepare_search_extraction(df, input, metadata, enabled=True):
         bool(enabled and meta.get("status") == "Success" and isinstance(body, str) and body.strip())
         for body, meta in zip(df[input], df[metadata])
     ]
-    df["search_ai_extracted"] = None
+    # Stable output columns also cover skipped rows and reset replayed results.
+    for column, default in {
+        "Product Description": "", "Match Confidence": "Uncertain",
+        "Specifications": [], "references": [], "Pricing": [],
+    }.items():
+        df[column] = [default.copy() if isinstance(default, list) else default for _ in range(len(df))]
     return df
 
 
-def format_search_extraction(df, input, markdown, output, diagnostics):
-    """Validate extracted references and keep pricing as independent records."""
-    from wrangles._search_ai_extraction import format_product_result
+def validate_search_sources(df, input, references, pricing, diagnostics):
+    """Check source URLs and IDs in place; leave the other AI outputs untouched."""
+    from wrangles._search_ai_extraction import validate_sources
 
-    results, metadata = [], []
-    for extracted, body, ready in zip(df[input], df[markdown], df["__search_ai_ready"]):
+    sources, offers, metadata = [], [], []
+    for refs, prices, body, ready in zip(df[references], df[pricing], df[input], df["__search_ai_ready"]):
         if ready:
-            result, diagnostic = format_product_result(
-                extracted, body, description=DESCRIPTION_HEADING,
-                specifications=SPECIFICATIONS_HEADING, pricing=PRICING_HEADING,
-            )
+            refs, prices, diagnostic = validate_sources(refs, prices, body)
         else:
-            result = {DESCRIPTION_HEADING: "", SPECIFICATIONS_HEADING: [], PRICING_HEADING: [], "references": []}
             diagnostic = {"status": "skipped", "warnings": [], "rejected_references": []}
-        results.append(result)
+        sources.append(refs)
+        offers.append(prices)
         metadata.append(diagnostic)
-    df[output], df[diagnostics] = results, metadata
+    df[references], df[pricing], df[diagnostics] = sources, offers, metadata
     return df
 
 
@@ -129,6 +132,7 @@ def main():
         if not replay_path.is_absolute():
             replay_path = REPOSITORY / replay_path
         input_df = pd.DataFrame(json.loads(replay_path.read_text(encoding="utf-8")))
+        input_df.drop(columns=["search_ai_extracted", "ai_mode_result_structured"], errors="ignore", inplace=True)
         required = {"ID", "Description", "Mfr", "MPN", "ai_mode_results", "ai_mode_metadata"}
         if missing := required - set(input_df.columns):
             raise ValueError(f"Replay snapshot is missing columns: {', '.join(sorted(missing))}")
@@ -170,7 +174,7 @@ def main():
     results_df = wrangles.recipe.run(
         str(RECIPE_FILE),
         dataframe=input_df,
-        functions=[capture_search_response, prepare_search_extraction, format_search_extraction],
+        functions=[capture_search_response, prepare_search_extraction, validate_search_sources],
         variables=variables,
     )
 
