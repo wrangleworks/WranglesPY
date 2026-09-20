@@ -19,8 +19,7 @@ class _wrangles_accessor:
                 def make_method(func_name):
                     target_func = getattr(wrangle_module, func_name)
                     def method(self, *args, **kwargs):
-                        self._df.__init__(target_func(self._df, *args, **kwargs))
-                        return self._df
+                        return target_func(self._df.copy(), *args, **kwargs)
                     method.__doc__ = target_func.__doc__
                     return method
 
@@ -42,6 +41,18 @@ class _wrangles_accessor:
     #         **kwargs
     #     )[output]
 
+
+class _callable_wrangles_accessor(_wrangles_accessor):
+    """Expose a wrangle that is both callable and a dotted namespace."""
+
+    def __init__(self, df, wrangle):
+        self._wrangle = wrangle
+        super().__init__(df, wrangle)
+
+    def __call__(self, *args, **kwargs):
+        return self._wrangle(self._df.copy(), *args, **kwargs)
+
+
 class _wrangles:
     """
     A class to hold wrangles-related methods and properties.
@@ -58,12 +69,25 @@ class _wrangles:
                 def make_method(func_name):
                     target_func = getattr(_recipe_wrangles.main, func_name)
                     def method(self, *args, **kwargs):
-                        self._df.__init__(target_func(self._df, *args, **kwargs))
-                        return self._df
+                        return target_func(self._df.copy(), *args, **kwargs)
                     method.__doc__ = target_func.__doc__
                     return method
 
-                setattr(self, name, make_method(name).__get__(self))
+                target = getattr(_recipe_wrangles.main, name)
+                child_wrangles = [
+                    child
+                    for child in dir(target)
+                    if not child.startswith('_')
+                    and callable(getattr(target, child))
+                ]
+                if child_wrangles:
+                    setattr(
+                        self,
+                        name,
+                        _callable_wrangles_accessor(self._df, target)
+                    )
+                else:
+                    setattr(self, name, make_method(name).__get__(self))
 
     @property
     def compare(self):
@@ -139,8 +163,7 @@ class _read:
                 def make_method(func_name):
                     target_func = getattr(getattr(_connectors, func_name), 'read')
                     def method(self, *args, **kwargs):
-                        self._df.__init__(target_func(*args, **kwargs))
-                        return self._df
+                        return target_func(*args, **kwargs)
                     method.__doc__ = target_func.__doc__
                     return method
 
@@ -163,8 +186,7 @@ class _read:
         :param name: Name of the file to import
         :return: A Pandas dataframe of the imported data.
         """
-        self._df.__init__(_connectors.file.read(name, *args, **kwargs))
-        return self._df
+        return _connectors.file.read(name, *args, **kwargs)
 
 
 class _write:

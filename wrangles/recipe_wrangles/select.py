@@ -318,6 +318,14 @@ def group_by(
           - string
           - array
         description: The count of values for these column(s)
+      counts:
+        type:
+          - string
+          - array
+        description: >-
+          Return a dictionary containing the count of each distinct value for
+          these column(s). Keys are converted to JSON-safe strings; missing
+          values use the key "null" and booleans use lowercase "true"/"false".
       std:
         type:
           - string
@@ -399,6 +407,20 @@ def group_by(
         # Add option to group as a list
         elif operation == "list":
             operation = list
+        elif operation == "counts":
+            def counts(values):
+                output = {}
+                for value, count in values.value_counts(dropna=False).items():
+                    if _pd.isna(value):
+                        key = "null"
+                    elif isinstance(value, bool):
+                        key = str(value).lower()
+                    else:
+                        key = str(value)
+                    output[key] = int(count)
+                return output
+            counts.__name__ = "counts"
+            operation = counts
 
         if not isinstance(columns, list): columns = [columns]
         for column in columns:

@@ -286,7 +286,7 @@ def test_pass_error():
 
     def handle_error(error):
         if (type(error).__name__ == 'TypeError' and
-            "convert.data_type - data_type andksankdl is not supported" in str(error)
+            "data_type andksankdl is not supported" in str(error)
         ):
             global test_var_pass_error
             test_var_pass_error = True
@@ -325,7 +325,7 @@ def test_pass_error_with_params():
 
     def handle_error(error, param):
         if (type(error).__name__ == 'TypeError' and
-            "convert.data_type - data_type andksankdl is not supported" in str(error) and
+            "data_type andksankdl is not supported" in str(error) and
             param == "value"
         ):
             global test_var_pass_error_params
@@ -1107,6 +1107,113 @@ def test_column_spaces_in_kwargs():
     df = wrangles.recipe.run(recipe, functions=space_function)
     assert df['New Description'][0] == 'this is a description'
 
+def test_input_mapped_to_positional_param_with_defaults():
+    """
+    Regression test for https://github.com/wrangleworks/WranglesPY/issues/747
+
+    When `input` maps a column whose name does not match any of the
+    custom function's parameter names, the value should still be bound
+    positionally to the function's first unfilled parameter, allowing
+    any trailing parameters with defaults to fall back correctly instead
+    of the input value being silently dropped.
+    """
+    def func(x, y="default", z="default"):
+        return f"{x}-{y}-{z}"
+
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - custom.func:
+              input: my_col
+              output: result
+        """,
+        functions=[func],
+        dataframe=pd.DataFrame({"my_col": ["row1", "row2"]})
+    )
+    assert (
+        df['result'][0] == 'row1-default-default' and
+        df['result'][1] == 'row2-default-default'
+    )
+
+def test_input_list_mapped_to_multiple_positional_params():
+    """
+    Regression test for https://github.com/wrangleworks/WranglesPY/issues/747
+
+    A list of input columns with names that don't match any parameter
+    should be bound positionally, in order, to the function's remaining
+    unfilled parameters.
+    """
+    def func(x, y, z="default"):
+        return f"{x}-{y}-{z}"
+
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - custom.func:
+              input:
+                - col_a
+                - col_b
+              output: result
+        """,
+        functions=[func],
+        dataframe=pd.DataFrame({"col_a": ["row1"], "col_b": ["row2"]})
+    )
+    assert df['result'][0] == 'row1-row2-default'
+
+def test_positional_fallback_requires_input():
+    """
+    Regression test for https://github.com/wrangleworks/WranglesPY/issues/747
+
+    The positional fallback only applies when input is given explicitly.
+    Without input, mismatched dataframe column(s) are not bound
+    positionally - the function is called without them, surfacing the
+    original missing-argument error rather than silently guessing intent.
+    """
+    def func(x, y="default", z="default"):
+        return f"{x}-{y}-{z}"
+
+    with pytest.raises(TypeError, match="missing 1 required positional argument: 'x'"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - custom.func:
+                  output: result
+            """,
+            functions=[func],
+            dataframe=pd.DataFrame({"my_col": ["row1", "row2"]})
+        )
+
+def test_positional_fallback_too_many_columns_error():
+    """
+    Regression test for https://github.com/wrangleworks/WranglesPY/issues/747
+
+    If there are more unmatched input columns than the function has
+    remaining unfilled parameters, it's ambiguous which columns to use, so
+    a clear error should be raised rather than silently guessing or
+    falling back to a confusing "missing argument" TypeError.
+    """
+    def func(x, y="default", z="default"):
+        return f"{x}-{y}-{z}"
+
+    with pytest.raises(
+        ValueError,
+        match=r"accepts at most 3 unfilled parameter\(s\) \(x, y, z\) but 4 column\(s\) were provided: a, b, c, d"
+    ):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - custom.func:
+                  input:
+                    - a
+                    - b
+                    - c
+                    - d
+                  output: result
+            """,
+            functions=[func],
+            dataframe=pd.DataFrame({"a": [1], "b": [2], "c": [3], "d": [4]})
+        )
+
 def test_row_function_where():
     """
     Test a custom function that applies to an
@@ -1467,7 +1574,7 @@ def test_clear_errors_df():
     def raise_error(df):
         raise RuntimeError("This is an error")
 
-    with pytest.raises(RuntimeError, match="custom.raise_error - This is an error"):
+    with pytest.raises(RuntimeError, match=r"custom\.raise_error \(line 8\) - This is an error"):
         wrangles.recipe.run(
             """
             read:
@@ -1531,7 +1638,7 @@ def test_clear_errors_read():
     def raise_error():
         raise RuntimeError("This is an error")
 
-    with pytest.raises(RuntimeError, match="custom.raise_error - This is an error"):
+    with pytest.raises(RuntimeError, match=r"custom\.raise_error \(line 3\) - This is an error"):
         wrangles.recipe.run(
             """
             read:
@@ -1547,7 +1654,7 @@ def test_clear_errors_write():
     def raise_error(df):
         raise RuntimeError("This is an error")
 
-    with pytest.raises(RuntimeError, match="custom.raise_error - This is an error"):
+    with pytest.raises(RuntimeError, match=r"custom\.raise_error \(line 3\) - This is an error"):
         wrangles.recipe.run(
             """
             write:
@@ -1673,7 +1780,7 @@ def test_wrangle_position_error():
     def raise_error(df):  
         raise RuntimeError("This is an error")  
       
-    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE #1 custom.raise_error - This is an error"):  
+    with pytest.raises(RuntimeError, match=r"custom\.raise_error \(line 8\) - This is an error"):
         wrangles.recipe.run(  
             """  
             read:  
@@ -1700,7 +1807,7 @@ def test_wrangle_position_error_2():
     def raise_error(df):  
         raise RuntimeError("This is an error")  
       
-    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE #2 custom.raise_error - This is an error"):  
+    with pytest.raises(RuntimeError, match=r"custom\.raise_error \(line 17\) - This is an error"):
         wrangles.recipe.run(  
             """  
             read:  
@@ -1727,7 +1834,7 @@ def test_wrangle_position_multiple_same_type():
     """  
     Test error reporting with multiple wrangles of same type  
     """  
-    with pytest.raises(TypeError, match="ERROR IN WRANGLE #2 convert.data_type - data_type invalid_type is not supported."):  
+    with pytest.raises(TypeError, match=r"convert\.data_type \(line 12\) - data_type invalid_type is not supported\."):
         wrangles.recipe.run(  
             """  
             read:  
@@ -1756,30 +1863,30 @@ def test_complete_error_reporting_flow():
             raise RuntimeError("Batch too large")  
         return df  
       
-    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE #2 batch - Batch #1 - ERROR IN WRANGLE #1 custom.batch_error - Batch too large"):  
-        wrangles.recipe.run(  
-            """  
-            read:  
-              - test:  
-                  rows: 20  
-                  values:  
-                    header1: value1  
-            wrangles:  
-                - convert.case:  
-                    input: header1  
-                    output: temp  
-                    case: upper  
-                - batch:  
-                    batch_size: 10  
-                    wrangles:  
-                        - custom.batch_error: {}  
-                        - convert.case:  
-                            input: header1  
-                            case: lower  
-                - convert.case:  
-                    input: header1  
-                    output: final  
-                    case: title  
-            """,  
-            functions=batch_error  
+    with pytest.raises(RuntimeError, match=r"batch \(line 12\) - Batch #1 - custom\.batch_error \(line 15\) - Batch too large"):
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 20
+                  values:
+                    header1: value1
+            wrangles:
+                - convert.case:
+                    input: header1
+                    output: temp
+                    case: upper
+                - batch:
+                    batch_size: 10
+                    wrangles:
+                        - custom.batch_error: {}
+                        - convert.case:
+                            input: header1
+                            case: lower
+                - convert.case:
+                    input: header1
+                    output: final
+                    case: title
+            """,
+            functions=batch_error
         )

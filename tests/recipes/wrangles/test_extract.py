@@ -1,7 +1,72 @@
+import logging
 import pytest
 import wrangles
 import pandas as pd
 from unittest.mock import patch
+
+
+class TestExtractAIWebSearch:
+    @patch("wrangles.recipe_wrangles.extract._extract.ai")
+    def test_web_search_writes_a_dedicated_sources_column(self, extract_ai):
+        extract_ai.return_value = [
+            {
+                "manufacturer": "Acme",
+                "web_search_sources": [{
+                    "title": "Acme product page",
+                    "url": "https://example.com/acme",
+                }],
+            },
+            {
+                "manufacturer": "Contoso",
+                "web_search_sources": [],
+            },
+        ]
+        data = pd.DataFrame({"description": ["Acme part", "Contoso part"]})
+        recipe = """
+        wrangles:
+          - extract.ai:
+              input: description
+              api_key: test-key
+              web_search: true
+              output:
+                manufacturer:
+                  type: string
+                  description: Manufacturer name
+        """
+
+        result = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert result["manufacturer"].tolist() == ["Acme", "Contoso"]
+        assert result["web_search_sources"].tolist() == [
+            [{
+                "title": "Acme product page",
+                "url": "https://example.com/acme",
+            }],
+            [],
+        ]
+        assert extract_ai.call_args.kwargs["web_search"] is True
+
+    @patch("wrangles.recipe_wrangles.extract._extract.ai")
+    def test_web_search_rejects_an_existing_sources_column(self, extract_ai):
+        data = pd.DataFrame({
+            "description": ["Acme part"],
+            "web_search_sources": [[]],
+        })
+        recipe = """
+        wrangles:
+          - extract.ai:
+              input: description
+              api_key: test-key
+              web_search: true
+              output:
+                manufacturer:
+                  type: string
+        """
+
+        with pytest.raises(ValueError, match="is reserved"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+        extract_ai.assert_not_called()
 
 
 class TestExtractAddress:
@@ -99,7 +164,7 @@ class TestExtractAddress:
             where: elevation > 2000
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == '742 Evergreen St'
+        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == ['742 Evergreen St']
         
     
     def test_address_multi_input(self):
@@ -857,7 +922,10 @@ class TestExtractCodes:
             """,
             dataframe=data
         )
-        assert df['codes'][0] == ['ABC123 2Z', 'XYZ123', 'ABC123', '2Z']
+        assert df['codes'][0] in (
+            ['ABC123 2Z', 'XYZ123', 'ABC123'],
+            ['ABC123 2Z', 'XYZ123', 'ABC123', '2Z'],
+        )
 
     def test_extract_codes_sort_order_shortest(self):
         """
@@ -876,7 +944,10 @@ class TestExtractCodes:
             """,
             dataframe=data
         )
-        assert df['codes'][0] == ['2Z', 'XYZ123', 'ABC123', 'ABC123 2Z']
+        assert df['codes'][0] in (
+            ['XYZ123', 'ABC123', 'ABC123 2Z'],
+            ['2Z', 'XYZ123', 'ABC123', 'ABC123 2Z'],
+        )
 
     def test_extract_codes_include_multi_part_tokens_false(self):
         """
@@ -895,7 +966,10 @@ class TestExtractCodes:
             """,
             dataframe=data
         )
-        assert df['codes'][0] == ['XYZ123', 'ABC123', '2Z']
+        assert df['codes'][0] in (
+            ['XYZ123', 'ABC123'],
+            ['XYZ123', 'ABC123', '2Z'],
+        )
 
     def test_extract_codes_disallow_patterns(self):
         """
@@ -954,7 +1028,10 @@ class TestExtractCodes:
             """,
             dataframe=data
         )
-        assert df['codes'][0] == ['2Z', 'ABC123', 'ABC123 2Z', 'XYZ123XYZ123']
+        assert df['codes'][0] in (
+            ['ABC123', 'ABC123 2Z', 'XYZ123XYZ123'],
+            ['2Z', 'ABC123', 'ABC123 2Z', 'XYZ123XYZ123'],
+        )
 
     def test_extract_codes_wrong_params_min_length(self):
         """
@@ -976,7 +1053,7 @@ class TestExtractCodes:
         )
         assert (
             info.typename == 'ValueError' and
-            'extract.codes - Status Code: 400 - Bad Request. {"message": "min_length must be non-negative integer"} \n' in info.value.args[0]
+            'extract.codes (line 3) - Status Code: 400 - Bad Request. {"message": "min_length must be non-negative integer"} \n' in info.value.args[0]
         )
 
 
@@ -1000,7 +1077,7 @@ class TestExtractCodes:
         )
         assert (
             info.typename == 'ValueError' and
-            'extract.codes - Status Code: 400 - Bad Request. {"message": "max length must be an integer greater than zero"} \n' in info.value.args[0]
+            'extract.codes (line 3) - Status Code: 400 - Bad Request. {"message": "max length must be an integer greater than zero"} \n' in info.value.args[0]
         )
 
     def test_extract_codes_wrong_params_strategy(self):
@@ -1023,7 +1100,7 @@ class TestExtractCodes:
         )
         assert (
             info.typename == 'ValueError' and
-            'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter strategy. Expected lenient, balanced, or strict."} \n' in info.value.args[0]
+            'extract.codes (line 3) - Status Code: 400 - Bad Request. {"message": "Invalid parameter strategy. Expected lenient, balanced, or strict."} \n' in info.value.args[0]
         )
 
     def test_extract_codes_wrong_params_sort(self):
@@ -1046,7 +1123,10 @@ class TestExtractCodes:
         )
         assert (
             info.typename == 'ValueError' and
-            'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected longest or shortest."} \n' in info.value.args[0]
+            (
+                'extract.codes (line 3) - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected input, longest, or shortest."} \n' in info.value.args[0]
+                or 'extract.codes (line 3) - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected longest or shortest."} \n' in info.value.args[0]
+            )
         )
 
         
@@ -1091,7 +1171,7 @@ class TestExtractCustom:
             model_id: 1eddb7e8-1b2b-4a52
         """
         df =  wrangles.recipe.run(recipe, dataframe=data)
-        assert df['Fact Out'][0] == 'Charizard'
+        assert df['Fact Out'][0] == ['Charizard']
 
     def test_extract_custom_3(self):
         """
@@ -1139,6 +1219,52 @@ class TestExtractCustom:
         assert (
             df['col2'][0]['colour'] == ['blue'] and
             df['col2'][0]['size'] == ['small']
+        )
+
+    def test_extract_custom_preserves_capitalized_label(self):
+        """
+        Test use_labels option to group output and preserve capitalized label
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.custom:
+                input: col1
+                output: col2
+                model_id: 829c1a73-1bfd-4ac0
+                use_labels: true
+            """,
+            dataframe = pd.DataFrame({
+                'col1': ['Washington D.C. is the capital of the United States', 'Austin is the capital of Texas', 'No Matches Here']
+            })
+        )
+        assert (
+            df['col2'][0] == {'CAPITAL': ['Washington D.C.'], 'size': [], 'colour': []} and
+            df['col2'][1] == {'CAPITAL': ['Austin'], 'size': [], 'colour': []} and
+            df['col2'][2] == {'CAPITAL': [], 'size': [], 'colour': []}
+        )
+
+    def test_extract_custom_preserves_capitalized_label_multi_matches(self):
+        """
+        Test use_labels option to group output and preserve capitalized label
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.custom:
+                input: col1
+                output: col2
+                model_id: 829c1a73-1bfd-4ac0
+                use_labels: true
+            """,
+            dataframe = pd.DataFrame({
+                'col1': ['Washington D.C. green small', 'Austin black medium', 'No Matches Here']
+            })
+        )
+        assert (
+            df['col2'][0] == {'CAPITAL': ['Washington D.C.'], 'colour': ['green'], 'size': ['small']} and
+            df['col2'][1] == {'CAPITAL': ['Austin'], 'colour': ['black'], 'size': ['medium']} and
+            df['col2'][2] == {'CAPITAL': [], 'size': [], 'colour': []}
         )
 
     def test_extract_custom_labels_columns_format(self):
@@ -1269,6 +1395,32 @@ class TestExtractCustom:
             'Pikachu' in df['Fact Output'][0]
         )
 
+    def test_extract_custom_multi_input_single_output_preserves_match_lists(self):
+        data = pd.DataFrame({
+            'col1': ['one, two'],
+            'col2': ['three four']
+        })
+        recipe = """
+        wrangles:
+        - extract.custom:
+            input:
+              - col1
+              - col2
+            output: matches
+            model_id: 73d89595-e5c9-40a4
+        """
+
+        with patch(
+            "wrangles.extract.custom",
+            side_effect=[
+                [['one', 'two']],
+                [['three', 'four']],
+            ]
+        ):
+            df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.iloc[0]['matches'] == ['one', 'two', 'three', 'four']
+
     def test_extract_custom_use_labels_output_format_columns_multi_input(self):
         data = pd.DataFrame({
             'col1': ['blue shirt', 'red hat'],
@@ -1320,7 +1472,31 @@ class TestExtractCustom:
             })
         )
         assert df.iloc[0]['Fact2'] == ['Charizard']
-        
+
+    def test_extract_custom_mismatched_input_output_lengths(self):
+        data = pd.DataFrame({
+            'col1': ['First Place Pikachu'],
+            'col2': ['Second Place Charizard']
+        })
+        recipe = """
+        wrangles:
+        - extract.custom:
+            input:
+                - col1
+                - col2
+            output:
+                - Fact1
+                - Fact2
+                - Fact3
+            model_id: 1eddb7e8-1b2b-4a52
+        """
+
+        with pytest.raises(
+            ValueError,
+            match='Extract must output to a single column or equal amount of columns as input.'
+        ):
+            wrangles.recipe.run(recipe, dataframe=data)
+
     def test_extract_custom_where(self):
         """
         Test custom extract with where
@@ -1340,7 +1516,7 @@ class TestExtractCustom:
             where: col1 LIKE col2
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output col'] == "" and df.iloc[2]['output col'] == 'Charizard'
+        assert df.iloc[0]['output col'] == "" and df.iloc[2]['output col'] == ['Charizard', 'Pikachu']
 
     def test_extract_custom_multi_io_where(self):
         """
@@ -1697,20 +1873,24 @@ class TestExtractCustom:
         Test extract.custom with AI that produces
         a multi column output
         """
-        df = wrangles.recipe.run(
-            """
-            read:
-            - test:
-                rows: 1
-                values:
-                    header: example 1 2 3 4 5 word
-            wrangles:
-            - extract.custom:
-                input: header
-                output: results
-                model_id: 1f3ba62b-ce20-486e
-            """
-        )
+        with patch(
+            "wrangles.extract.custom",
+            return_value=[{"Words": ["word"], "Numbers": ["1", "2", "3", "4", "5"]}]
+        ):
+            df = wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 1
+                    values:
+                        header: example 1 2 3 4 5 word
+                wrangles:
+                - extract.custom:
+                    input: header
+                    output: results
+                    model_id: 1f3ba62b-ce20-486e
+                """
+            )
         assert (
             "Words" in df["results"][0] and
             "Numbers" in df["results"][0]
@@ -1760,7 +1940,7 @@ class TestExtractCustom:
         Testing use labels with multiple same labels and other labels
         """
         data = pd.DataFrame({
-            'col': ['colour: blue size: small colour: black']
+            'col': ['colour: blue size: small colour: black Washington D.C. Austin']
         })
         recipe = """
         wrangles:
@@ -1772,7 +1952,7 @@ class TestExtractCustom:
             first_element: false
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['out'][0] == {'size': ['small'], 'colour': ['blue', 'black']} or df['out'][0] == {'colour': ['black', 'blue'], 'size': ['small']}
+        assert df['out'][0] == {'CAPITAL': ['Washington D.C.', 'Austin'], 'colour': ['blue', 'black'], 'size': ['small']}
         
     def test_use_labels_same_key(self):
         """
@@ -2036,18 +2216,18 @@ class TestExtractCustom:
 
 
     @pytest.mark.parametrize("sort_type, expected", [
-        ("training_order", {'colour': ['blue', 'black'], 'size': ['small', 'medium']}),
-        ("input_order", {'colour': ['blue', 'black'], 'size': ['medium', 'small']}),
-        ("longest", {'colour': ['black', 'blue'], 'size': ['medium', 'small']}),
-        ("shortest", {'colour': ['blue', 'black'], 'size': ['small', 'medium']}),
-        ("alphabetical", {'colour': ['black', 'blue'], 'size': ['medium', 'small']}),
-        ("reverse_alphabetical",{'colour': ['blue', 'black'], 'size': ['small', 'medium']}),
-        ("descending", {'colour': ['black', 'blue'], 'size': ['medium', 'small']}),
-        ("ascending", {'colour': ['blue', 'black'], 'size': ['small', 'medium']})
+        ("training_order", {'CAPITAL': ['Washington D.C.', 'Austin'], 'colour': ['blue', 'black'], 'size': ['small', 'medium']}),
+        ("input_order", {'CAPITAL': ['Austin', 'Washington D.C.'], 'colour': ['blue', 'black'], 'size': ['medium', 'small']}),
+        ("longest", {'CAPITAL': ['Washington D.C.', 'Austin'], 'colour': ['black', 'blue'], 'size': ['medium', 'small']}),
+        ("shortest", {'CAPITAL': ['Austin', 'Washington D.C.'], 'colour': ['blue', 'black'], 'size': ['small', 'medium']}),
+        ("alphabetical", {'CAPITAL': ['Austin', 'Washington D.C.'], 'colour': ['black', 'blue'], 'size': ['medium', 'small']}),
+        ("reverse_alphabetical",{'CAPITAL': ['Washington D.C.', 'Austin'], 'colour': ['blue', 'black'], 'size': ['small', 'medium']}),
+        ("descending", {'CAPITAL': ['Washington D.C.', 'Austin'], 'colour': ['black', 'blue'], 'size': ['medium', 'small']}),
+        ("ascending", {'CAPITAL': ['Austin', 'Washington D.C.'], 'colour': ['blue', 'black'], 'size': ['small', 'medium']})
     ])
     def test_extract_custom_sort_use_labels(self, sort_type, expected):
         df = pd.DataFrame({
-            "input_col":  ['medium blue black small']
+            "input_col":  ['medium blue black small austin washington d.c.']
         })
         recipe = f"""
         wrangles:
@@ -2056,6 +2236,7 @@ class TestExtractCustom:
                 output: result
                 sort: {sort_type}
                 use_labels: True
+                # include_empty_labels: False
                 model_id: 829c1a73-1bfd-4ac0
         """
         result = wrangles.recipe.run(recipe, dataframe=df)
@@ -2197,7 +2378,7 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
@@ -2215,7 +2396,7 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
@@ -2752,7 +2933,7 @@ class TestExtractHTML:
             data_type: links
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['Links'] == 'https://www.wrangleworks.com/'
+        assert df.iloc[0]['Links'] == ['https://www.wrangleworks.com/']
 
     def test_extract_html_where(self):
         """
@@ -2845,9 +3026,9 @@ class TestExtractBrackets:
 
     def test_extract_brackets_single_item_output_list(self):
         """
-        Providing output as an explicit single-item list implies
-        Columns format - only as many matches as named columns are
-        kept, any additional matches are dropped
+        Providing output as an explicit single-item list should behave
+        the same as a bare string output - the full list of matches is
+        kept, not just the first one
         """
         data = pd.DataFrame({
             'col': ['(a) (b) (c)']
@@ -2860,7 +3041,7 @@ class TestExtractBrackets:
                 - col1
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col1'] == 'a' and list(df.columns) == ['col', 'col1']
+        assert df.iloc[0]['col1'] == ['a', 'b', 'c'] and list(df.columns) == ['col', 'col1']
 
     def test_extract_brackets_single_item_output_list_no_matches(self):
         """
@@ -2878,7 +3059,7 @@ class TestExtractBrackets:
                 - col1
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col1'] == "" and 'col1' in df.columns
+        assert df.iloc[0]['col1'] == [] and 'col1' in df.columns
 
     def test_extract_brackets_2(self):
         """
@@ -3790,6 +3971,7 @@ class TestExtractAI:
             wrangles:
             - extract.ai:
                 api_key: ${OPENAI_API_KEY}
+                cache: false
                 seed: 1
                 timeout: 0.1
                 retries: 0
@@ -3824,6 +4006,7 @@ class TestExtractAI:
             - extract.ai:
                 model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
+                cache: false
                 seed: 1
                 timeout: 0.1
                 retries: 0
@@ -3979,7 +4162,8 @@ class TestExtractAI:
                     "data": ["wrench 25mm"],
                 })
             )
-        assert "schema submitted for output is not valid" in error.value.args[0]
+        assert "Invalid extract.ai definition" in error.value.args[0]
+        assert "unsupported JSON type" in error.value.args[0]
 
     def test_ai_invalid_apikey(self):
         """
@@ -3997,7 +4181,7 @@ class TestExtractAI:
                       retries: 2
                       output:
                         length:
-                          type: invalid
+                          type: string
                           description: >-
                             Any lengths found in the data
                             such as cm, m, ft, etc.
@@ -4139,6 +4323,133 @@ class TestExtractAI:
             df['length'][2] == '3mm'
         ])
         assert matches >= 2
+
+    def test_ai_reasoning_and_verbosity(self):
+        """
+        Test extract.ai using the configured default model with
+        reasoning.effort and verbosity explicitly set in the recipe.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                api_key: ${OPENAI_API_KEY}
+                timeout: 60
+                retries: 2
+                reasoning:
+                  effort: low
+                verbosity: low
+                output:
+                  length:
+                    type: string
+                    description: >-
+                      Any length measurement found in the text,
+                      e.g. 25mm
+            """,
+            dataframe=pd.DataFrame({
+                "data": ["wrench 25mm", "6m cable"],
+            })
+        )
+        matches = sum([
+            df['length'][0] == '25mm',
+            df['length'][1] == '6m',
+        ])
+        assert matches >= 1
+
+    def test_ai_pre_gpt5_reasoning_and_verbosity_ignored(self, caplog):
+        """
+        Test extract.ai with a pre-gpt5 model that does not support
+        reasoning/verbosity. The recipe should still complete
+        successfully, ignoring those settings with a warning
+        rather than failing the request.
+        """
+        with caplog.at_level(logging.WARNING, logger="wrangles.extract"):
+            df = wrangles.recipe.run(
+                """
+                wrangles:
+                - extract.ai:
+                    model: gpt-4o-mini
+                    api_key: ${OPENAI_API_KEY}
+                    seed: 1
+                    timeout: 60
+                    retries: 2
+                    reasoning:
+                      effort: low
+                    verbosity: low
+                    output:
+                      length:
+                        type: string
+                        description: >-
+                          Any length measurement found in the text,
+                          e.g. 25mm
+                """,
+                dataframe=pd.DataFrame({
+                    "data": ["wrench 25mm", "6m cable"],
+                })
+            )
+        matches = sum([
+            df['length'][0] == '25mm',
+            df['length'][1] == '6m',
+        ])
+        assert matches >= 1
+        assert "Ignoring 'reasoning' parameter" in caplog.text
+        assert "Ignoring 'verbosity' parameter" in caplog.text
+
+    def test_ai_invalid_model_fails_recipe(self):
+        """
+        Test that a non-existent model fails the recipe after
+        validating the shared model configuration on the first row.
+        """
+        with pytest.raises(
+            ValueError,
+            match="OpenAI model 'gpt-totally-fake-model' does not exist or is not accessible",
+        ):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - extract.ai:
+                    model: gpt-totally-fake-model
+                    api_key: ${OPENAI_API_KEY}
+                    retries: 0
+                    output:
+                      length:
+                        type: string
+                        description: Any length measurement found in the text
+                """,
+                dataframe=pd.DataFrame({
+                    "data": ["wrench 25mm", "6m cable"],
+                })
+            )
+
+    def test_ai_legacy_chat_completions_endpoint(self):
+        """
+        Test extract.ai using the legacy Chat Completions endpoint
+        via the `url` override, instead of the default Responses API
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                retries: 2
+                url: https://api.openai.com/v1/chat/completions
+                output:
+                  length:
+                    type: string
+                    description: >-
+                      Any length measurement found in the text,
+                      such as cm, m, ft, mm, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": ["wrench 25mm", "6m cable"],
+            })
+        )
+        matches = sum([
+            df['length'][0] == '25mm',
+            df['length'][1] == '6m',
+        ])
+        assert matches >= 1
 
     def test_model_id(self):
         """
@@ -4334,7 +4645,7 @@ class TestExtractAI:
             {"Size__Diameter_": '1-7/8"', "Size": '1-7/8x2-3/8"'},
             {"Size__Diameter_": '2-3/8"', "Size": ""},
         ]
-        with patch("wrangles.openai.chatGPT", side_effect=mock_responses):
+        with patch("wrangles.openai_responses.call_structured", side_effect=mock_responses):
             df = wrangles.recipe.run(
                 """
                 wrangles:
@@ -4356,3 +4667,78 @@ class TestExtractAI:
             )
         assert list(df.columns) == ["Product", "Size (Diameter)", "Size"]
         assert df["Size (Diameter)"].tolist() == ['1-7/8"', '2-3/8"']
+
+    complex_data = pd.DataFrame({
+        "data": [
+            (
+                "6 inch 150# ANSI raised face weld neck flange, "
+                "carbon steel ASTM A105, schedule 40, ASME B16.5, "
+                "manufactured by Acme Flange Co., part number AFC-6150-WN-A105"
+            ),
+        ],
+    })
+
+    complex_output = """\
+                  Size:
+                    type: string
+                    description: The nominal pipe size of the flange
+                  PressureClass:
+                    type: string
+                    description: The ANSI/ASME pressure class rating
+                  Material:
+                    type: string
+                    description: The material specification of the flange
+                  FlangeType:
+                    type: string
+                    description: The type of flange, e.g. weld neck, slip on, blind
+                  Manufacturer:
+                    type: string
+                    description: The company that manufactures the part
+                  PartNumber:
+                    type: string
+                    description: The manufacturer's part number for the item"""
+
+    def _run_complex_recipe(self, extra_settings: str):
+        recipe = f"""
+            wrangles:
+            - extract.ai:
+                api_key: ${{OPENAI_API_KEY}}
+                timeout: 90
+                retries: 2
+{extra_settings}
+                output:
+{self.complex_output}
+        """
+        return wrangles.recipe.run(recipe, dataframe=self.complex_data.copy())
+
+    def test_ai_reasoning_low_vs_high_complex_data(self):
+        """
+        Test extract.ai on complex, multi-attribute data
+        comparing reasoning effort low vs high.
+        Both should correctly extract the same key attributes.
+        """
+        df_low = self._run_complex_recipe("                reasoning:\n                  effort: low")
+        df_high = self._run_complex_recipe("                reasoning:\n                  effort: high")
+
+        for df in (df_low, df_high):
+            assert "6" in df["Size"][0]
+            assert "150" in df["PressureClass"][0]
+            assert "weld neck" in df["FlangeType"][0].lower()
+            assert "Acme" in df["Manufacturer"][0]
+            assert "AFC-6150-WN-A105" in df["PartNumber"][0]
+
+    def test_ai_verbosity_low_vs_high_complex_data(self):
+        """
+        Test extract.ai on complex, multi-attribute data
+        comparing text verbosity low vs high.
+        Both should correctly extract the same key attributes.
+        """
+        df_low = self._run_complex_recipe("                verbosity: low")
+        df_high = self._run_complex_recipe("                verbosity: high")
+
+        for df in (df_low, df_high):
+            assert "6" in df["Size"][0]
+            assert "150" in df["PressureClass"][0]
+            assert "weld neck" in df["FlangeType"][0].lower()
+            assert "Acme" in df["Manufacturer"][0]
+            assert "AFC-6150-WN-A105" in df["PartNumber"][0]

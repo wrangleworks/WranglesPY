@@ -14,13 +14,13 @@
 ## Tech Stack
 
 - **Python:** 3.11, 3.12, 3.13 (multi-version support)
-- **Core Dependencies:** pandas (>=2.0), numpy, polars (1.33.0), pyyaml
+- **Core Dependencies:** pandas (>=2.0,<3.0), numpy, polars (1.33.0), pyyaml
 - **Database Connectors:** sqlalchemy, pymssql, psycopg2-binary, pymysql, pymongo
 - **Cloud/External:** boto3 (AWS S3), simple-salesforce, fabric (SFTP)
 - **Data Formats:** openpyxl (Excel), xlsxwriter
 - **AI/ML:** OpenAI integration, Hugging Face models
-- **Testing:** pytest (7.4.4), pytest-mock, lorem (test data generation)
-- **Containerization:** Docker (Python 3.11-slim-bookworm base)
+- **Testing:** pytest (9.0.2), pytest-mock, lorem (test data generation)
+- **Containerization:** The WranglesPY CI test image uses Python 3.13-slim-bookworm with pandas 2.3.3 and NumPy 2.4.6; the development container uses Python 3.13-bookworm. The deployed recipe runtime image is owned by `wrangleworks/Lambda-Recipes`.
 
 ## Project Structure
 
@@ -48,20 +48,21 @@ WranglesPY/
 ├── schema/                     # JSON schema generation
 │   ├── generate_recipe_schema.py
 │   └── recipe_base_schema.json
-├── setup.py                    # Package setup (version: 1.16.0)
+├── setup.py                    # Package setup and release version
 ├── requirements.txt            # Production dependencies
-├── dockerfile                  # Multi-stage Docker build
-├── main.py                     # Container entry point
+├── dockerfile                  # Multi-stage CI test-image build
+├── main.py                     # CI test-image entry point
 └── .github/workflows/          # CI/CD pipelines
 ```
 
 ## Installation & Setup
 
-### Standard Installation
+### Development Installation
 ```bash
 pip install --upgrade pip
-pip install pytest==7.4.4 lorem pytest-mock
-pip install -r requirements.txt
+pip install pytest==9.0.2 pytest-mock
+pip install -r requirements-full.txt
+pip install -e .
 ```
 
 ### macOS-specific Requirements
@@ -74,9 +75,9 @@ pip install -r requirements.txt
 
 ### Development Container
 The project includes a `.devcontainer/devcontainer.json` for VS Code:
-- Base image: `mcr.microsoft.com/devcontainers/python:1-3.12-bullseye`
-- Auto-installs pytest, lorem, pytest-mock on creation
-- Includes YAML schema validation for `.wrgl.yml` files
+- Base image: `mcr.microsoft.com/devcontainers/python:1-3.13-bookworm`
+- Auto-installs the full test dependencies and the package in editable mode
+- Includes YAML schema validation for `.wrgl.yml` and `.recipe` files
 - Configured for pytest test discovery
 
 ## Testing
@@ -124,17 +125,35 @@ pip install .
 wrangles.recipe tests/samples/generate-data.wrgl.yml
 ```
 
-### Docker Build
-The Dockerfile uses multi-stage builds for optimization:
-1. Compile stage: Installs build dependencies and packages
+### CI Test Image Build
+The repository-root Dockerfile builds a GHCR test image used to validate the
+installable package and recipes. It is not the deployed production runtime;
+`wrangleworks/Lambda-Recipes` owns the AWS Lambda image and its Python version.
+
+The test-image Dockerfile uses multi-stage builds for optimization:
+1. Dependency stage: Installs binary wheels under the tracked test-container constraint; no compiler toolchain is installed
 2. Build stage: Copies only necessary files (~400MB final image)
 3. Special optimizations: Removes unused botocore AWS service definitions, pandas test data
 
 ```bash
-docker build -t wrangles:latest .
+docker build -t wrangles:test .
 ```
 
 ## Coding Guidelines
+
+### Pull Request Review Policy
+
+- Follow `docs/pull-request-workflow.md`.
+- Prioritize correctness, behavioral regressions, compatibility, security,
+  missing tests, and unintended scope.
+- Label review findings P0 through P3. Request changes for P0-P2 findings.
+- Treat P3 improvements as non-blocking and link a follow-up issue when useful.
+- Put file-specific findings in inline review threads so the author can reply
+  and the reviewer can explicitly resolve them.
+- Do not approve a PR with failing required checks, unresolved blocking
+  threads, merge conflicts, or unrelated changes.
+- Applying a suggestion or pushing a fix does not resolve its review thread;
+  verify the fix, resolve the thread, and submit a fresh approval.
 
 ### Code Style
 - Follow existing patterns in the codebase (no formal linter configured)
@@ -173,7 +192,7 @@ def test_function_error():
 ## Recipe System
 
 ### Recipe File Format
-Recipes use YAML with `.wrgl.yml` or `.wrgl.yaml` extensions:
+Recipes use YAML with `.wrgl.yml`, `.wrgl.yaml` or `.recipe` extensions:
 
 ```yaml
 read:
@@ -197,10 +216,10 @@ wrangles.recipe recipe.wrgl.yml
 
 # From Python
 import wrangles
-wrangles.recipe.run('recipe.wrgl.yml')
+wrangles.recipe.run('my_recipe.wrgl.yml')
 
 # With custom functions
-wrangles.recipe recipe.wrgl.yml -f custom_functions.py
+wrangles.recipe my_other_recipe.recipe -f custom_functions.py
 ```
 
 ### Custom Functions
@@ -211,21 +230,83 @@ Custom functions can be added to recipes:
 
 ## CI/CD Pipeline
 
+### Integration and release direction
+
+`main` is the only integration branch for new work. Create each short-lived
+feature, fix, or documentation branch from current `main` and target its pull
+request directly to `main`.
+
+The DEV environment is a deployment destination, not a Git integration branch.
+Do not target new pull requests to `dev`. Freeze the legacy `dev` branch while
+wanted work is recovered one logical change at a time on clean branches from
+current `main`; never merge `dev` wholesale into `main`.
+
+**Pushing to a feature branch currently runs nothing.** Open a pull request to
+`main` (Draft is fine) to trigger `ci.yml`. A PR to `main` runs the full Ubuntu
+and Windows, Python 3.11 and 3.13 matrix.
+
+PR #1115 established the current workflows, but some triggers still mention the
+legacy `dev` branch. That support is transitional compatibility and does not
+change the integration policy. Issue #1117 tracks enforcing development
+deployments from an explicit `main` SHA and removing the remaining legacy paths.
+
+### Merging never releases anything
+
+Merging to `main` runs CI and, under the current transitional workflow,
+publishes a tested GHCR CI image. It does not publish a Python package and
+does not deploy to any environment.
+
+| Action | Result |
+| --- | --- |
+| Merge to `main` | tests, then GHCR test image `:latest` promoted |
+| Manually dispatch `deploy-dev.yml` from `main` | `<version>rcN` to CodeArtifact, then DEV deploy in Lambda-Recipes |
+| Push a matching `v*` tag from `main` | `:<version>` image, then CodeArtifact, then PyPI |
+
+Both publishing paths are deliberate human actions, not consequences of a merge:
+
+1. **DEV release** — run `deploy-dev.yml` via workflow dispatch from `main`,
+   supplying a base version such as `1.20.0`. The `rcN` suffix is
+   resolved automatically from the versions already in CodeArtifact. RC builds
+   go to CodeArtifact only, never PyPI.
+2. **Production release** — bump `version` in `setup.py`, merge to `main`, then
+   push a matching `v<version>` tag. `publish-tagged.yml` refuses to run if the
+   tag and `setup.py` disagree.
+
+There is no "staging" environment. The environments are DEV (Lambda-Recipes) and
+production.
+
+See `docs/release-lifecycle.md` for the current policy and the remaining topics
+to define.
+
 ### GitHub Actions Workflows
-- **publish-main.yml:** Main CI pipeline
-  - Pytest on multiple OS (Ubuntu, Windows, macOS-14, macOS-latest)
-  - Tests Python 3.11, 3.12, 3.13
+- **ci.yml** (*CI*)**:** PRs into `main` and pushes to `main`; legacy `dev`
+  triggers remain temporarily while recovery is completed
+  - Pytest on Ubuntu + Windows across Python 3.11 + 3.13 for `main` PRs
   - Test pip installation
   - Generate and test JSON schema
-  - Build and push Docker image
-  - Run container tests
+  - Build the CI test image and, on PRs, run smoke checks and local recipes against that exact image
+  - Push the image on merges to `main` under the new policy
+  - Run container tests, then promote the mutable tag
+- **deploy-dev.yml** (*Deploy Dev*)**:** manually dispatch from `main`. The
+  workflow still accepts `dev` temporarily; do not use that path for new work.
+  Publishes an RC to CodeArtifact, then deploys DEV in Lambda-Recipes.
+- **publish-tagged.yml** (*Deploy Prod*)**:** `v*` tag push. GHCR, then
+  CodeArtifact, then PyPI. The file name is pinned by PyPI Trusted Publishing
+  and cannot be renamed without updating the publisher on PyPI first.
 
 ### Workflow Jobs
 1. **pytest:** Run test suite across OS/Python matrix
 2. **test-pip-install:** Verify package installs correctly
 3. **test-generate-schema:** Generate JSON schema from code
-4. **build:** Create Docker image and push to GitHub Container Registry
-5. **test-container:** Validate Docker image with full test suite
+4. **build:** Create the CI test image and push it to GitHub Container Registry
+5. **test-container:** Validate the CI test image with the full test suite
+6. **promote-image:** Retag the tested image; `dev` support is transitional and
+   `latest` handling will be hardened under issue #1117
+
+Mutable GHCR test-image tags are only moved after `test-container` passes, and
+package publication is gated on that validation. Production Lambda image
+publication and deployment remain the responsibility of `Lambda-Recipes`. See
+`docs/release-lifecycle.md` for the current release direction.
 
 ## Known Issues & Workarounds
 
@@ -247,9 +328,11 @@ brew install freetds
 ### Pandas Performance Warnings
 Performance warnings from pandas are suppressed in `recipe.py` as they appear during recipe execution without actual performance impact. This is a known issue being monitored.
 
-### Docker Image Size Optimization
+### CI Test Image Size Optimization
 - Botocore data reduced to S3-only (removes ~300MB)
 - Pandas test data removed from final image
+- Test-image data stack constrained to pandas 2.3.3 and NumPy 2.4.6 while the reusable package continues to allow pandas 2.x
+- All test-image dependencies install from binary wheels; compiler tools are absent from the runtime image
 - Uses slim Debian base image for minimal footprint
 
 ## Common Commands
@@ -267,8 +350,8 @@ pytest -v tests/test_wrangles.py
 # Generate schema
 cd schema && python generate_recipe_schema.py
 
-# Build Docker image
-docker build -t wrangles:latest .
+# Build CI test image
+docker build -t wrangles:test .
 
 # Run recipe locally
 wrangles.recipe tests/samples/recipe-basic.wrgl.yml

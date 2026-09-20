@@ -1,9 +1,12 @@
 import concurrent.futures as _futures
 import re
+import json as _json
 from typing import Union as _Union
 
 # Import our new core web helpers
 from .. import web as _web
+from .. import _ai_mode
+
 
 def _extract_target_sites(query: str) -> list[str]:
     """Extract site:domain filters from query using simple token parsing."""
@@ -94,6 +97,73 @@ def _extract_pricing_from_result(result: dict) -> dict:
     }
 
 
+def _safe_dict(value) -> dict:
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
+def _safe_list(value) -> list:
+    if isinstance(value, list):
+        return value
+    return []
+
+
+def _is_empty_query(query) -> bool:
+    query_str = str(query).strip().lower() if query is not None else ""
+    return query is None or not query_str or query_str in ("none", "nan", "nat")
+
+
+def _build_search_metadata(response: dict, query, query_index: int | None, search_type: str) -> dict:
+    meta_raw = _safe_dict(response.get("search_metadata"))
+    search_params = _safe_dict(response.get("search_parameters"))
+
+    metadata = {
+        "query_index": query_index,
+        "query": str(query).strip() if query else None,
+        "search_type": search_type,
+        "search_id": meta_raw.get("id"),
+        "status": meta_raw.get("status"),
+        "search_date": meta_raw.get("created_at"),
+        "response_time": meta_raw.get("total_time_taken"),
+        "json_endpoint": meta_raw.get("json_endpoint"),
+        "google_url": _web.clean_link(meta_raw.get("google_url", "")),
+        "language": search_params.get("hl"),
+        "country": search_params.get("gl"),
+        "google_domain": search_params.get("google_domain"),
+        "location": search_params.get("location_used"),
+    }
+
+    target_sites = _extract_target_sites(query)
+    if target_sites:
+        metadata["target_sites"] = target_sites
+
+    return metadata
+
+
+def _build_empty_classic_response(query, query_index: int | None) -> dict:
+    return {
+        "search_metadata": {
+            "query_index": query_index,
+            "query": str(query).strip() if query else None,
+            "search_type": "classic",
+        },
+        "search_results": []
+    }
+
+
+def _build_error_classic_response(query, query_index: int | None, error: Exception) -> dict:
+    return {
+        "search_metadata": {
+            "query_index": query_index,
+            "query": str(query).strip() if query else None,
+            "search_type": "classic",
+            "error": str(error),
+        },
+        "search_results": []
+    }
+
+
 class SerpApiWranglesClient:
     def __init__(self, api_key: str = None):
         if not api_key or str(api_key).strip().lower() in ("", "none", "null"):
@@ -119,15 +189,8 @@ class SerpApiWranglesClient:
 
     def search_single(self, query: str, n_results: int = 5, kwargs: dict = None, query_index: int | None = None) -> dict:
         """Perform a single web search using SerpAPI."""
-        query_str = str(query).strip().lower()
-        if query is None or not query_str or query_str in ("none", "nan", "nat"):
-            return {
-                "search_metadata": {
-                    "query_index": query_index,
-                    "query": str(query).strip() if query else None,
-                },
-                "search_results": []
-            }
+        if _is_empty_query(query):
+            return _build_empty_classic_response(query, query_index)
 
         if kwargs is None: kwargs = {}
 
@@ -140,26 +203,12 @@ class SerpApiWranglesClient:
             }
             response = client.search(params)
 
-            meta_raw = response.get("search_metadata", {}) or {}
-            search_params = response.get("search_parameters", {}) or {}
-
-            search_metadata = {
-                "query_index": query_index,
-                "query": str(query).strip(),
-                "search_id": meta_raw.get("id"),
-                "status": meta_raw.get("status"),
-                "search_date": meta_raw.get("created_at"),
-                "response_time": meta_raw.get("total_time_taken"),
-                "json_endpoint": meta_raw.get("json_endpoint"),
-                "google_url": _web.clean_link(meta_raw.get("google_url", "")), # Using new web helper
-                "language": search_params.get("hl"),
-                "country": search_params.get("gl"),
-                "location": search_params.get("location_used"),
-            }
-
-            target_sites = _extract_target_sites(query)
-            if target_sites:
-                search_metadata["target_sites"] = target_sites
+            search_metadata = _build_search_metadata(
+                response=response,
+                query=query,
+                query_index=query_index,
+                search_type="classic",
+            )
 
             organic_results = response.get("organic_results", []) or []
             search_results = []
@@ -186,31 +235,76 @@ class SerpApiWranglesClient:
             }
 
         except Exception as e:
-            return {
-                "search_metadata": {
-                    "query_index": query_index,
-                    "query": str(query).strip() if query else None,
-                    "error": str(e),
-                },
-                "search_results": []
-            }
+            return _build_error_classic_response(query, query_index, e)
 
-    def search_batch(self, input_data: _Union[str, list], n_results: int = 10, threads: int = 10, **kwargs) -> _Union[dict, list]:
+    def ai_mode_single(self, query, kwargs=None, query_index=None,
+                       include_raw_response=False) -> dict:
+        """Retrieve Markdown and separate its metadata; do not parse sections."""
+        query = _ai_mode.normalize_query(query)
+        kwargs = _ai_mode.request_parameters(kwargs or {})
+        if not query:
+            return _ai_mode.normalize_response(
+                "", query, query_index, status="Skipped",
+                include_raw_response=include_raw_response,
+            )
+        try:
+            client = self.client_class(api_key=self.api_key)
+            # Older SerpAPI SDK search() implementations always decode JSON.
+            # Use the SDK's raw request method so Markdown is retrieved once.
+            http_response = client.request("GET", "/search", params={
+                **kwargs, "engine": "google_ai_mode", "q": query, "output": "md",
+            })
+            content_type = http_response.headers.get("Content-Type", "").lower()
+            response = http_response.json() if "json" in content_type else http_response.text
+            if isinstance(response, str):
+                response = response.replace(self.api_key, "[redacted]")
+            elif hasattr(response, "items"):
+                response = _json.loads(_json.dumps(dict(response)).replace(self.api_key, "[redacted]"))
+            return _ai_mode.normalize_response(
+                response, query, query_index, include_raw_response=include_raw_response,
+            )
+        except Exception as error:
+            message = str(error).replace(self.api_key, "[redacted]")
+            return _ai_mode.normalize_response(
+                "", query, query_index, error=message or type(error).__name__,
+                include_raw_response=include_raw_response,
+            )
+
+    def search_batch(
+        self,
+        input_data: _Union[str, list],
+        n_results: int = 10,
+        threads: int = 10,
+        search_mode: str = "classic",
+        include_raw_response: bool = False,
+        **kwargs
+    ) -> _Union[dict, list]:
         """
         Perform parallel web searches using threads.
+        search_mode supports: classic, ai.
         """
         input_was_scalar = False
         if not isinstance(input_data, list):
             input_was_scalar = True
             input_data = [input_data]
 
+        mode = str(search_mode or "classic").strip().lower()
+        if mode in ("classic", "google", "web"):
+            single_search_fn = self.search_single
+            search_options = {"n_results": n_results}
+        elif mode in ("ai", "ai_mode", "google_ai_mode"):
+            single_search_fn = self.ai_mode_single
+            search_options = {"include_raw_response": include_raw_response}
+        else:
+            raise ValueError("search_mode must be one of: classic, ai")
+
         indexed = list(enumerate(input_data, start=1))
 
         with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
             results = list(executor.map(
-                lambda t: self.search_single(
+                lambda t: single_search_fn(
                     query=t[1],
-                    n_results=n_results,
+                    **search_options,
                     kwargs=kwargs,
                     query_index=t[0],
                 ),

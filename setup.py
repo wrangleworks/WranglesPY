@@ -16,20 +16,27 @@ setup(
         'wrangles.connectors',
         'wrangles.recipe_wrangles'
     ],
+    package_data = {
+        'wrangles': ['ai_defaults.yml']
+    },
     description = 'Wrangle your data into shape with AI',
     long_description = long_description,
     long_description_content_type = 'text/markdown',
-    license_files = ('LICENSE.txt',),
+    license_files = ('LICENSE',),
     license = 'Apache License 2.0',
     classifiers = [
         'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent'
     ],
-    version = '1.19.0',
+    python_requires = '>=3.11',
+    version = '1.20.4',
     url = 'https://github.com/wrangleworks/WranglesPy',
     author = 'WrangleWorks',
-    author_email = 'chris@wrangleworks.com',
+    author_email = 'eric@wrangleworks.com',
     keywords = ['data','wrangling'],
     install_requires = requirements,
     entry_points ={

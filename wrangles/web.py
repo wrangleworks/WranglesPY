@@ -1,6 +1,6 @@
 import html
 import re
-from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode, unquote
 from typing import Tuple
 
 TRACKING_PARAMS = {
@@ -8,30 +8,48 @@ TRACKING_PARAMS = {
     "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
 }
 
-def clean_link(url: str) -> str:
+def clean_link(
+    url: str, *, tracking_params: set[str] | None = None,
+    strip_scheme: bool = True, preserve_encoding: bool = False,
+) -> str:
     """
     Remove known tracking query parameters and drop the http(s):// scheme 
     to return a cleaner link.
+
+    Set tracking_params to remove only selected parameter names. Set
+    strip_scheme=False to retain a full URL, and preserve_encoding=True to
+    preserve the remaining query's encoding, order and escaped separators.
+    Defaults retain the existing classic-search normalization behavior.
     """
     if not url:
         return ""
 
-    url = html.unescape(url).strip()
+    url = url.strip() if preserve_encoding else html.unescape(url).strip()
+    parameters = TRACKING_PARAMS if tracking_params is None else {name.lower() for name in tracking_params}
 
     try:
         parts = urlsplit(url)
     except Exception:
-        cleaned = re.sub(r"^https?://", "", url)
-        return cleaned.rstrip("?&")
+        return re.sub(r"^https?://", "", url).rstrip("?&") if strip_scheme else url
 
     if parts.query:
-        params = parse_qsl(parts.query, keep_blank_values=True)
-        filtered = [(k, v) for (k, v) in params if k.lower() not in TRACKING_PARAMS]
-        new_query = urlencode(filtered, doseq=True)
-        url = urlunsplit((parts.scheme, parts.netloc, parts.path, new_query, parts.fragment))
+        if preserve_encoding:
+            tokens = re.split(r"(\\?&(?:amp;)?)", parts.query)
+            kept = []
+            for index in range(0, len(tokens), 2):
+                parameter = tokens[index]
+                if unquote(parameter.partition("=")[0]).lower() not in parameters:
+                    separator = tokens[index - 1] if index and kept else ""
+                    kept.append(separator + parameter)
+            new_query = "".join(kept)
+        else:
+            params = parse_qsl(parts.query, keep_blank_values=True)
+            filtered = [(k, v) for (k, v) in params if k.lower() not in parameters]
+            new_query = urlencode(filtered, doseq=True)
+        if new_query != parts.query or not preserve_encoding:
+            url = urlunsplit((parts.scheme, parts.netloc, parts.path, new_query, parts.fragment))
 
-    cleaned = re.sub(r"^https?://", "", url)
-    return cleaned.rstrip("?&")
+    return re.sub(r"^https?://", "", url).rstrip("?&") if strip_scheme else url
 
 
 def normalize_site(url: str) -> str:

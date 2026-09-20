@@ -1940,6 +1940,27 @@ class TestGroupBy:
             list(df.values[1]) == ['b', [4], [8]]
         )
 
+    def test_group_by_value_counts_as_json_safe_dictionary(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - select.group_by:
+                  counts:
+                    - Selection: Selection Counts
+                    - Review: Review Counts
+                  auto_rename_columns: false
+            """,
+            dataframe=pd.DataFrame({
+                "Selection": ["Primary", "Primary", "None", None],
+                "Review": [False, False, True, None],
+            }),
+        )
+
+        assert df.to_dict(orient="records") == [{
+            "Selection Counts": {"Primary": 2, "None": 1, "null": 1},
+            "Review Counts": {"false": 2, "true": 1, "null": 1},
+        }]
+
 
     def test_group_by_where(self):
         """

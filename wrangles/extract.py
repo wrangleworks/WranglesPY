@@ -2,16 +2,124 @@
 Functions to extract information from unstructured text.
 """
 import re as _re
-from typing import Union as _Union
-import concurrent.futures as _futures
-import json as _json
 import logging as _logging
-import pandas as _pd
+from typing import Union as _Union
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
 from .format import flatten_lists as _flatten_lists
 from . import openai as _openai
+from . import openai_responses as _openai_responses
+from . import ai_config as _ai_config
+from . import ai_definition as _ai_definition
+from . import ai_cache as _ai_cache
+
+_LOG = _logging.getLogger(__name__)
+
+
+def _normalize_ai_protocol(protocol: str) -> str:
+    protocol = str(protocol or "").strip().lower().replace("-", "_")
+    aliases = {
+        "responses_api": "responses",
+        "chat": "chat_completions",
+        "chat_completion": "chat_completions",
+    }
+    protocol = aliases.get(protocol, protocol)
+    if protocol not in {"responses", "chat_completions"}:
+        raise ValueError(
+            "protocol must be 'responses' or 'chat_completions'. "
+            f"Received {protocol!r}."
+        )
+    return protocol
+
+
+def _validate_ai_runtime_settings(
+    threads: int,
+    timeout: float,
+    retries: int,
+) -> None:
+    if not isinstance(threads, int) or isinstance(threads, bool) or threads < 1:
+        raise ValueError("threads must be a positive integer.")
+    if not isinstance(retries, int) or isinstance(retries, bool) or retries < 0:
+        raise ValueError("retries must be a non-negative integer.")
+    if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or timeout <= 0:
+        raise ValueError("timeout must be a positive number of seconds.")
+
+
+def _cacheable_ai_result(result) -> bool:
+    """Do not retain transport or validation failures."""
+    if not isinstance(result, dict) or not result:
+        return False
+    error_prefixes = (
+        "failed",
+        "invalid structured response",
+        "openai api error",
+        "timed out",
+    )
+    for value in result.values():
+        if isinstance(value, BaseException):
+            return False
+        if isinstance(value, str) and value.strip().lower().startswith(error_prefixes):
+            return False
+    return True
+
+
+def _validate_ai_metadata(metadata: dict) -> dict:
+    """Copy and validate OpenAI's diagnostic labels without logging their values."""
+    if metadata is None:
+        return None
+    if not isinstance(metadata, dict):
+        raise ValueError("metadata must be an object with string keys and values.")
+    if len(metadata) > 16:
+        raise ValueError("metadata must contain at most 16 key-value pairs.")
+    if any(not isinstance(key, str) or len(key) > 64 for key in metadata):
+        raise ValueError("metadata keys must be strings of at most 64 characters.")
+    if any(not isinstance(value, str) or len(value) > 512 for value in metadata.values()):
+        raise ValueError("metadata values must be strings of at most 512 characters.")
+    return metadata.copy()
+
+
+def _ai_request_metadata(metadata: dict) -> dict:
+    """Attach only selected recipe context and the configured Wrangles username."""
+    labels = _validate_ai_metadata(metadata)
+    # An explicit empty object opts out of automatic attribution.
+    if labels == {}:
+        return labels
+
+    # Import lazily: recipe imports the extraction wrappers during initialization.
+    from .recipe import _RECIPE_RUN_CONTEXT
+    context = _RECIPE_RUN_CONTEXT.get() or {}
+    defaults = {
+        "recipe_name": context.get("recipe_name"),
+        "wrangles_user": context.get("wrangles_user") or _config.api_user,
+    }
+    result = labels or {}
+    for key, value in defaults.items():
+        if key not in result and len(result) < 16 and isinstance(value, str) and value.strip():
+            result[key] = value[:512]
+    return result or labels
+
+
+def _enable_responses_web_search(payload: dict) -> None:
+    """Add native web search without replacing expert Responses settings."""
+    tools = payload.setdefault("tools", [])
+    if not isinstance(tools, list):
+        raise ValueError("OpenAI Responses 'tools' must be an array.")
+    if not any(
+        isinstance(tool, dict)
+        and tool.get("type") in {"web_search", "web_search_preview"}
+        for tool in tools
+    ):
+        tools.append({"type": "web_search"})
+
+    included = payload.setdefault("include", [])
+    if not isinstance(included, list):
+        raise ValueError("OpenAI Responses 'include' must be an array.")
+    source_include = "web_search_call.action.sources"
+    if source_include not in included:
+        included.append(source_include)
+
+    payload.setdefault("tool_choice", "auto")
 
 
 def address(
@@ -55,13 +163,25 @@ def ai(
     api_key: str,
     output: dict = None,
     model_id: str = None,
-    model: str = "gpt-4.1-mini",
-    threads: int = 20,
-    timeout: int = 25,
-    retries: int = 0,
-    messages: list = [],
-    url: str = "https://api.openai.com/v1/chat/completions",
-    strict: bool = False,
+    model: str = None,
+    threads: int = None,
+    timeout: float = None,
+    retries: int = None,
+    messages: _Union[str, list] = None,
+    examples: _Union[dict, list] = None,
+    record_examples: _Union[dict, list] = None,
+    url: str = None,
+    strict: bool = None,
+    reasoning: dict = None,
+    verbosity: str = None,
+    provider: str = None,
+    protocol: str = None,
+    store: bool = None,
+    cache: bool = None,
+    cache_ttl: float = None,
+    web_search: bool = False,
+    instructions: _Union[str, list] = None,
+    metadata: dict = None,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -76,210 +196,292 @@ def ai(
 
     :param input: A single value or list of values to extract information from. If a list is provided, \
         each element will be analyzed individually and a list of equal length will be returned.
-    :param api_key: API Key
+    :param api_key: OpenAI API key.
     :param output: (Optional) This can be a string prompting the output, a JSON schema definition \
         of the output requested or a dict of JSON schema definitions.
     :param model_id: (Optional) An extract.ai model ID containing a saved definition. Use this or output. \
-        If both are provided, output that precedence over the definition from the model_id.
+        If both are provided, named output fields take precedence over matching saved fields.
     :param model: (Optional) The model to use for the extraction.
     :param threads: (Optional) Number of threads to use for parallel processing.
     :param timeout: (Optional) Timeout in seconds for each API call.
     :param retries: (Optional) Number of retries to attempt on failure.
-    :param messages: (Optional) Overall prompts to pass additional instructions.
-    :param url: (Optional) Override the endpoint. Must implement the OpenAI chat completions API schema with function calling.
-    :param strict: (Optional) Enable strict mode. Default False. If True, the function will be required to match the schema, \
-        but may be more limited in the schema it can return.
-
-    :return: A scalar or list of extracted information.
+    :param instructions: (Optional) General Instructions applied to every input row, in addition
+        to GeneralInstructions in a saved model. Use this for
+        decision rules, evidence priorities, normalization requirements, or other behavior that
+        applies to the complete extraction.
+    :param messages: (Optional) Compatibility alias for instructions.
+    :param examples: (Optional) Compatibility alias for record_examples.
+    :param record_examples: (Optional) Whole-record examples containing input and output, with optional name and notes.
+    :param url: (Optional) Override the configured endpoint.
+    :param strict: (Optional) Enable structured output strict mode. Dynamic object schemas \
+        automatically use non-strict mode and are validated locally.
+    :param reasoning: (Optional) Responses API reasoning options. Defaults to {"effort": "none"} \
+        for models that support disabling reasoning; otherwise omitted so the provider default applies.
+    :param verbosity: (Optional) Responses API text verbosity. Defaults to "low" \
+        for models that support low verbosity.
+    :param provider: (Optional) AI provider. Currently only "openai" is supported.
+    :param protocol: (Optional) API protocol: "responses" or legacy "chat_completions".
+    :param store: (Optional) Whether OpenAI may store Responses. Defaults to True.
+    :param metadata: (Optional) OpenAI log labels, such as recipe_name and wrangles_user.
+        Up to 16 string pairs, with keys up to 64 and values up to 512 characters.
+        Available recipe name and Wrangles user are added automatically. Explicit
+        labels override those defaults; an empty dict disables automatic labels.
+        Labels are separate from model instructions and do not enable tracing.
+    :param cache: (Optional) Use the bounded warm-instance result cache. Defaults to True.
+    :param cache_ttl: (Optional) Override the result-cache TTL in seconds for this call.
+    :param web_search: (Optional) Enable native Responses web search. Each result then includes a
+        web_search_sources list containing source titles and URLs. Defaults to False.
+    :return: Extracted information. When web_search is true, returns a dictionary (or list of
+        dictionaries) containing web_search_sources, including for single-field output.
     """
+    policy = _ai_config.extract_ai()
+    provider = str(provider or policy.get("provider", "openai")).strip().lower()
+    if provider != "openai":
+        raise ValueError(
+            f"Unsupported extract.ai provider {provider!r}. Phase 1 supports only 'openai'."
+        )
+
+    if protocol is None:
+        if url and "/chat/completions" in url:
+            protocol = "chat_completions"
+            _LOG.warning(
+                "Inferred legacy protocol 'chat_completions' from url; "
+                "set protocol explicitly while upgrading this definition."
+            )
+        else:
+            protocol = policy.get("protocol", "responses")
+    protocol = _normalize_ai_protocol(protocol)
+    if not isinstance(web_search, bool):
+        raise ValueError("web_search must be true or false.")
+    if web_search and protocol != "responses":
+        raise ValueError("web_search is supported only with protocol='responses'.")
+
+    if url:
+        if protocol == "responses" and "/chat/completions" in url:
+            raise ValueError("A Chat Completions url cannot be used with protocol='responses'.")
+        if protocol == "chat_completions" and "/responses" in url:
+            raise ValueError("A Responses url cannot be used with protocol='chat_completions'.")
+    else:
+        url = policy.get("endpoints", {}).get(protocol)
+    if not url:
+        raise ValueError(f"No endpoint is configured for extract.ai protocol {protocol!r}.")
+
+    model = model or policy.get("model")
+    if not isinstance(model, str) or not model.strip():
+        raise ValueError("model must be a non-empty string.")
+    threads = threads if threads is not None else policy.get("default_concurrency", 32)
+    timeout = timeout if timeout is not None else policy.get("request_timeout_seconds", 12)
+    retries = retries if retries is not None else policy.get("retries", 0)
+    strict = strict if strict is not None else policy.get("strict", True)
+    store = store if store is not None else policy.get("store", True)
+    cache_policy = _ai_cache.resolve_policy(
+        policy.get("cache", {}),
+        enabled=cache,
+        ttl_seconds=cache_ttl,
+    )
+
+    if not isinstance(strict, bool):
+        raise ValueError("strict must be true or false.")
+    if not isinstance(store, bool):
+        raise ValueError("store must be true or false.")
+    if verbosity is not None and verbosity not in {"low", "medium", "high"}:
+        raise ValueError("verbosity must be 'low', 'medium', or 'high'.")
+    if reasoning is not None and not isinstance(reasoning, dict):
+        raise ValueError("reasoning must be an object such as {'effort': 'none'}.")
+    _validate_ai_runtime_settings(threads, timeout, retries)
+    metadata = _ai_request_metadata(metadata)
+
+    if instructions not in (None, "") and messages not in (None, ""):
+        raise ValueError("Use instructions or messages, not both.")
+    if instructions in (None, ""):
+        instructions = messages
+    if record_examples not in (None, "") and examples not in (None, ""):
+        raise ValueError("Use record_examples or examples, not both.")
+    if record_examples in (None, ""):
+        record_examples = examples
+
     # Ensure input is a list
     input_was_scalar = False
     if not isinstance(input, list):
         input_was_scalar = True
         input = [input]
 
-    if output is None and model_id is None:
-        raise ValueError("output or model_id must be specified.")
-
-    output_generic_key = False
-    # If output was provided as a string
-    # Then convert to JSON schema structure
-    if isinstance(output, str):
-        output_generic_key = True
-        output = {"output": {"description": output}}
-
-    # If output was a single JSON schema object
-    # nest with a generic key
-    elif (
-        isinstance(output, dict) and
-        'description' in output and
-        not isinstance(output['description'], dict)
+    saved_model_content = (
+        _data.model_content(model_id)
+        if model_id is not None
+        else None
+    )
+    compiled = _ai_definition.compile_definition(
+        output,
+        model=model,
+        messages=instructions,
+        examples=record_examples,
+        strict=strict,
+        saved_model_content=saved_model_content,
+        source=f"saved model {model_id}" if model_id else "recipe/Python output",
+    )
+    output = compiled.output
+    model = compiled.model
+    saved_reasoning = compiled.reasoning
+    strict = compiled.strict
+    output_generic_key = compiled.output_generic_key
+    _key_to_original = compiled.key_to_original
+    _needs_remap = compiled.needs_remap
+    root_schema = compiled.root_schema
+    example_guidance = _ai_definition.render_example_guidance(compiled)
+    if (
+        web_search
+        and _openai_responses.WEB_SEARCH_SOURCES_KEY in compiled.output
     ):
-        output_generic_key = True
-        output = {"output": output}
-
-    if output is not None:
-        # Ensure output values are JSON schema objects
-        output = {
-            k: v
-            if isinstance(v, dict)
-            else {"description": str(v)}
-            for k, v in output.items()
-        }
-
-    if model_id is not None:
-        if output_generic_key:
-            raise ValueError("Output must be set with keys when combining with a model_id")
-
-        # Get model definition, make sure keys are case insensitive
-        model_definition = {
-            str(k).lower(): v
-            for k, v in _data.model_content(model_id).items()
-        }
-
-        try:
-            # Use saved model general settings
-            model = model_definition.get('settings', {}).get('GPTModel', model)
-            messages = model_definition.get('settings', {}).get('AdditionalMessages', messages)
-
-            model_definition = {
-                x["find"]: {
-                    k: v
-                    for k, v in x.items()
-                    if k not in ["find", "notes"] # find is key, notes is for info only
-                    and v not in ("", None) # ignore empty values but allow False and 0 as real possibilities
-                }
-                for x in _pd.DataFrame(
-                    model_definition['data'],
-                    columns=[str(x).lower() for x in model_definition['columns']]
-                ).to_dict(orient='records')
-            }
-        except:
-            raise ValueError(f"Model definition for {model_id} is not correctly formatted")
-        
-        output = {
-            **model_definition,
-            **(output or {})
-        }
-
-    json_schema_basic_types = ["string", "number", "boolean"]
-
-    # Parse any JSON values
-    def _safe_json_parse(value):
-        try:
-            return _json.loads(value)
-        except:
-            return value
-
-    def _standardize_schema(node):
-        """
-        Make schema JSON schema compliant allowing for simpler user input
-
-        Add default types if not specified.
-        Parse any inputs that are JSON and not true objects.
-        Parse any lists that are comma separated values.
-        Convert properties as lists of keys
-        """
-        if not isinstance(node, dict):
-            raise ValueError(f"Output is not correctly formatted: {str(node)}")
-
-        # If type isn't specified, assume basic scalar value
-        if not node.get("type", ''):
-            node['type'] = json_schema_basic_types
-
-        # Parse any JSON columns
-        node = {
-            label: _safe_json_parse(value)
-            if (
-                isinstance(value, str) and
-                (value.startswith("{") or value.startswith("["))
-            )
-            else value
-            for label, value in node.items()
-        }
-        
-        # Parse any comma separated values into lists
-        node = {
-            label: [x.strip() for x in value.split(",")]
-            if label in ("examples", "enum", "properties")
-            and isinstance(value, str)
-            else value
-            for label, value in node.items()
-        }
-
-        # Ensure examples are a list if provided
-        if (
-            'examples' in node and
-            not isinstance(node['examples'], list) and
-            node['examples'] not in ("", None)
-        ):
-            node['examples'] = [node.get('examples')]
-        # 
-        if 'properties' in node:
-            # Allows user to define properties as a comma separated or JSON list
-            # Rather than having to give a full JSON schema object
-            if isinstance(node['properties'], list):
-                node['properties'] = {
-                    v: {}
-                    for v in node['properties']
-                }
-            
-            # Clean up sub properties
-            node['properties'] = {
-                k: _standardize_schema(v)
-                for k, v in node['properties'].items()
-            }
-
-        if (
-            (isinstance(node['type'], list) and "array" in node["type"])
-            or node["type"] == "array"
-        ):
-            # Ensure array types specify the items
-            if "items" not in node:
-                node["items"] = {}
-
-            # Clean any sub item schema
-            if isinstance(node["items"], dict):
-                node["items"] = _standardize_schema(node["items"])
-
-        return node
-
-    # Fix misc schema issues
-    output = {
-        k: _standardize_schema(v)
-        for k, v in output.items()
-    }
-
-    # Sanitize output keys: replace any character outside [a-zA-Z0-9_] with
-    # an underscore before sending to the model. Property names with special
-    # characters (e.g. parentheses, spaces) are sometimes altered by the model,
-    # producing key mismatches that cause silent empty columns. We remap the
-    # sanitized names back to the originals after receiving results.
-    _key_to_original = {}
-    _sanitized_output = {}
-    for _k, _v in output.items():
-        _sk = _re.sub(r'[^a-zA-Z0-9_]', '_', _k)
-        _base, _n = _sk, 2
-        while _sk in _key_to_original:
-            _sk = f"{_base}_{_n}"
-            _n += 1
-        _key_to_original[_sk] = _k
-        _sanitized_output[_sk] = _v
-    _needs_remap = any(sk != ok for sk, ok in _key_to_original.items())
-    if _needs_remap:
-        output = _sanitized_output
-
-    # Format any user submitted header messages
-    if messages and not isinstance(messages, list):
-        messages = [str(messages)]
+        raise ValueError(
+            f"{_openai_responses.WEB_SEARCH_SOURCES_KEY!r} is reserved when "
+            "web_search is enabled. Choose a different output field name."
+        )
 
     messages = [
+        {
+            "role": "user",
+            "content": message
+        }
+        for message in compiled.messages
+    ]
+
+    if protocol == "responses":
+        schema = _openai_responses.sanitize_schema(
+            root_schema,
+            strict=strict,
+        )
+        instructions = str(
+            policy.get("prompt", {}).get("instructions", "")
+        ).strip()
+        if not instructions:
+            raise ValueError("extract.ai prompt instructions are missing from the AI configuration.")
+        if example_guidance:
+            instructions += "\n\nExamples:\n" + example_guidance
+        if messages:
+            instructions += "\n\nAdditional instructions:\n" + "\n".join(
+                str(message.get("content", ""))
+                for message in messages
+            )
+        if web_search:
+            instructions += "\n\n" + " ".join([
+                "Web search is enabled for this call.",
+                "Information returned by the web search tool is authorized evidence in addition to DATA.",
+                "Use web search only when it helps answer the requested fields, and return null when neither DATA nor web evidence supports a field.",
+            ])
+
+        payload = {
+            "model": model,
+            "instructions": instructions,
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "extract_ai_response",
+                    "schema": schema,
+                    "strict": strict,
+                },
+            },
+            "store": store,
+            **_openai_responses.sanitize_request_params(kwargs),
+        }
+        if web_search:
+            _enable_responses_web_search(payload)
+        configured_reasoning = (
+            reasoning
+            if reasoning is not None
+            else saved_reasoning or policy.get("reasoning", {"effort": "none"})
+        )
+        if _openai_responses.supports_reasoning(model):
+            effort = configured_reasoning.get("effort")
+            if _openai_responses.supports_reasoning_effort(model, effort):
+                payload["reasoning"] = configured_reasoning
+            else:
+                _LOG.warning(
+                    "Ignoring reasoning effort %r: not supported by model '%s'; "
+                    "the provider's default reasoning effort will apply.",
+                    effort,
+                    model,
+                )
+        elif reasoning is not None or saved_reasoning is not None:
+            _LOG.warning(
+                "Ignoring 'reasoning' parameter: not supported by model '%s'",
+                model,
+            )
+        if verbosity is not None:
+            if _openai_responses.supports_low_verbosity(model):
+                payload["text"]["verbosity"] = verbosity
+            else:
+                _LOG.warning(
+                    "Ignoring 'verbosity' parameter: not supported by model '%s'",
+                    model,
+                )
+        elif _openai_responses.supports_low_verbosity(model):
+            payload["text"]["verbosity"] = policy.get("text", {}).get("verbosity", "low")
+
+        payload["prompt_cache_key"] = _openai_responses.prompt_cache_key(
+            "extract.ai",
+            model,
+            payload,
+        )
+        # Labels affect result-cache attribution, but not the reusable model prompt.
+        if metadata is not None:
+            payload["metadata"] = metadata
+        static_request = {
+            "url": url,
+            "payload": payload,
+            "cache_ttl_seconds": cache_policy.ttl_seconds,
+        }
+        results = _ai_cache.execute_batch(
+            input,
+            key_for=lambda row: _ai_cache.make_key(
+                namespace="extract.ai",
+                provider=provider,
+                protocol=protocol,
+                tenant_secret=api_key,
+                static_request=static_request,
+                data=_openai_responses.format_input_data(row),
+            ),
+            compute=lambda row: _openai_responses.call_structured(
+                row,
+                api_key,
+                payload,
+                url,
+                timeout,
+                retries,
+                list(output.keys()),
+            ),
+            cacheable=_cacheable_ai_result,
+            max_workers=threads,
+            policy=cache_policy,
+            preflight_first=True,
+        )
+
+        if _needs_remap:
+            results = [
+                {_key_to_original.get(k, k): v for k, v in row.items()}
+                if isinstance(row, dict) else row
+                for row in results
+            ]
+
+        if input_was_scalar:
+            if output_generic_key and not web_search:
+                return results[0].get('output', 'Failed')
+            else:
+                return results[0]
+        else:
+            if output_generic_key and not web_search:
+                return [x.get('output', 'Failed') for x in results]
+            else:
+                return results
+
+    stable_messages = [
         {
             "role": "system",
             "content": " ".join([
                 "You are an expert data analyst.",
                 "Your job is to extract and standardize information as provided by the user.",
-                "The data may be provided as a single value or as YAML syntax with keys and values."
+                "The data may be provided as a single value or as YAML syntax with keys and values.",
+                "Return null when the data does not explicitly support a requested field.",
             ])
         },
         {
@@ -289,13 +491,13 @@ def ai(
                 "Only use the functions you have been provided with.",
             ])
         },
-    ] + [
-        {
-            "role": "user",
-            "content": message
-        }
-        for message in messages
     ]
+    if example_guidance:
+        stable_messages.append({
+            "role": "system",
+            "content": "Examples:\n" + example_guidance,
+        })
+    messages = stable_messages + messages
     
     default_settings = {
         "gpt-4o-mini": {"temperature": 0.2},
@@ -316,30 +518,45 @@ def ai(
             "function": {
                 "name": "parse_output",
                 "description": "Submit the output corresponding to the extracted data in the form the user requires.",
-                "parameters": {
-                    "type": "object",
-                    "properties": output,
-                    "required": list(output.keys()),
-                    "additionalProperties": False,
-                },
+                "parameters": root_schema,
                 "strict": strict
             }
         }],
         "tool_choice": {"type": "function", "function": {"name": "parse_output"}},
         **kwargs
     }
+    if metadata is not None:
+        settings["metadata"] = metadata
 
     _logging.info(f": Extracting data using AI model :: model_id :: {model_id}, thread_count :: {threads}")
-    with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
-        results = list(executor.map(
-            _openai.chatGPT,
-            input, 
-            [api_key] * len(input),
-            [settings] * len(input),
-            [url] * len(input),
-            [timeout] * len(input),
-            [retries] * len(input),
-        ))
+    static_request = {
+        "url": url,
+        "settings": settings,
+        "cache_ttl_seconds": cache_policy.ttl_seconds,
+    }
+    results = _ai_cache.execute_batch(
+        input,
+        key_for=lambda row: _ai_cache.make_key(
+            namespace="extract.ai",
+            provider=provider,
+            protocol=protocol,
+            tenant_secret=api_key,
+            static_request=static_request,
+            data=_openai.format_input_data(row),
+        ),
+        compute=lambda row: _openai.chatGPT(
+            row,
+            api_key,
+            settings,
+            url,
+            timeout,
+            retries,
+        ),
+        cacheable=_cacheable_ai_result,
+        max_workers=threads,
+        policy=cache_policy,
+        preflight_first=True,
+    )
 
     if _needs_remap:
         results = [
@@ -427,6 +644,20 @@ def codes(
 
     e.g. 'Something ABC123ZZ something' -> 'ABC123ZZ'
 
+    :param input: A string or list of strings to search for codes.
+    :param first_element: Get the first element from results.
+    :param min_length: Minimum length of allowed results.
+    :param max_length: Maximum length of allowed results.
+    :param strategy: Controls filtering of likely false positives such as measurements.
+        'lenient' skips this filter, while 'balanced' and 'strict' currently apply
+        the same filter. Default is 'balanced'. Unless min_length is provided,
+        minimum lengths default to 3 for lenient, 4 for balanced, and 5 for strict.
+    :param sort_order: Default is input order. Also allows 'longest' or 'shortest'.
+    :param disallowed_patterns: A pattern or JSON array of regex patterns to not include in the found codes.
+    :param include_multi_part_tokens: Whether to include multi-part tokens that have a space. Default True.
+    :param extract_raw: Whether to return tokens with their adjacent non-whitespace characters
+        included, rather than the cleaned token. Default False.
+    :return: A list of codes found.
     """
     if isinstance(input, str): 
         json_data = [input]
@@ -526,10 +757,26 @@ def custom(
 
     if isinstance(results, dict) and "data" in results and "columns" in results:
         if len(results["columns"]) == 1:
-            results = [
-                row[0]
-                for row in results["data"]
-            ]
+            # For a single output column, the service returns the matches
+            # as a ", " joined string rather than an array. Convert this
+            # back into a list of matches to preserve the expected output type.
+            def _entities_to_list(value):
+                if isinstance(value, list):
+                    return value
+                if value in (None, ""):
+                    return []
+                return [item.strip() for item in value.split(",")]
+
+            if use_labels:
+                results = [
+                    {results["columns"][0]: _entities_to_list(row[0])}
+                    for row in results["data"]
+                ]
+            else:
+                results = [
+                    _entities_to_list(row[0])
+                    for row in results["data"]
+                ]
         else:
             results = [
                 {results["columns"][i]: row[i] for i in range(len(row))}
@@ -543,15 +790,18 @@ def custom(
             if include_empty_labels:
                 # Ensure every label has a key, create empty keys if missing.
                 # Use both labels discovered from results and labels defined in the model.
-                all_labels = set(model_labels or [])
+                all_labels = {}
+                for label in sorted(model_labels, key=lambda x: x.lower()):
+                    all_labels.setdefault(label.lower(), label)
                 for objs in results:
-                    all_labels.update([str(k).lower() for k in objs.keys()])
+                    for label in objs:
+                        all_labels.setdefault(str(label).lower(), label)
 
                 for objs in results:
                     # Normalize existing keys to lower-case while preserving original keys
                     existing = {str(k).lower(): k for k in objs.keys()}
-                    for label in all_labels:
-                        if label not in existing:
+                    for normalized_label, label in all_labels.items():
+                        if normalized_label not in existing:
                             objs[label] = []
             if first_element:
                 results = [{k: v[0] if isinstance(v, list) and v else "" for k, v in objs.items()} for objs in results]
