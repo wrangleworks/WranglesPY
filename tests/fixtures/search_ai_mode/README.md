@@ -32,6 +32,10 @@ source IDs, skipped/failed rows and mixed-row batches. The real recipe and
 blocked. Temporary XLSX/JSON snapshots verify replay and preservation of values
 longer than an Excel cell; no generated workbooks or provider exports are
 committed.
+An additional nested-list variant places all section labels inside list items
+with an empty provider reference list. It verifies that unsectioned evidence
+reaches extraction and that the extracted values, including an inline supplier
+URL, populate the main DataFrame and exported workbook columns.
 
 This small fixture is authored directly; there is no dataset sampling or
 generation step. Run its consumer tests from the repository root:

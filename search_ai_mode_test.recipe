@@ -134,8 +134,10 @@ wrangles:
   - custom.clean_ai_mode_links:
       input: ai_mode_markdown_clean
 
+  # Show extraction fields in the main columns; keep the deterministic payload
+  # available for comparison. With extraction disabled, display that payload.
   - split.dictionary:
-      input: ai_mode_result
+      input: ${DISPLAY_RESULT}
 
 write:
 
@@ -157,6 +159,7 @@ write:
         - ai_mode_markdown_clean
         - ai_mode_result_structured
         - ai_mode_structured_meta
+        - ai_mode_result
 
   # A full replayable snapshot; JSON has no Excel cell-length limit.
   - file:

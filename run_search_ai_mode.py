@@ -116,7 +116,9 @@ def format_search_extraction(df, input, evidence, output, diagnostics):
                 specifications=SPECIFICATIONS_HEADING, pricing=PRICING_HEADING,
             )
         else:
-            result, diagnostic = "", {"status": "skipped", "warnings": [], "source_matches": []}
+            # Keep the display schema stable for skipped rows and all-empty runs.
+            result = {DESCRIPTION_HEADING: "", SPECIFICATIONS_HEADING: [], PRICING_HEADING: [], "references": []}
+            diagnostic = {"status": "skipped", "warnings": [], "source_matches": []}
         results.append(result)
         metadata.append(diagnostic)
     df[output], df[diagnostics] = results, metadata
@@ -173,6 +175,7 @@ def main():
         "EXTRACT_THREADS": EXTRACT_THREADS,
         "EXTRACT_TIMEOUT": EXTRACT_TIMEOUT,
         "EXTRACT_RETRIES": EXTRACT_RETRIES,
+        "DISPLAY_RESULT": "ai_mode_result_structured" if EXTRACT_ENABLED else "ai_mode_result",
     }
     if not EXTRACT_ENABLED:
         # Recipe variables resolve before step conditions. A skipped extraction

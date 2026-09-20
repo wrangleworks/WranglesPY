@@ -8,8 +8,13 @@ The recipe now compares the existing deterministic result with a subsequent
 `extract.ai` step. The search wrangle's three-output contract is unchanged.
 
 Each run prints its output paths and writes uniquely named XLSX and JSON files
-under the ignored `.data/` directory. Excel contains the original expanded
-fields beside `ai_mode_result_structured` and `ai_mode_structured_meta`.
+under the ignored `.data/` directory. Excel's Product Description, Technical
+Specifications, Pricing & Sources and references columns expand
+`ai_mode_result_structured`, the downstream extraction result.
+`ai_mode_structured_meta` reports its status; `ai_mode_result` retains the old
+deterministic result for comparison. When extraction is disabled, the main
+columns expand that deterministic result instead. Skipped extraction rows have
+empty fields with a `skipped` status.
 The JSON snapshot contains the entire returned DataFrame, including captured
 complete results, original Markdown, extraction evidence and model output.
 JSON preserves long cell values that Excel cannot hold.
@@ -61,6 +66,13 @@ API envelope. It copies the complete sections and references, restoring any
 unmatched or unsectioned blocks from metadata. Nested lists, unfamiliar blocks,
 and parallel `table`/`detailed`/`formatted` representations remain intact.
 Search transport metadata is omitted from the model input.
+
+For example, Google can put all section labels inside list items. The original
+section parser retains those blocks under `meta_data.unsectioned_text_blocks`
+and leaves its heading fields empty. That structure still reaches `extract.ai`
+and can produce a populated structured result. Empty heading fields in the
+complete/deterministic outputs therefore do not imply extraction failed; inspect
+`ai_mode_structured_meta` and the structured output separately.
 
 The same helper accepts the inner `ai_overview` answer object. A test verifies
 this with a classic-search envelope containing unrelated organic results;

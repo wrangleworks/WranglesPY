@@ -130,7 +130,13 @@ def test_failed_extraction_is_explicit_and_preserves_reference_slots(answer, ext
 
 
 @pytest.fixture
-def trial(monkeypatch, tmp_path, answer):
+def trial_extraction():
+    return {"description": "A synthetic product.", "specifications": [{"name": "Pitch", "value": "1/2 inch"}],
+            "offers": [{"supplier": "Supplier A", "price": "$13.15 USD", "source_ids": ["s2"]}]}
+
+
+@pytest.fixture
+def trial(monkeypatch, tmp_path, answer, trial_extraction):
     import serpapi
     from wrangles import extract
 
@@ -146,9 +152,7 @@ def trial(monkeypatch, tmp_path, answer):
         ok, status_code, headers = True, 200, {}
 
         def json(self):
-            extracted = {"description": "A synthetic product.", "specifications": [{"name": "Pitch", "value": "1/2 inch"}],
-                         "offers": [{"supplier": "Supplier A", "price": "$13.15 USD", "source_ids": ["s2"]}]}
-            return {"output": [{"type": "message", "content": [{"type": "output_text", "text": json.dumps({"search_ai_extracted": extracted})}]}]}
+            return {"output": [{"type": "message", "content": [{"type": "output_text", "text": json.dumps({"search_ai_extracted": trial_extraction})}]}]}
 
     def post(**kwargs):
         extractions.append(kwargs["json"])
@@ -219,6 +223,44 @@ def test_json_snapshot_replays_without_search_or_excel_truncation(trial, monkeyp
     assert first.iloc[0]["search_query"] == second.iloc[0]["search_query"]
 
 
+def test_nested_section_labels_reach_extraction_and_displayed_columns(trial, trial_extraction, monkeypatch, tmp_path):
+    import pandas as pd
+
+    searches, extractions, response = trial
+    response["references"] = []
+    response["text_blocks"] = [{"type": "list", "list": [
+        {"snippet": "Product Description: A synthetic product."},
+        {"snippet": "Technical Specifications:", "list": [{"snippet": r"Pitch: $1/2$ inch"}]},
+        {"snippet": "Pricing & Sources:", "list": [{"snippet": "Supplier A: £8.22 (excluding VAT)",
+                                                   "snippet_links": [{"text": "Supplier A", "link": SUPPLIER}]}]},
+    ]}]
+    trial_extraction["offers"] = [{"supplier": "Supplier A", "price": "£8.22 (excluding VAT)", "source_ids": ["s1"]}]
+    monkeypatch.setattr(runner, "WRITE_OUTPUTS", True)
+
+    df = runner.main()
+    row = df.iloc[0]
+    assert len(searches) == len(extractions) == 1
+    assert row["ai_mode_result"]["Product Description"] == ""
+    assert row["ai_mode_result_complete"]["meta_data"]["missing_headings"] == list(LABELS.values())
+    assert row["search_ai_evidence"]["content"]["unsectioned_text_blocks"] == response["text_blocks"]
+    assert "unsectioned_text_blocks" in json.dumps(extractions[0]["input"])
+    assert row["ai_mode_structured_meta"]["status"] == "complete"
+    for heading in (*LABELS.values(), "references"):
+        assert row[heading] == row["ai_mode_result_structured"][heading]
+    assert row["Product Description"] == "A synthetic product."
+    assert row["Technical Specifications"] == [{"Pitch": "1/2 inch"}]
+    assert list(zip(row["Pricing & Sources"], row["references"], strict=True)) == [
+        ({"Supplier A": "£8.22 (excluding VAT)"}, SUPPLIER),
+    ]
+    workbook, = tmp_path.glob("*.xlsx")
+    exported = pd.read_excel(workbook).iloc[0]
+    assert exported["Product Description"] == row["Product Description"]
+    assert "1/2 inch" in exported["Technical Specifications"]
+    assert "£8.22 (excluding VAT)" in exported["Pricing & Sources"]
+    assert SUPPLIER in exported["references"]
+    assert "ai_mode_result" in exported.index
+
+
 @pytest.mark.parametrize("state", ["error", "disabled", "blank"])
 def test_trial_skips_extraction_without_successful_search(trial, monkeypatch, state):
     searches, extractions, response = trial
@@ -234,7 +276,14 @@ def test_trial_skips_extraction_without_successful_search(trial, monkeypatch, st
     df = runner.main()
     assert extractions == []
     assert df.iloc[0]["ai_mode_structured_meta"]["status"] == "skipped"
-    assert df.iloc[0]["ai_mode_result_structured"] == ""
+    assert df.iloc[0]["ai_mode_result_structured"] == {
+        "Product Description": "", "Technical Specifications": [], "Pricing & Sources": [], "references": [],
+    }
+    if state == "disabled":
+        for heading in (*LABELS.values(), "references"):
+            assert df.iloc[0][heading] == df.iloc[0]["ai_mode_result"][heading]
+    else:
+        assert not any(df.iloc[0][heading] for heading in (*LABELS.values(), "references"))
 
 
 def test_trial_keeps_mixed_success_and_failure_on_their_input_rows(trial, monkeypatch):
@@ -255,6 +304,7 @@ def test_trial_keeps_mixed_success_and_failure_on_their_input_rows(trial, monkey
     assert len(searches) == 2 and len(extractions) == 1
     assert df["ID"].tolist() == [1, 2]
     assert df.iloc[0]["ai_mode_result_structured"]["references"] == [MAKER, SUPPLIER]
-    assert df.iloc[1]["ai_mode_result_structured"] == ""
+    assert not any(df.iloc[1]["ai_mode_result_structured"].values())
+    assert not any(df.iloc[1][heading] for heading in (*LABELS.values(), "references"))
     assert df.iloc[1]["ai_mode_result_complete"]["meta_data"]["error"] == "Synthetic second-row failure"
     assert df.iloc[1]["ai_mode_structured_meta"]["status"] == "skipped"
