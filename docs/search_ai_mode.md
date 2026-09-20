@@ -218,6 +218,53 @@ passed, not that the content or supplier association has been fact-checked.
 The Markdown/frontmatter and URL helpers are engine-independent so a future
 `search.ai_overview` can reuse them. Overview retrieval is not implemented here.
 
+## Known recurring glitch: viewer text in description links
+
+Google's product-viewer UI text can be appended directly to a product name in
+the first sentence of a description. The Markdown link is syntactically valid,
+but its label includes `Go to product viewer dialog for this item.` and its
+destination is a Google shopping viewer, not a supplier page. This is a provider
+formatting artifact, not product information.
+
+Before cleanup (shortened product label and synthetic viewer URL):
+
+```markdown
+The [Renold \(GY08B2S26I\)Go to product viewer dialog for this item.](https://www.google.com/search?ibp=oshop&prds=productid:123) typically ranges in price...
+```
+
+Expected cleaned Markdown, with the product wording and destination retained:
+
+```markdown
+The [Renold \(GY08B2S26I\)](https://www.google.com/search?ibp=oshop&prds=productid:123) typically ranges in price...
+```
+
+This cleanup was removed during the Markdown refactor (`73f9b85a`). Because
+Product Description copies cleaned evidence verbatim, the UI text then reached
+the extracted description. The dedicated `custom.clean_ai_mode_links` step was
+restored in `0bffe32f`, before `extract.ai`. Keep this formatting repair separate
+from semantic extraction; filtering viewer URLs out of references does not
+repair description text.
+
+When changing the provider adapter, recipe or cleanup path, check these stages:
+
+- **Raw `ai_mode_results`:** the artifact may remain intentionally, preserving
+  the provider response for diagnosis.
+- **`ai_mode_results_clean`:** the instruction must be absent from affected
+  link labels; product names, escaped punctuation and destinations must survive.
+- **Product Description:** the instruction must not reappear in the copied
+  passage. The viewer URL still must not become an accepted source reference.
+
+The matcher targets this exact instruction at the end of an inline link label.
+Different wording or markup may require an update. If it reappears, retain the
+new raw response under `.data/`, add a small sanitized regression example, and
+adjust the targeted cleanup. Avoid broadly deleting product links or rewriting
+the description to hide the symptom.
+
+[Regression coverage](../tests/test_search_ai_extraction.py) includes
+`test_viewer_label_cleanup_preserves_product_wording_links_and_raw_evidence`,
+the full recipe's cleaned model input, and replay preservation. Keep those
+checks when refactoring this pipeline.
+
 ## Captures, replay and evaluation
 
 Each run prints its output paths and writes uniquely named XLSX and JSON files
