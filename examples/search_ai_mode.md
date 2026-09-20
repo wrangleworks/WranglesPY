@@ -26,7 +26,7 @@ new names, so the original evidence stays available. `EXTRACT_ENABLED = False`
 skips extraction and needs no OpenAI key. `WRITE_OUTPUTS = False` disables file
 exports; `PRETTY_PRINT = True` prints the returned records to the terminal.
 
-The runner's editable defaults include `NROWS` (`None` for both sample rows),
+The runner's editable defaults include `NROWS` (`None` for all sample rows),
 search and extraction concurrency, locale, extraction timeout/retries and
 `EXTRACT_MODEL` (`None` uses the configured `extract.ai` default). The shared
 query configuration is:
@@ -51,6 +51,22 @@ Description/Mfr/MPN, and the suffix. Each product line is prefixed with `>`.
 The temporary configuration column is removed before searching. The trial's
 three heading names are editable constants used by both the prompt and final
 structured-result formatter.
+
+The template uses only `Description`, `Mfr` and `MPN` from each sample record;
+`ID` identifies the row. The generated `search_query` column is the exact text
+sent to SerpAPI as `q`. The separate input `query` and `part_codes` fields are
+carried through for reference or later validation and are not interpolated into
+the search query.
+
+The client uses SerpAPI's synchronous request mode (`async` defaults to false).
+Its SDK receives and decodes a complete JSON response before our normalizer
+runs; our code does not consume Google's browser token stream. SerpAPI owns the
+capture of that content. This does not independently guarantee that every
+Google result was captured, even when SerpAPI reports `Success`.
+See the [SerpAPI completion and async documentation](https://serpapi.com/google-ai-mode-api).
+The runner extracts only successful, nonempty responses. It does not poll a
+`Processing` job or implement the asynchronous Search Archive workflow. The
+`EXTRACT_TIMEOUT` setting applies to the later extraction call, not the search.
 
 ## Downstream extraction trial
 

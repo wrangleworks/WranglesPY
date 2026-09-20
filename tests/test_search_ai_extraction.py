@@ -261,7 +261,7 @@ def test_nested_section_labels_reach_extraction_and_displayed_columns(trial, tri
     assert "ai_mode_result" in exported.index
 
 
-@pytest.mark.parametrize("state", ["error", "disabled", "blank"])
+@pytest.mark.parametrize("state", ["error", "disabled", "blank", "processing"])
 def test_trial_skips_extraction_without_successful_search(trial, monkeypatch, state):
     searches, extractions, response = trial
     if state == "error":
@@ -269,6 +269,8 @@ def test_trial_skips_extraction_without_successful_search(trial, monkeypatch, st
     elif state == "disabled":
         monkeypatch.setattr(runner, "EXTRACT_ENABLED", False)
         monkeypatch.delenv("OPENAI_API_KEY")
+    elif state == "processing":
+        response["search_metadata"]["status"] = "Processing"
     else:
         response["text_blocks"] = []
         response["references"] = []
@@ -294,15 +296,20 @@ def test_trial_keeps_mixed_success_and_failure_on_their_input_rows(trial, monkey
 
     def search(client, params):
         result = original_search(client, params)
-        if "MPN: GY08B2S26I" in params["q"]:
+        if "MPN: FAILED-2" in params["q"]:
             result["error"] = "Synthetic second-row failure"
         return result
 
     monkeypatch.setattr(serpapi.Client, "search", search)
+    # Keep this two-row regression independent of user-editable trial samples.
+    monkeypatch.setattr(runner, "INPUT_ROWS", [
+        {"ID": 14, "Description": "Synthetic successful product", "Mfr": "Example", "MPN": "OK-1", "part_codes": ["OK-1"]},
+        {"ID": 27, "Description": "Synthetic failed product", "Mfr": "Example", "MPN": "FAILED-2", "part_codes": ["FAILED-2"]},
+    ])
     monkeypatch.setattr(runner, "NROWS", None)
     df = runner.main()
     assert len(searches) == 2 and len(extractions) == 1
-    assert df["ID"].tolist() == [1, 2]
+    assert df["ID"].tolist() == [14, 27]
     assert df.iloc[0]["ai_mode_result_structured"]["references"] == [MAKER, SUPPLIER]
     assert not any(df.iloc[1]["ai_mode_result_structured"].values())
     assert not any(df.iloc[1][heading] for heading in (*LABELS.values(), "references"))
