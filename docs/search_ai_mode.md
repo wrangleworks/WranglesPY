@@ -40,6 +40,8 @@ The raw response remains available for diagnosis and replay. Extraction can
 still make mistakes or find an uncertain product match; it cannot recover
 information absent from the retrieved answer. AI Overview remains a separate
 enhancement, with reusable content helpers available for that future work.
+The [AI Overview research notes](search_ai_overview_research.md) capture the
+conditional two-request trial, source limitations and proposed next steps.
 
 ## Pipeline and outputs
 
