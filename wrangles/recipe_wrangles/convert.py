@@ -1,7 +1,10 @@
 """
 Functions to convert data formats and representations
 """
+import ast as _ast
+import copy as _copy
 import json as _json
+import math as _math
 from typing import Union as _Union
 import re as _re
 import numpy as _np
@@ -15,6 +18,51 @@ try:
     from yaml import CSafeLoader as _YAMLLoader, CSafeDumper as _YAMLDumper
 except ImportError:
     from yaml import SafeLoader as _YAMLLoader, SafeDumper as _YAMLDumper
+
+_DEFAULT_NOT_SET = object()
+
+
+class _ObjectYAMLLoader(_YAMLLoader):
+    """
+    Safe YAML loader with JSON-like scalar resolution.
+
+    Preserve YAML-only numeric forms, "yes", "on", and ISO dates as text.
+    Their implicit conversions are surprising when YAML is being used as a
+    tolerant parser for JSON-like data.
+    """
+
+
+_ObjectYAMLLoader.yaml_implicit_resolvers = {
+    key: [
+        (tag, regexp)
+        for tag, regexp in resolvers
+        if tag not in (
+            "tag:yaml.org,2002:bool",
+            "tag:yaml.org,2002:float",
+            "tag:yaml.org,2002:int",
+            "tag:yaml.org,2002:timestamp",
+        )
+    ]
+    for key, resolvers in _YAMLLoader.yaml_implicit_resolvers.items()
+}
+_ObjectYAMLLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:bool",
+    _re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$"),
+    list("tTfF"),
+)
+_ObjectYAMLLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:int",
+    _re.compile(r"^-?(?:0|[1-9][0-9]*)$"),
+    list("-0123456789"),
+)
+_ObjectYAMLLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:float",
+    _re.compile(
+        r"^-?(?:(?:0|[1-9][0-9]*)\.[0-9]+(?:[eE][-+]?[0-9]+)?|"
+        r"(?:0|[1-9][0-9]*)[eE][-+]?[0-9]+)$"
+    ),
+    list("-0123456789"),
+)
 
 # Pre-compiled regex for sentence case: matches the first non-whitespace character
 # at the start of the string or immediately after punctuation (. ! ?) + optional
@@ -365,6 +413,291 @@ def _normalize_default_list(default, input: list, func_name: str) -> list:
         return [default] * len(input)
 
 
+def _normalize_expected_list(expected, input: list) -> list:
+    """
+    Normalize expected object types into one value per input column.
+    """
+    if isinstance(expected, list):
+        if len(expected) == 1:
+            expected_values = expected * len(input)
+        elif len(expected) != len(input):
+            raise ValueError(
+                "The list of expected types must be a single value or the "
+                "same length as input/output for convert.parse"
+            )
+        else:
+            expected_values = expected
+    else:
+        expected_values = [expected] * len(input)
+
+    allowed = {"any", "dictionary", "list", "scalar"}
+    if any(str(value).lower() not in allowed for value in expected_values):
+        raise ValueError(
+            "expected must be one of: any, dictionary, list, scalar"
+        )
+    return expected_values
+
+
+def _is_missing_object_value(value) -> bool:
+    """
+    Return whether a scalar value represents a missing cell.
+    """
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    if _pd.api.types.is_scalar(value):
+        try:
+            return bool(_pd.isna(value))
+        except (TypeError, ValueError):
+            return False
+    return False
+
+
+def _normalize_json_compatible(value, active_ids=None):
+    """
+    Normalize and validate a JSON-compatible Python object tree.
+    """
+    if active_ids is None:
+        active_ids = set()
+
+    if isinstance(value, _np.ndarray):
+        value = value.tolist()
+    elif isinstance(value, _np.generic):
+        value = value.item()
+
+    if value is None or isinstance(value, (str, bool, int)):
+        return value
+    if isinstance(value, float):
+        if not _math.isfinite(value):
+            raise ValueError("Non-finite numbers are not supported")
+        return value
+
+    if isinstance(value, (list, dict)):
+        value_id = id(value)
+        if value_id in active_ids:
+            raise ValueError("Recursive objects are not supported")
+        active_ids.add(value_id)
+        try:
+            if isinstance(value, list):
+                return [
+                    _normalize_json_compatible(item, active_ids)
+                    for item in value
+                ]
+
+            if not all(isinstance(key, str) for key in value):
+                raise TypeError("Dictionary keys must be strings")
+            return {
+                key: _normalize_json_compatible(item, active_ids)
+                for key, item in value.items()
+            }
+        finally:
+            active_ids.remove(value_id)
+
+    raise TypeError(
+        f"Values of type {type(value).__name__} are not supported"
+    )
+
+
+def _parse_object_text_once(value: str):
+    """
+    Parse one layer of JSON, Python literal, or safe JSON-like YAML.
+    """
+    try:
+        return _json.loads(value)
+    except (_json.JSONDecodeError, TypeError):
+        pass
+
+    try:
+        return _ast.literal_eval(value)
+    except (ValueError, SyntaxError):
+        pass
+
+    try:
+        # Scan before loading: CSafeLoader does not use Python compose_node
+        # overrides, and expanding aliases during normalization can be costly.
+        for token in _yaml.scan(value, Loader=_ObjectYAMLLoader):
+            if isinstance(token, (_yaml.tokens.AnchorToken, _yaml.tokens.AliasToken)):
+                raise ValueError("YAML anchors and aliases are not supported")
+            if isinstance(token, _yaml.tokens.TagToken):
+                raise ValueError("Explicit YAML tags are not supported")
+        return _yaml.load(value, Loader=_ObjectYAMLLoader)
+    except _yaml.YAMLError as error:
+        raise ValueError("Value is not valid JSON, Python, or YAML") from error
+
+
+def _looks_like_object_text(value: str) -> bool:
+    """
+    Return whether a parsed string appears to contain another object layer.
+    """
+    value = value.strip()
+    return (
+        (
+            len(value) >= 2
+            and (
+                (value[0] == "{" and value[-1] == "}")
+                or (value[0] == "[" and value[-1] == "]")
+            )
+        )
+        or bool(_re.search(r"(^|\n)\s*[^:\n]+:\s+", value))
+        or bool(_re.search(r"(^|\n)\s*-\s+", value))
+    )
+
+
+def _matches_expected_object_type(value, expected: str) -> bool:
+    """
+    Validate a parsed value against the requested result category.
+    """
+    expected = str(expected).lower()
+    if expected == "any":
+        return True
+    if expected == "dictionary":
+        return isinstance(value, dict)
+    if expected == "list":
+        return isinstance(value, list)
+    if expected == "scalar":
+        return not isinstance(value, (dict, list))
+    raise ValueError(
+        "expected must be one of: any, dictionary, list, scalar"
+    )
+
+
+def parse(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    output: _Union[str, list] = None,
+    default=_DEFAULT_NOT_SET,
+    expected: _Union[str, list] = "any",
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: >-
+      Parse JSON, Python, YAML, or human-readable JSON-like structures into
+      JSON-compatible Python values. YAML-only numeric forms such as 00123
+      and 12:34 remain strings. YAML anchors, aliases, and explicit tags
+      are not supported. Parsed values retain their Python types, preserving
+      integer precision in mixed columns. Excessively nested inputs use the
+      configured default or raise a contextual ValueError.
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name or list of input columns.
+      output:
+        type:
+          - string
+          - array
+        description: >-
+          Name or list of output columns. If omitted, the input columns
+          will be overwritten.
+      default:
+        type: ["string","array","object","number","boolean","null"]
+        description: >-
+          Value to return for missing, invalid, or type-mismatched rows.
+          If input is a list, default may be a single value applied to every
+          column or a list containing one value per input column.
+          Defaults must be JSON-compatible; NumPy values are normalized and
+          mutable defaults are copied independently for each row.
+      expected:
+        description: >-
+          Required result category. Use any, dictionary, list, or scalar.
+          A list may provide one category per input column.
+        default: any
+        oneOf:
+          - type: string
+            enum: [any, dictionary, list, scalar]
+          - type: array
+            items:
+              type: string
+              enum: [any, dictionary, list, scalar]
+    """
+    if output is None:
+        output = input
+
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
+
+    if len(input) != len(output):
+        raise ValueError(
+            "The lists for input and output must be the same length."
+        )
+
+    defaults = _normalize_default_list(
+        default,
+        input,
+        "convert.parse",
+    )
+    expected_types = _normalize_expected_list(expected, input)
+
+    for input_column, output_column, col_default, col_expected in zip(
+        input,
+        output,
+        defaults,
+        expected_types,
+    ):
+        if col_default is not _DEFAULT_NOT_SET:
+            try:
+                col_default = _normalize_json_compatible(col_default)
+            except (TypeError, ValueError, RecursionError) as error:
+                raise ValueError(
+                    f"Invalid default for column '{input_column}' "
+                    f"in convert.parse: {error}"
+                ) from error
+
+        def _convert_value(value):
+            if _is_missing_object_value(value):
+                if col_default is _DEFAULT_NOT_SET:
+                    return None
+                return _copy.deepcopy(col_default)
+
+            try:
+                if isinstance(value, str):
+                    result = _parse_object_text_once(value.strip())
+                    if (
+                        isinstance(result, str)
+                        and _looks_like_object_text(result)
+                    ):
+                        result = _parse_object_text_once(result.strip())
+                else:
+                    result = value
+
+                result = _normalize_json_compatible(result)
+                if not _matches_expected_object_type(result, col_expected):
+                    raise TypeError(
+                        f"Result is not a valid {col_expected}"
+                    )
+                return result
+            except (TypeError, ValueError, RecursionError) as error:
+                if col_default is not _DEFAULT_NOT_SET:
+                    return _copy.deepcopy(col_default)
+                try:
+                    value_repr = repr(value)
+                except RecursionError:
+                    value_repr = "<value too deeply nested to display>"
+                raise ValueError(
+                    f"Unable to convert value in column '{input_column}' "
+                    f"to a {col_expected} object: {value_repr}. "
+                    "Set a default to replace invalid rows."
+                ) from error
+
+        # Inferred numeric dtypes can round integers when mixed with floats
+        # or missing values. Preserve each parsed value and the source index.
+        df[output_column] = _pd.Series(
+            [_convert_value(value) for value in df[input_column]],
+            index=df.index,
+            dtype=object,
+        )
+
+    return df
+
+
 def from_json(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -374,7 +707,7 @@ def from_json(
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Convert a JSON representation into an object
+    description: Convert a JSON representation into an object.
     required:
       - input
     properties:

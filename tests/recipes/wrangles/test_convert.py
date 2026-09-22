@@ -927,6 +927,526 @@ class TestConvertFractionToDecimal:
         assert df.empty and df.columns.to_list() == ['column', 'output column']
 
 
+class TestConvertParse:
+    """
+    Test convert.parse wrangle
+    """
+    @staticmethod
+    def _excessively_nested_value(representation):
+        import sys
+
+        depth = sys.getrecursionlimit() + 100
+        if representation == "json":
+            return "[" * depth + "0" + "]" * depth
+        if representation == "yaml":
+            return "{key: " * depth + "0" + "}" * depth
+        value = 0
+        for _ in range(depth):
+            value = [value]
+        return value
+
+    def test_proper_json(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                    '{"key": "value", "enabled": false}',
+                    '["one", 2, true]',
+                ]
+            })
+        )
+
+        assert df["column"].tolist() == [
+            {"key": "value", "enabled": False},
+            ["one", 2, True],
+        ]
+
+    @pytest.mark.parametrize("other, expected_other", [("1.5", 1.5), ("", None)])
+    def test_large_integer_precision_with_mixed_scalars(self, other, expected_other):
+        original = wrangles.DataFrame(
+            {"column": ["9007199254740993", other]},
+            index=pd.Index([23, 5], name="source_row"),
+        )
+        df = original.wrangles.convert.parse(input="column", output="parsed")
+
+        assert df.index.equals(original.index)
+        assert df["parsed"].dtype == object
+        assert type(df.at[23, "parsed"]) is int
+        assert df.at[23, "parsed"] == 9007199254740993
+        assert df.at[5, "parsed"] == expected_other
+
+    @pytest.mark.parametrize("other", ["1.5", ""])
+    def test_large_integer_precision_survives_recipe_rendering(self, other):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                output: parsed
+            - create.jinja:
+                output: rendered
+                template:
+                  string: 'value={{ parsed }}'
+            """,
+            dataframe=pd.DataFrame({"column": ["9007199254740993", other]}),
+        )
+
+        assert type(df.at[0, "parsed"]) is int
+        assert df.at[0, "parsed"] == 9007199254740993
+        assert df["rendered"].tolist() == ["value=9007199254740993", f"value={other}"]
+
+    def test_human_readable_json_and_yaml(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                expected: dictionary
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                    "{key: value, items: [one, two]}",
+                    "key: value\nitems:\n- one\n- two",
+                ]
+            })
+        )
+
+        assert df["column"].tolist() == [
+            {"key": "value", "items": ["one", "two"]},
+            {"key": "value", "items": ["one", "two"]},
+        ]
+
+    def test_python_representation(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                expected: dictionary
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                    "{'active': True, 'missing': None, 'items': ['one']}"
+                ]
+            })
+        )
+
+        assert df["column"][0] == {
+            "active": True,
+            "missing": None,
+            "items": ["one"],
+        }
+
+    def test_accidentally_quoted_structures(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                    """'{"key": "value"}'""",
+                    '"[1, 2, 3]"',
+                    '''"{'key': None}"''',
+                    "'key: value'",
+                ]
+            })
+        )
+
+        assert df["column"].tolist() == [
+            {"key": "value"},
+            [1, 2, 3],
+            {"key": None},
+            {"key": "value"},
+        ]
+
+    def test_missing_values_use_independent_defaults(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                default: {}
+                expected: dictionary
+            """,
+            dataframe=pd.DataFrame({
+                "column": ["", "   ", None, _np.nan]
+            })
+        )
+
+        assert df["column"].tolist() == [{}, {}, {}, {}]
+        assert len({id(value) for value in df["column"]}) == 4
+
+    def test_missing_values_without_default_remain_empty(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": ["", "   ", None, _np.nan]
+            })
+        )
+
+        # The recipe runner normalizes None results to its standard empty cell.
+        assert df["column"].tolist() == ["", "", "", ""]
+
+    def test_valid_falsy_values_are_preserved(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                default: fallback
+            """,
+            dataframe=pd.DataFrame({
+                "column": ["[]", "{}", '""', "false", "0"]
+            })
+        )
+
+        assert df["column"].tolist() == [[], {}, "", False, 0]
+
+    def test_yaml_scalar_resolution_stays_json_like(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                expected: dictionary
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                    "{answer: yes, state: on, date: 2026-07-25, enabled: true}"
+                ]
+            })
+        )
+
+        assert df["column"][0] == {
+            "answer": "yes",
+            "state": "on",
+            "date": "2026-07-25",
+            "enabled": True,
+        }
+
+    def test_yaml_numeric_resolution_preserves_identifiers(self):
+        df = wrangles.DataFrame({
+            "column": [
+                "{part: 00123, code: 12:34, time: 12:34.5, hex: 0xFF, "
+                "binary: 0b10, decimal: 01.5, quantity: 12, zero: 0, "
+                "negative: -12, fraction: 1.25, exponent: 1e3, "
+                "small: -1.5e-2}"
+            ]
+        }).wrangles.convert.parse(input="column", expected="dictionary")
+
+        assert df["column"][0] == {
+            "part": "00123",
+            "code": "12:34",
+            "time": "12:34.5",
+            "hex": "0xFF",
+            "binary": "0b10",
+            "decimal": "01.5",
+            "quantity": 12,
+            "zero": 0,
+            "negative": -12,
+            "fraction": 1.25,
+            "exponent": 1000.0,
+            "small": -0.015,
+        }
+
+    @pytest.mark.parametrize("loader_name", ["SafeLoader", "CSafeLoader"])
+    @pytest.mark.parametrize("quoted", [False, True])
+    def test_yaml_aliases_are_rejected(self, monkeypatch, loader_name, quoted):
+        import yaml
+        from wrangles.recipe_wrangles import convert
+
+        if not hasattr(yaml, loader_name):
+            pytest.skip(f"PyYAML {loader_name} is unavailable")
+        loader = type("ObjectLoader", (getattr(yaml, loader_name),), {
+            "yaml_implicit_resolvers": convert._ObjectYAMLLoader.yaml_implicit_resolvers,
+        })
+        monkeypatch.setattr(convert, "_ObjectYAMLLoader", loader)
+        value = (
+            "a: &a [one, two]\n"
+            "b: &b [*a, *a, *a]\n"
+            "c: [*b, *b, *b]"
+        )
+        if quoted:
+            value = _json.dumps(value)
+        df = wrangles.DataFrame({"column": [value]})
+
+        with pytest.raises(ValueError, match="Unable to convert value"):
+            df.wrangles.convert.parse(input="column")
+
+        result = df.wrangles.convert.parse(input="column", default={})
+        assert result["column"][0] == {}
+
+    @pytest.mark.parametrize("value", [
+        "&a [one, two]",
+        "&a [*a]",
+        "{part: !!int 00123}",
+        "{time: !!float '12:34.5'}",
+    ])
+    def test_yaml_anchors_and_tags_are_rejected(self, value):
+        with pytest.raises(ValueError, match="Unable to convert value"):
+            wrangles.DataFrame({"column": [value]}).wrangles.convert.parse(input="column")
+
+    def test_quoted_yaml_markers_remain_literal_text(self):
+        df = wrangles.DataFrame({
+            "column": ["{alias: '*part', anchor: '&part', tag: '!!int 00123'}"]
+        }).wrangles.convert.parse(input="column")
+
+        assert df["column"][0] == {
+            "alias": "*part", "anchor": "&part", "tag": "!!int 00123",
+        }
+
+    def test_existing_yaml_converter_keeps_yaml_resolution(self):
+        df = wrangles.DataFrame({
+            "column": ["{part: 00123, code: 12:34, enabled: yes}"]
+        }).wrangles.convert.from_yaml(input="column")
+
+        assert df["column"][0] == {"part": 83, "code": 754, "enabled": True}
+
+    def test_existing_objects_are_normalized(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                    {"number": _np.int64(2), "values": _np.array([1, 2])}
+                ]
+            })
+        )
+
+        assert df["column"][0] == {
+            "number": 2,
+            "values": [1, 2],
+        }
+
+    def test_numpy_defaults_are_normalized_and_independent(self):
+        default = {"number": _np.int64(2), "values": _np.array([1, 2])}
+        values = ["", "{bad", "[1, 2]"]
+        df = wrangles.DataFrame({"first": values, "second": values})
+        result = df.wrangles.convert.parse(
+            input=["first", "second"], expected="dictionary", default=default,
+        )
+
+        records = result.to_dict("records")
+        expected = {"number": 2, "values": [1, 2]}
+        assert records == [{"first": expected, "second": expected}] * 3
+        assert _json.loads(_json.dumps(records, allow_nan=False)) == records
+        result["first"][0]["values"].append(3)
+        assert result["first"][1]["values"] == [1, 2]
+        assert result["second"][0]["values"] == [1, 2]
+        assert default["values"].tolist() == [1, 2]
+
+    @pytest.mark.parametrize("value", ["", "{bad", "{}"])
+    @pytest.mark.parametrize("default", [
+        {"value": _np.float64("nan")},
+        {"value": {1, 2}},
+        {"value": b"bytes"},
+        {1: "non-string key"},
+    ])
+    def test_non_json_defaults_are_rejected(self, value, default):
+        with pytest.raises(ValueError, match="Invalid default.*column"):
+            wrangles.DataFrame({"column": [value]}).wrangles.convert.parse(
+                input="column", default=default,
+            )
+
+    def test_recursive_default_is_rejected(self):
+        default = {}
+        default["self"] = default
+
+        with pytest.raises(ValueError, match="Invalid default.*column"):
+            wrangles.DataFrame({"column": [""]}).wrangles.convert.parse(
+                input="column", default=default,
+            )
+
+    def test_excessively_nested_default_is_rejected(self):
+        default = {"value": self._excessively_nested_value("object")}
+
+        with pytest.raises(ValueError, match="Invalid default.*column"):
+            wrangles.DataFrame({"column": [""]}).wrangles.convert.parse(
+                input="column", default=default,
+            )
+
+    def test_expected_types_and_per_column_defaults(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input:
+                  - dictionary
+                  - array
+                output:
+                  - dictionary result
+                  - array result
+                expected:
+                  - dictionary
+                  - list
+                default:
+                  - {}
+                  - []
+            """,
+            dataframe=pd.DataFrame({
+                "dictionary": ["[1, 2]", "{bad"],
+                "array": ['{"key": "value"}', "[1, 2]"],
+            })
+        )
+
+        assert df["dictionary result"].tolist() == [{}, {}]
+        assert df["array result"].tolist() == [[], [1, 2]]
+
+    @pytest.mark.parametrize("expected", [
+        "any", "dictionary", "list", "scalar",
+        ["any"], ["dictionary", "list", "scalar"],
+    ])
+    def test_expected_schema_accepts_supported_categories(self, expected):
+        import jsonschema
+        import yaml
+
+        schema = yaml.safe_load(wrangles.recipe._recipe_wrangles.convert.parse.__doc__)
+        jsonschema.Draft7Validator.check_schema(schema)
+        jsonschema.Draft7Validator(schema).validate({"input": "column", "expected": expected})
+
+    @pytest.mark.parametrize("expected", [
+        "banana", ["banana"], ["dictionary", "banana"], 1, None,
+    ])
+    def test_expected_schema_rejects_unsupported_categories(self, expected):
+        import jsonschema
+        import yaml
+
+        schema = yaml.safe_load(wrangles.recipe._recipe_wrangles.convert.parse.__doc__)
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.Draft7Validator(schema).validate({"input": "column", "expected": expected})
+        with pytest.raises(ValueError):
+            wrangles.DataFrame({"column": ["{}"]}).wrangles.convert.parse(
+                input="column", expected=expected,
+            )
+
+    def test_explicit_null_default(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                expected: dictionary
+                default: null
+            """,
+            dataframe=pd.DataFrame({
+                "column": ["not a dictionary"]
+            })
+        )
+
+        # The recipe runner normalizes a null result to its standard empty cell.
+        assert df["column"][0] == ""
+
+    def test_invalid_nonempty_value_without_default_errors(self):
+        with pytest.raises(ValueError, match="Unable to convert value"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - convert.parse:
+                    input: column
+                    expected: dictionary
+                """,
+                dataframe=pd.DataFrame({
+                    "column": ["{not closed"]
+                })
+            )
+
+    @pytest.mark.parametrize("representation", ["json", "yaml", "object"])
+    @pytest.mark.parametrize("via_recipe", [False, True])
+    def test_excessive_nesting_uses_default(self, representation, via_recipe):
+        value = self._excessively_nested_value(representation)
+        original = wrangles.DataFrame({"column": [value, '{"ok": true}', value]})
+        default = {}
+        parameters = {"input": "column", "output": "parsed", "default": default}
+
+        if via_recipe:
+            df = wrangles.recipe.run(
+                {"wrangles": [{"convert.parse": parameters}]}, dataframe=original,
+            )
+        else:
+            df = original.wrangles.convert.parse(**parameters)
+
+        assert df["parsed"].tolist() == [{}, {"ok": True}, {}]
+        df.at[0, "parsed"]["changed"] = True
+        assert df.at[2, "parsed"] == {}
+        assert default == {}
+
+    @pytest.mark.parametrize("representation", ["json", "yaml", "object"])
+    @pytest.mark.parametrize("via_recipe", [False, True])
+    def test_excessive_nesting_without_default_has_context(self, representation, via_recipe):
+        value = self._excessively_nested_value(representation)
+        original = wrangles.DataFrame({"column": [value]})
+
+        with pytest.raises(ValueError, match="Unable to convert value in column 'column'") as error:
+            if via_recipe:
+                wrangles.recipe.run(
+                    {"wrangles": [{"convert.parse": {"input": "column"}}]},
+                    dataframe=original,
+                )
+            else:
+                original.wrangles.convert.parse(input="column")
+
+        assert "to a any object" in str(error.value)
+        assert "Set a default" in str(error.value)
+
+    def test_non_json_yaml_types_are_rejected(self):
+        with pytest.raises(ValueError, match="Unable to convert value"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - convert.parse:
+                    input: column
+                """,
+                dataframe=pd.DataFrame({
+                    "column": ["!!set {one: null, two: null}"]
+                })
+            )
+
+    def test_multiple_inputs_require_matching_outputs(self):
+        with pytest.raises(ValueError, match="same length"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - convert.parse:
+                    input:
+                      - column 1
+                      - column 2
+                    output: result
+                """,
+                dataframe=pd.DataFrame({
+                    "column 1": ["{}"],
+                    "column 2": ["[]"],
+                })
+            )
+
+    def test_empty_dataframe(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                "column": []
+            })
+        )
+
+        assert df.empty and df.columns.to_list() == ["column", "result"]
+
+
 class TestConvertFromJSON:
     """
     Test convert.from_json wrangles
