@@ -38,7 +38,7 @@ jobs:
           FULL=false
           [[ "$GITHUB_REF_NAME" == "main" || "$BASE_REF" == "main" ]] && FULL=true
           if [[ "$FULL" == "true" ]]; then
-            echo 'matrix={"os":["ubuntu-latest","windows-latest"],"python-version":["3.11","3.13"]}' >> "$GITHUB_OUTPUT"
+            echo 'matrix={"os":["ubuntu-latest","windows-latest"],"python-version":["3.11","3.13","3.14"]}' >> "$GITHUB_OUTPUT"
           else
             echo 'matrix={"os":["ubuntu-latest"],"python-version":["3.11"]}' >> "$GITHUB_OUTPUT"
           fi
