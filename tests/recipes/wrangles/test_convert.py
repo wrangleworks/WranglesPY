@@ -931,6 +931,20 @@ class TestConvertParse:
     """
     Test convert.parse wrangle
     """
+    @staticmethod
+    def _excessively_nested_value(representation):
+        import sys
+
+        depth = sys.getrecursionlimit() + 100
+        if representation == "json":
+            return "[" * depth + "0" + "]" * depth
+        if representation == "yaml":
+            return "{key: " * depth + "0" + "}" * depth
+        value = 0
+        for _ in range(depth):
+            value = [value]
+        return value
+
     def test_proper_json(self):
         df = wrangles.recipe.run(
             """
@@ -950,6 +964,40 @@ class TestConvertParse:
             {"key": "value", "enabled": False},
             ["one", 2, True],
         ]
+
+    @pytest.mark.parametrize("other, expected_other", [("1.5", 1.5), ("", None)])
+    def test_large_integer_precision_with_mixed_scalars(self, other, expected_other):
+        original = wrangles.DataFrame(
+            {"column": ["9007199254740993", other]},
+            index=pd.Index([23, 5], name="source_row"),
+        )
+        df = original.wrangles.convert.parse(input="column", output="parsed")
+
+        assert df.index.equals(original.index)
+        assert df["parsed"].dtype == object
+        assert type(df.at[23, "parsed"]) is int
+        assert df.at[23, "parsed"] == 9007199254740993
+        assert df.at[5, "parsed"] == expected_other
+
+    @pytest.mark.parametrize("other", ["1.5", ""])
+    def test_large_integer_precision_survives_recipe_rendering(self, other):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                output: parsed
+            - create.jinja:
+                output: rendered
+                template:
+                  string: 'value={{ parsed }}'
+            """,
+            dataframe=pd.DataFrame({"column": ["9007199254740993", other]}),
+        )
+
+        assert type(df.at[0, "parsed"]) is int
+        assert df.at[0, "parsed"] == 9007199254740993
+        assert df["rendered"].tolist() == ["value=9007199254740993", f"value={other}"]
 
     def test_human_readable_json_and_yaml(self):
         df = wrangles.recipe.run(
@@ -1222,6 +1270,14 @@ class TestConvertParse:
                 input="column", default=default,
             )
 
+    def test_excessively_nested_default_is_rejected(self):
+        default = {"value": self._excessively_nested_value("object")}
+
+        with pytest.raises(ValueError, match="Invalid default.*column"):
+            wrangles.DataFrame({"column": [""]}).wrangles.convert.parse(
+                input="column", default=default,
+            )
+
     def test_expected_types_and_per_column_defaults(self):
         df = wrangles.recipe.run(
             """
@@ -1306,6 +1362,44 @@ class TestConvertParse:
                     "column": ["{not closed"]
                 })
             )
+
+    @pytest.mark.parametrize("representation", ["json", "yaml", "object"])
+    @pytest.mark.parametrize("via_recipe", [False, True])
+    def test_excessive_nesting_uses_default(self, representation, via_recipe):
+        value = self._excessively_nested_value(representation)
+        original = wrangles.DataFrame({"column": [value, '{"ok": true}', value]})
+        default = {}
+        parameters = {"input": "column", "output": "parsed", "default": default}
+
+        if via_recipe:
+            df = wrangles.recipe.run(
+                {"wrangles": [{"convert.parse": parameters}]}, dataframe=original,
+            )
+        else:
+            df = original.wrangles.convert.parse(**parameters)
+
+        assert df["parsed"].tolist() == [{}, {"ok": True}, {}]
+        df.at[0, "parsed"]["changed"] = True
+        assert df.at[2, "parsed"] == {}
+        assert default == {}
+
+    @pytest.mark.parametrize("representation", ["json", "yaml", "object"])
+    @pytest.mark.parametrize("via_recipe", [False, True])
+    def test_excessive_nesting_without_default_has_context(self, representation, via_recipe):
+        value = self._excessively_nested_value(representation)
+        original = wrangles.DataFrame({"column": [value]})
+
+        with pytest.raises(ValueError, match="Unable to convert value in column 'column'") as error:
+            if via_recipe:
+                wrangles.recipe.run(
+                    {"wrangles": [{"convert.parse": {"input": "column"}}]},
+                    dataframe=original,
+                )
+            else:
+                original.wrangles.convert.parse(input="column")
+
+        assert "to a any object" in str(error.value)
+        assert "Set a default" in str(error.value)
 
     def test_non_json_yaml_types_are_rejected(self):
         with pytest.raises(ValueError, match="Unable to convert value"):

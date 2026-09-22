@@ -575,7 +575,9 @@ def parse(
       Parse JSON, Python, YAML, or human-readable JSON-like structures into
       JSON-compatible Python values. YAML-only numeric forms such as 00123
       and 12:34 remain strings. YAML anchors, aliases, and explicit tags
-      are not supported.
+      are not supported. Parsed values retain their Python types, preserving
+      integer precision in mixed columns. Excessively nested inputs use the
+      configured default or raise a contextual ValueError.
     additionalProperties: false
     required:
       - input
@@ -643,7 +645,7 @@ def parse(
         if col_default is not _DEFAULT_NOT_SET:
             try:
                 col_default = _normalize_json_compatible(col_default)
-            except (TypeError, ValueError) as error:
+            except (TypeError, ValueError, RecursionError) as error:
                 raise ValueError(
                     f"Invalid default for column '{input_column}' "
                     f"in convert.parse: {error}"
@@ -672,19 +674,26 @@ def parse(
                         f"Result is not a valid {col_expected}"
                     )
                 return result
-            except (TypeError, ValueError) as error:
+            except (TypeError, ValueError, RecursionError) as error:
                 if col_default is not _DEFAULT_NOT_SET:
                     return _copy.deepcopy(col_default)
+                try:
+                    value_repr = repr(value)
+                except RecursionError:
+                    value_repr = "<value too deeply nested to display>"
                 raise ValueError(
                     f"Unable to convert value in column '{input_column}' "
-                    f"to a {col_expected} object: {value!r}. "
+                    f"to a {col_expected} object: {value_repr}. "
                     "Set a default to replace invalid rows."
                 ) from error
 
-        df[output_column] = [
-            _convert_value(value)
-            for value in df[input_column]
-        ]
+        # Inferred numeric dtypes can round integers when mixed with floats
+        # or missing values. Preserve each parsed value and the source index.
+        df[output_column] = _pd.Series(
+            [_convert_value(value) for value in df[input_column]],
+            index=df.index,
+            dtype=object,
+        )
 
     return df
 
