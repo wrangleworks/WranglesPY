@@ -3,7 +3,7 @@
 # Credentials: SERPAPI_API_KEY for search, OPENAI_API_KEY for extraction.
 
 wrangles:
-  # Heading configuration is used only to build the query; extraction reads Markdown.
+  # Heading configuration builds the query; extract.ai handles semantic structuring.
   - create.column:
       if: ${RUN_SEARCH}
       output: __ai_mode_query_config
@@ -42,24 +42,21 @@ wrangles:
       language: ${LANGUAGE}
       include_raw_response: ${WRITE_OUTPUTS}
 
-  - custom.capture_search_response:
-      if: ${RUN_SEARCH} and ${WRITE_OUTPUTS}
+  - custom.structure_search_response:
       input: ai_mode_results
       metadata: ai_mode_metadata
+      output: ai_mode_results_clean
       prefix: ${RAW_OUTPUT_PREFIX}
+      save_raw: ${WRITE_OUTPUTS}
 
   - standardize.clean:
-      input: ai_mode_results
-      output: ai_mode_results_clean
+      input: ai_mode_results_clean
       unescape_unicode: true
       latex_to_text: true
       collapse_whitespace: false
       trim: false
       uncurl_quotes: false
       unescape_html: false
-
-  - custom.clean_ai_mode_links:
-      input: ai_mode_results_clean
 
   - custom.prepare_search_extraction:
       input: ai_mode_results_clean
@@ -173,7 +170,8 @@ wrangles:
           nullable: false
           description: >-
             Copy the product-description passage verbatim from ai_mode_results_clean,
-            excluding its heading. Retain the source wording and Markdown.
+            excluding its heading. Retain the source wording. Return plain text
+            with no hyperlinks, Markdown link syntax, bare URLs or viewer instructions.
             Return an empty string when absent.
         Match Confidence:
           type: string

@@ -37,9 +37,11 @@ these files. Set `REPLAY_FILE` to reuse a saved answer without another search.
 ## Synthetic response and offline verification
 
 `response.md` is a synthetic, single-response SerpAPI Markdown fixture. It has
-YAML frontmatter, three answer sections, a table with two offers from one source,
+YAML frontmatter, four answer sections, a table with two offers from one source,
 references (including an irrelevant candidate), inline Google viewer boilerplate,
-LaTeX, a literal Unicode escape, and tracking/functional URL parameters.
+LaTeX, a literal Unicode escape, and tracking/functional URL parameters. Results
+Summary includes a Google viewer URL; structuring removes links from Product
+Description while retaining source evidence elsewhere for extraction.
 All product/source domains are reserved `.invalid`; Google/SerpAPI URLs are
 synthetic and no network requests are made. There are no credentials or user data.
 

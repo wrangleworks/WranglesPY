@@ -13,14 +13,20 @@ import requests
 
 from tests.fixtures.search_ai_mode import run_search_ai_mode as runner
 from wrangles import ai_cache
-from wrangles._search_ai_content import markdown_urls, source_url
+from wrangles._search_ai_content import markdown_urls, source_url, unlink_description
 from wrangles._search_ai_extraction import validate_sources
 
 
 MAKER = "https://maker.invalid/specs"
 SUPPLIER = "https://supplier.invalid/item?variant=1&currency=USD"
-SUFFIX = ("Summarize the information you found (e.g. matched the part number, "
-          "5 sources, 3 prices), but do not ask follow-on questions.")
+QUERY_SECTIONS = (
+    "Summarize information in 4 sections: "
+    "Product Description (1-3 sentences, plain text with no links) | "
+    "Specifications (as name value pairs) | "
+    "Pricing (including the supplier name and source link) | "
+    "Results Summary (count of references, count of prices found, and the Google product viewer URL if available). "
+    "Use the exact section labels as headings. Do not ask follow-up questions."
+)
 
 
 @pytest.fixture(autouse=True)
@@ -44,10 +50,7 @@ def markdown():
 @pytest.fixture
 def extracted():
     return {
-        "Product Description": (
-            "The [Example P12](https://www.google.com/search?ibp=oshop&prds=productid:123)"
-            " supplies regulated power."
-        ),
+        "Product Description": "The Example P12 supplies regulated power.",
         "Match Confidence": "Uncertain",
         "Specifications": [{"name": "Voltage", "value": "12 VDC"}],
         "Pricing": [{"price": 13.15, "currency": "USD", "uom": "pack", "source": "Supplier A",
@@ -57,7 +60,7 @@ def extracted():
     }
 
 
-def test_viewer_label_cleanup_preserves_product_wording_links_and_raw_evidence():
+def test_response_structuring_unlinks_description_and_preserves_raw_evidence():
     # User-reported wording with a shortened, synthetic viewer destination.
     label = r"Renold Gy08B duplex roller chain connecting/roller link \(GY08B2S26I\)"
     viewer_text = "Go to product viewer dialog for this item."
@@ -67,22 +70,103 @@ def test_viewer_label_cleanup_preserves_product_wording_links_and_raw_evidence()
         " depending on the industrial supplier. [0]"
     )
     sentence = f"The [{label}{viewer_text}]({url}){price_text}"
-    expected = f"The [{label}]({url}){price_text}"
+    expected = f"The {label}{price_text}"
     protected = "\n\n".join([
         f"`{sentence}`",
         f"```\n{sentence}\n```",
         f"    {sentence}",
-        viewer_text,
+        "### Pricing\n" + viewer_text,
         f"[Supplier]({SUPPLIER})",
     ])
     original = sentence + "\n\n" + protected
-    df = pd.DataFrame({"raw": [original, None, 42]})
+    df = pd.DataFrame({"raw": [original, None, 42], "meta": [{}, {}, {}]})
 
-    cleaned = runner.clean_ai_mode_links(df, input="raw", output="clean")
+    cleaned = runner.structure_search_response(df, input="raw", metadata="meta", output="clean")
     assert cleaned["raw"].tolist() == [original, None, 42]
     assert cleaned["clean"].tolist() == [expected + "\n\n" + protected, None, 42]
-    repeated = runner.clean_ai_mode_links(cleaned.copy(), input="clean")
+    repeated = runner.structure_search_response(cleaned.copy(), input="clean", metadata="meta", output="clean")
     assert repeated.equals(cleaned)
+
+
+def test_catalog_and_viewer_links_are_removed_without_losing_source_evidence():
+    catalog = "https://maker.invalid/en/track-rollers,natv6-pp-a/p/399049"
+    viewer = "https://www.google.com/search?ibp=oshop&prds=item(123)&q=product"
+    description = (
+        f"The [Schaeffler Medias Product Catalog]({catalog}) lists the "
+        rf"[INA NATV6\-PP\-A]({viewer}) as a single\-row yoke\-type track roller. [1]"
+    )
+    rest = (f"### Pricing\n[Supplier]({SUPPLIER}): $13.15 each.\n\n"
+            f"### Results Summary\n1 price. [Google product viewer]({viewer})\n")
+    original = "### Product Description\n\n" + description + "\n\n" + rest
+    result = unlink_description(original, "Product Description", ["Pricing", "Results Summary"])
+    expected = (r"The Schaeffler Medias Product Catalog lists the INA NATV6\-PP\-A "
+                r"as a single\-row yoke\-type track roller. [1]")
+    assert result.startswith("### Product Description\n\n" + expected + "\n\n" + rest)
+    assert f"[Schaeffler Medias Product Catalog]({catalog})" in result.split("### Links from Product Description")[1]
+    assert set(markdown_urls(result)) == set(markdown_urls(original))
+    assert result.count(viewer) == 1
+    assert unlink_description(result, "Product Description", ["Pricing", "Results Summary"]) == result
+
+
+@pytest.mark.parametrize("heading, end", [
+    ("### Product Description\n", "### Specifications\n"),
+    ("### Product Description ###\n", "### Specifications ###\n"),
+    ("**Product Description**\n", "**Specifications**\n"),
+    ("Product Description: ", "Specifications: "),
+    ("- **Product Description:** ", "- **Specifications:** "),
+    ("Product Description\n-------------------\n", "Specifications\n--------------\n"),
+    ("", "### Specifications\n"),
+])
+def test_description_heading_forms_do_not_unlink_other_sections(heading, end):
+    product = f"[Part]({MAKER})"
+    other = end + f"[Specification sheet]({MAKER})\n"
+    original = heading + f"The {product} is a pump. [1]\n\n" + other
+    result = unlink_description(original, "Product Description", ["Specifications"])
+    assert result == heading + "The Part is a pump. [1]\n\n" + other
+
+
+@pytest.mark.parametrize("link, expected", [
+    (r'[Part \(P12\)](https://maker.invalid/a_(b)?v=1 "Catalog")', r"Part \(P12\)"),
+    ("[Part [P12]](https://maker.invalid/specs)", "Part [P12]"),
+    ("[Part\nP12](\nhttps://maker.invalid/specs\n)", "Part\nP12"),
+    ("[Part][maker]", "Part"),
+    ("[maker][]", "maker"),
+    ("[maker]", "maker"),
+    ('<a href="https://maker.invalid/specs">Part</a>', "Part"),
+    ("<https://maker.invalid/specs>", ""),
+    ("https://maker.invalid/specs", ""),
+    ("www.maker.invalid/specs", ""),
+])
+def test_description_link_formats_keep_labels_and_citations(link, expected):
+    original = (f"### Product Description\n{link}. [1]\n\n### References\n"
+                f"[maker]: {MAKER}\n")
+    result = unlink_description(original, "Product Description", ["References"])
+    assert result.startswith(f"### Product Description\n{expected}. [1]\n\n### References\n")
+    assert f"[maker]: {MAKER}" in result
+
+
+def test_unheaded_preamble_and_unknown_sections_remain_unchanged():
+    preamble = f"Found this [catalog]({MAKER}).\n\n"
+    ending = f"\n\n### Availability\n[Supplier]({SUPPLIER})\n"
+    original = preamble + f"### Product Description\nThe [Part]({MAKER}) is a pump." + ending
+    assert unlink_description(original, "Product Description", ["Pricing"]) == (
+        preamble + "### Product Description\nThe Part is a pump." + ending
+    )
+
+
+def test_structuring_saves_raw_response_only_when_requested(tmp_path):
+    original = f"### Product Description\nThe [Part]({MAKER}) is a pump."
+    raw = "---\nsearch_metadata:\n  status: Success\n---\n" + original
+    frame = pd.DataFrame({"raw": [original], "meta": [{"raw_response": raw}]})
+    prefix = tmp_path / "trial"
+    first = runner.structure_search_response(frame, input="raw", metadata="meta", output="clean", prefix=prefix)
+    assert not list(tmp_path.iterdir())
+    assert first.iloc[0]["meta"]["raw_response"] == raw
+    saved = runner.structure_search_response(first, input="raw", metadata="meta", output="clean", prefix=prefix, save_raw=True)
+    assert (tmp_path / "trial_row001.md").read_text(encoding="utf-8") == raw
+    assert saved.iloc[0]["raw"] == original
+    assert "raw_response" not in saved.iloc[0]["meta"]
+    assert saved.iloc[0]["clean"].startswith("### Product Description\nThe Part is a pump.")
 
 
 def test_selected_references_and_offers_are_independent(markdown, extracted):
@@ -211,8 +295,7 @@ def test_trial_uses_direct_outputs_and_separate_input_identity(trial, extracted,
     assert "mapped nullable: true" not in caplog.text
     expected = (
         "Search for INA NATV6-PP-A INA NATV6-PP-A YOKE TYPE TRACK ROLLERS NATV..-PP FULL COMPLEMENT NEEDL. "
-        "Summarize information in 3 sections: Product Description | Specifications (as name value pairs) | "
-        "Pricing (including the supplier name and source link). " + SUFFIX
+        + QUERY_SECTIONS
     )
     assert searches == [{"engine": "google_ai_mode", "q": expected, "output": "md"}]
     assert len(extractions) == 1
@@ -227,9 +310,12 @@ def test_trial_uses_direct_outputs_and_separate_input_identity(trial, extracted,
     assert list(properties) == ["Product_Description", "Match_Confidence", "Specifications", "references", "Pricing"]
     assert properties["Match_Confidence"]["enum"] == ["Certain", "Likely", "Uncertain"]
     assert "verbatim" in properties["Product_Description"]["description"]
+    assert "no hyperlinks" in properties["Product_Description"]["description"]
     evidence = json.dumps(request["input"], ensure_ascii=False)
     assert "12 VDC" in evidence and "\u03bc" in evidence
     assert "Go to product viewer dialog for this item." not in evidence
+    assert "### Results Summary" in row["ai_mode_results_clean"]
+    assert "https://www.google.com/search?ibp=oshop&prds=productid:123" in row["ai_mode_results_clean"].split("### Results Summary")[1]
     assert "search_metadata" not in evidence
     identity = {field: runner.INPUT_ROWS[0][field] for field in ("Mfr", "MPN", "Description")}
     assert row["Input Product Information"] == identity
@@ -328,8 +414,7 @@ def test_trial_skips_unusable_answers(trial, monkeypatch, markdown, state):
 
 
 def test_mixed_success_and_failure_keep_their_rows(trial, monkeypatch, markdown):
-    trial[2]["Search for Example FAILED-2 Failed product. Summarize information in 3 sections: "
-             "Product Description | Specifications (as name value pairs) | Pricing (including the supplier name and source link). " + SUFFIX] = {"error": "Synthetic failure"}
+    trial[2]["Search for Example FAILED-2 Failed product. " + QUERY_SECTIONS] = {"error": "Synthetic failure"}
     monkeypatch.setattr(runner, "INPUT_ROWS", [
         {"ID": 14, "Description": "Working product", "Mfr": "Example", "MPN": "OK-1"},
         {"ID": 27, "Description": "Failed product", "Mfr": "Example", "MPN": "FAILED-2"},

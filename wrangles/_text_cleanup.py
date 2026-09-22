@@ -14,6 +14,13 @@ _PROTECTED = re.compile(
     r"|(?P<display_math>(?<!\\)\$\$)",
     re.MULTILINE,
 )
+_PROTECTED_WITHOUT_LINKS = re.compile(
+    r"(?P<fenced>^(?: {0,3}> ?)* {0,3}(?P<fence>`{3,}|~{3,})[^\n]*(?:\n|\Z))"
+    r"|(?P<indented>^(?: {4}|\t)[^\n]*(?:\n|\Z))"
+    r"|(?P<code>(?<!\\)`+)"
+    r"|(?P<display_math>(?<!\\)\$\$)",
+    re.MULTILINE,
+)
 _BARE_FRACTION = r"[ \t]*[+-]?(?:[0-9]+[ \t]+)?[0-9]+[ \t]*/[ \t]*[0-9]+[ \t]*"
 _INLINE_MATH = (
     r"(?<![\\$])\$(?!\$)(?=[^$\r\n]*\\|" + _BARE_FRACTION + r"\$)"
@@ -67,10 +74,11 @@ def _link_end(text, start):
     return None
 
 
-def map_markdown_prose(text, transform):
-    """Transform prose while retaining code, link destinations and display math."""
+def map_markdown_prose(text, transform, *, protect_links=True):
+    """Transform prose, protecting code/math and, by default, link destinations."""
     parts, pos = [], 0
-    while match := _PROTECTED.search(text, pos):
+    protected = _PROTECTED if protect_links else _PROTECTED_WITHOUT_LINKS
+    while match := protected.search(text, pos):
         start, end = match.span()
         if match.group("fenced"):
             fence = match.group("fence")
@@ -85,7 +93,7 @@ def map_markdown_prose(text, transform):
             ).search(text, end)
             if closing:
                 end = closing.end()
-        elif match.group("destination"):
+        elif match.groupdict().get("destination"):
             # Keep ]( with the label so a prose transform can recognize links.
             start = end
             # An unterminated destination is ambiguous; leave its tail alone.

@@ -10,7 +10,6 @@ from datetime import datetime
 import json
 from pathlib import Path
 from pprint import pprint
-import re
 import sys
 
 import pandas as pd
@@ -38,13 +37,14 @@ EXTRACT_RETRIES = 1
 DESCRIPTION_HEADING = "Product Description"
 SPECIFICATIONS_HEADING = "Specifications"
 PRICING_HEADING = "Pricing"
+SUMMARY_HEADING = "Results Summary"
 AI_MODE_QUERY = [
-    {"base_query": "Summarize information in 3 sections:"},
-    {DESCRIPTION_HEADING: ""},
+    {"base_query": "Summarize information in 4 sections:"},
+    {DESCRIPTION_HEADING: "1-3 sentences, plain text with no links"},
     {SPECIFICATIONS_HEADING: "as name value pairs"},
     {PRICING_HEADING: "including the supplier name and source link"},
-    {"query_suffix": "Summarize the information you found (e.g. matched the part number, "
-                     "5 sources, 3 prices), but do not ask follow-on questions."},
+    {SUMMARY_HEADING: "count of references, count of prices found, and the Google product viewer URL if available"},
+    {"query_suffix": "Use the exact section labels as headings. Do not ask follow-up questions."},
 ]
 
 # Three user-supplied product examples; JSON-style records, without generated data.
@@ -79,34 +79,20 @@ INPUT_ROWS = [
 # ---------------------------------------------------------------------------
 
 
-def capture_search_response(df, input, metadata, prefix):
-    """Save raw provider Markdown outside Excel, then remove it from metadata."""
+def structure_search_response(df, input, metadata, output, prefix=None, save_raw=False):
+    """Preserve raw evidence and prepare link-free description prose for extraction."""
+    from wrangles._search_ai_content import unlink_description
+
     for index, value in enumerate(df[metadata], 1):
-        raw = value.pop("raw_response", None)
-        if isinstance(raw, str) and raw:
+        raw = value.get("raw_response")
+        if save_raw and prefix and isinstance(raw, str) and raw:
             path = Path(f"{prefix}_row{index:03d}.md")
             path.write_text(raw, encoding="utf-8")
+            value.pop("raw_response")
             value["raw_response_file"] = str(path)
-    return df
-
-
-def clean_ai_mode_links(df, input, output=None):
-    """Remove Google's viewer instruction from Markdown link labels only."""
-    from wrangles._text_cleanup import map_markdown_prose
-
-    viewer_label = re.compile(
-        r'(\[(?:\\.|[^\]\\\n])*?)\s*'
-        r'Go to product viewer dialog for this item\.(?=\]\()'
-    )
-
-    def clean(value):
-        if not isinstance(value, str):
-            return value
-        return map_markdown_prose(
-            value, lambda prose: viewer_label.sub(lambda match: match[1].rstrip(), prose)
-        )
-
-    df[output or input] = df[input].map(clean)
+    headings = [heading for entry in AI_MODE_QUERY for heading in entry
+                if heading not in {"base_query", "query_suffix"}]
+    df[output] = df[input].map(lambda value: unlink_description(value, DESCRIPTION_HEADING, headings))
     return df
 
 
@@ -209,7 +195,7 @@ def main():
     results_df = wrangles.recipe.run(
         str(RECIPE_FILE),
         dataframe=input_df,
-        functions=[capture_search_response, clean_ai_mode_links, prepare_search_extraction, validate_search_sources],
+        functions=[structure_search_response, prepare_search_extraction, validate_search_sources],
         variables=variables,
     )
 
