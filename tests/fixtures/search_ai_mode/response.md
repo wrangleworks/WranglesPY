@@ -30,7 +30,7 @@ The [Example P12Go to product viewer dialog for this item.](https://www.google.c
 
 ### Results Summary
 
-Three references and two prices found. [Google product viewer](https://www.google.com/search?ibp=oshop&prds=productid:123).
+Three references and two prices found.
 
 ### References
 

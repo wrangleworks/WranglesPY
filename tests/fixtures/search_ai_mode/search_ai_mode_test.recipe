@@ -101,7 +101,9 @@ wrangles:
         or pointing to the supplier's homepage. Conversely, exclude reference pages
         whose title/snippet identifies a different part number, even if similar.
         Copy URLs from the evidence; do not invent, repair or guess destinations.
-        Do not include Google product-viewer or opaque Google redirect URLs.
+        ID "00" is reserved for a Google product-viewer URL captured separately.
+        Start your reference IDs at "01"; do not generate "00", link offers to "00",
+        or include Google product-viewer or opaque Google redirect URLs.
 
         Keep separate offers, including multiple quantities or price tiers from one
         supplier. Include the supplier/site name as source and associate each offer
@@ -239,6 +241,7 @@ wrangles:
 
   - custom.validate_search_sources:
       input: ai_mode_results_clean
+      metadata: ai_mode_metadata
       references: references
       pricing: Pricing
       diagnostics: ai_mode_structured_meta

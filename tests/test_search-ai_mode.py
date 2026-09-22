@@ -36,6 +36,8 @@ def ai_mode_provider(monkeypatch, provider_response):
 
     def fake_request(session, method, url, params, **kwargs):
         assert method == "GET" and url == "https://serpapi.com/search"
+        assert session.get_adapter(url).max_retries.total == 0
+        assert not params.get("async")
         assert params["api_key"] == "offline-test-key"
         calls.append({key: value for key, value in params.items() if key != "api_key"})
         response = responses.get(params["q"], provider_response)
@@ -114,6 +116,17 @@ def test_missing_or_invalid_status_is_an_error(ai_mode_provider, metadata):
 def test_non_success_status_does_not_become_success(ai_mode_provider, status):
     ai_mode_provider[0]["product"] = f"---\nsearch_metadata:\n  status: {status}\n---\nEvidence"
     assert run_ai_mode().iloc[0]["metadata"]["status"] == status
+    assert len(ai_mode_provider[1]) == 1  # No polling or retry.
+
+
+@pytest.mark.parametrize("error", [
+    requests.exceptions.ConnectionError("Synthetic connection failure"),
+    requests.exceptions.Timeout("Synthetic search timeout"),
+])
+def test_search_transport_failures_are_not_retried(ai_mode_provider, error):
+    ai_mode_provider[0]["product"] = error
+    assert run_ai_mode().iloc[0]["metadata"]["status"] == "Error"
+    assert len(ai_mode_provider[1]) == 1
 
 
 def test_empty_success_and_json_errors(ai_mode_provider):

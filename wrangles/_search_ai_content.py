@@ -44,11 +44,12 @@ def _markdown_links(text):
         pos = end
 
 
-def unlink_description(markdown, description_heading, section_headings):
+def unlink_description(markdown, description_heading, section_headings, *, removed_links=None):
     """Unlink description prose, retaining removed destinations as source evidence.
 
     This is a markup repair, not semantic section extraction. Other sections,
     citations and code examples stay intact; extract.ai handles their meaning.
+    When supplied, removed_links collects description destinations and labels.
     """
     if not isinstance(markdown, str):
         return markdown
@@ -81,8 +82,8 @@ def unlink_description(markdown, description_heading, section_headings):
     def strip_links(prose):
         parts, pos = [], 0
         # Reuse the balanced destination scanner: URLs can contain parentheses.
-        for start, end, label, destination, _ in _markdown_links(prose):
-            parts.extend((prose[pos:start], remember(label, destination)))
+        for start, end, label, destination, is_image in _markdown_links(prose):
+            parts.extend((prose[pos:start], label if is_image else remember(label, destination)))
             pos = end
         prose = "".join(parts) + prose[pos:]
 
@@ -128,6 +129,8 @@ def unlink_description(markdown, description_heading, section_headings):
         return "".join(chunks)
 
     result = map_markdown_prose(markdown, clean, protect_links=False)
+    if removed_links is not None:
+        removed_links.update(removed)
     missing = [(label, destination) for destination, label in removed.items() if destination not in result]
     if missing:
         result += f"\n\n### Links from {description_heading}\n\n" + "\n".join(
@@ -163,7 +166,28 @@ def split_markdown(response):
     return response[match.end():], metadata
 
 
-def source_url(value):
+def _is_google_product(parts):
+    if not _GOOGLE_HOST.search(parts.hostname or ""):
+        return False
+    query = dict(parse_qsl(parts.query))
+    return (
+        parts.path.rstrip("/") == "/search" and (query.get("ibp") == "oshop" or "prds" in query)
+        or parts.path.startswith("/shopping/product/")
+    )
+
+
+def google_product_url(destination):
+    """Return only an observed Google product-viewer URL, with tracking removed."""
+    if not isinstance(destination, str) or not destination.strip():
+        return ""
+    destination = destination.strip()
+    # Inline Markdown destinations can have angle brackets and an optional title.
+    destination = destination[1:].partition(">")[0] if destination.startswith("<") else destination.split()[0]
+    url = source_url(destination, include_google_products=True)
+    return url if url and _is_google_product(urlsplit(url)) else ""
+
+
+def source_url(value, *, include_google_products=False):
     """Clean a supplied HTTP(S) source URL without resolving or inventing URLs."""
     if not isinstance(value, str):
         return ""
@@ -179,8 +203,7 @@ def source_url(value):
             return ""
         if _GOOGLE_HOST.search(parts.hostname):
             query = dict(parse_qsl(parts.query))
-            if (parts.path.rstrip("/") == "/search" and (query.get("ibp") == "oshop" or "prds" in query)
-                    or parts.path.startswith("/shopping/product/")):
+            if _is_google_product(parts) and not include_google_products:
                 return ""
             if parts.path.rstrip("/") in ("/goto", "/url"):
                 # Opaque Google IDs are not source URLs; unwrap explicit URLs only.
@@ -194,7 +217,7 @@ def source_url(value):
     return web.clean_link(value, strip_scheme=False, preserve_encoding=True)
 
 
-def markdown_urls(markdown):
+def markdown_urls(markdown, *, include_google_products=False):
     """Collect link destinations and literal URLs; never interpret section prose."""
     if not isinstance(markdown, str):
         return []
@@ -216,4 +239,7 @@ def markdown_urls(markdown):
             while url.endswith(closing) and url.count(closing) > url.count(opening):
                 url = url[:-1]
         candidates.append(url)
-    return list(dict.fromkeys(url for candidate in candidates if (url := source_url(candidate))))
+    return list(dict.fromkeys(
+        url for candidate in candidates
+        if (url := source_url(candidate, include_google_products=include_google_products))
+    ))

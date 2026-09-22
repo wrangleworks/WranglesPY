@@ -13,18 +13,20 @@ import requests
 
 from tests.fixtures.search_ai_mode import run_search_ai_mode as runner
 from wrangles import ai_cache
-from wrangles._search_ai_content import markdown_urls, source_url, unlink_description
+from wrangles._search_ai_content import google_product_url, markdown_urls, source_url, unlink_description
 from wrangles._search_ai_extraction import validate_sources
 
 
 MAKER = "https://maker.invalid/specs"
 SUPPLIER = "https://supplier.invalid/item?variant=1&currency=USD"
+GOOGLE_VIEWER = "https://www.google.com/search?ibp=oshop&prds=productid:123"
+GOOGLE_REFERENCE = {"id": "00", "source": "Google", "url": GOOGLE_VIEWER}
 QUERY_SECTIONS = (
     "Summarize information in 4 sections: "
     "Product Description (1-3 sentences, plain text with no links) | "
     "Specifications (as name value pairs) | "
     "Pricing (including the supplier name and source link) | "
-    "Results Summary (count of references, count of prices found, and the Google product viewer URL if available). "
+    "Results Summary (count of references and count of prices found). "
     "Use the exact section labels as headings. Do not ask follow-up questions."
 )
 
@@ -84,7 +86,8 @@ def test_response_structuring_unlinks_description_and_preserves_raw_evidence():
     cleaned = runner.structure_search_response(df, input="raw", metadata="meta", output="clean")
     assert cleaned["raw"].tolist() == [original, None, 42]
     assert cleaned["clean"].tolist() == [expected + "\n\n" + protected, None, 42]
-    repeated = runner.structure_search_response(cleaned.copy(), input="clean", metadata="meta", output="clean")
+    assert cleaned.iloc[0]["meta"]["google_product_url"] == url
+    repeated = runner.structure_search_response(deepcopy(cleaned), input="raw", metadata="meta", output="clean")
     assert repeated.equals(cleaned)
 
 
@@ -167,6 +170,82 @@ def test_structuring_saves_raw_response_only_when_requested(tmp_path):
     assert saved.iloc[0]["raw"] == original
     assert "raw_response" not in saved.iloc[0]["meta"]
     assert saved.iloc[0]["clean"].startswith("### Product Description\nThe Part is a pump.")
+
+
+@pytest.mark.parametrize("link", [
+    f"[Part]({GOOGLE_VIEWER}&srsltid=tracking)",
+    f'[Part](<{GOOGLE_VIEWER}&amp;srsltid=tracking> "Product viewer")',
+    f"[Part](\n{GOOGLE_VIEWER}\n)",
+    f'<a href="{GOOGLE_VIEWER}">Part</a>',
+    f"<{GOOGLE_VIEWER}>",
+    GOOGLE_VIEWER,
+    "[Part][product]",
+])
+def test_structuring_captures_viewer_from_description_link_formats(link):
+    raw = (f"### Product Description\n{link} is the product.\n\n"
+           "### Results Summary\nOne price.\n\n"
+           f"[product]: {GOOGLE_VIEWER}\n")
+    frame = pd.DataFrame({"raw": [raw], "meta": [{"status": "Success"}]})
+    result = runner.structure_search_response(frame, input="raw", metadata="meta", output="clean").iloc[0]
+    assert result["raw"] == raw
+    assert result["meta"]["google_product_url"] == GOOGLE_VIEWER
+    assert "http" not in result["clean"].split("### Results Summary")[0]
+    assert "[Part]" not in result["clean"].split("### Results Summary")[0]
+    assert GOOGLE_VIEWER in markdown_urls(result["clean"], include_google_products=True)
+
+
+@pytest.mark.parametrize("raw", [
+    "### Product Description\nA pump.\n\n### Results Summary\n" + f"[Viewer]({GOOGLE_VIEWER})",
+    "### Product Description\n\n    " + f"[Viewer]({GOOGLE_VIEWER})",
+    "### Product Description\n" + f"![Thumbnail]({GOOGLE_VIEWER})",
+    "### Product Description\n[Part](https://www.google.com.invalid/search?ibp=oshop&prds=123)",
+    "### Product Description\n[Part](https://www.google.com/search?q=pump)",
+    f"### Product Description\n[Part]({SUPPLIER})",
+    None,
+])
+def test_structuring_does_not_invent_or_reuse_stale_google_references(raw):
+    frame = pd.DataFrame({"raw": [raw], "meta": [{"google_product_url": GOOGLE_VIEWER}]})
+    result = runner.structure_search_response(frame, input="raw", metadata="meta", output="clean").iloc[0]
+    assert "google_product_url" not in result["meta"]
+
+
+def test_first_description_viewer_is_reserved_and_additional_links_stay_in_evidence():
+    second = "https://www.google.co.uk/shopping/product/456"
+    raw = f"### Product Description\n[First]({GOOGLE_VIEWER}) and [Second]({second})."
+    frame = pd.DataFrame({"raw": [raw], "meta": [{}]})
+    result = runner.structure_search_response(frame, input="raw", metadata="meta", output="clean").iloc[0]
+    assert result["meta"]["google_product_url"] == GOOGLE_VIEWER
+    assert {GOOGLE_VIEWER, second} <= set(markdown_urls(result["clean"], include_google_products=True))
+    assert google_product_url(second + "?srsltid=tracking") == second
+
+
+def test_google_reference_is_added_without_renumbering_or_requiring_model_references(markdown, extracted):
+    references, offers, meta = validate_sources(
+        extracted["references"], extracted["Pricing"], markdown, google_product=GOOGLE_VIEWER,
+    )
+    assert references == [GOOGLE_REFERENCE, *extracted["references"]]
+    assert offers == extracted["Pricing"] and meta["status"] == "complete"
+    assert validate_sources([], [], markdown, google_product=GOOGLE_VIEWER)[0] == [GOOGLE_REFERENCE]
+    assert validate_sources(None, None, markdown, google_product=GOOGLE_VIEWER)[0] == [GOOGLE_REFERENCE]
+
+
+def test_reserved_google_id_cannot_be_replaced_or_used_as_a_supplier_reference(markdown, extracted):
+    extracted["references"].append({"id": "00", "source": "Supplier A", "url": SUPPLIER})
+    extracted["Pricing"][0]["reference_ids"] = ["00", "02"]
+    references, offers, meta = validate_sources(
+        extracted["references"], extracted["Pricing"], markdown, google_product=GOOGLE_VIEWER,
+    )
+    assert references == [GOOGLE_REFERENCE, *extracted["references"][:2]]
+    assert offers[0]["reference_ids"] == ["02"]
+    assert meta["rejected_references"][0]["reason"] == "reserved_reference_id"
+    assert validate_sources(extracted["references"], [], markdown)[0] == extracted["references"][:2]
+
+
+@pytest.mark.parametrize("url", [SUPPLIER, GOOGLE_VIEWER + "456", "https://google.com.invalid/search?ibp=oshop"])
+def test_google_reference_requires_an_actual_viewer_url_in_the_evidence(markdown, url):
+    references, _, meta = validate_sources([], [], markdown, google_product=url)
+    assert references == []
+    assert meta["warnings"] == ["google_product_url_not_in_evidence"]
 
 
 def test_selected_references_and_offers_are_independent(markdown, extracted):
@@ -273,6 +352,8 @@ def trial(monkeypatch, tmp_path, markdown, extracted):
 
     def post(**kwargs):
         extractions.append(kwargs["json"])
+        if error := responses.get("extract_error"):
+            raise error
         return Response()
 
     dotenv = ModuleType("dotenv")
@@ -303,6 +384,7 @@ def test_trial_uses_direct_outputs_and_separate_input_identity(trial, extracted,
     assert request["text"]["format"]["strict"] is True and "tools" not in request
     assert request["reasoning"] == {"effort": "low"}
     assert "Build references BEFORE offers" in request["instructions"]
+    assert 'ID "00" is reserved' in request["instructions"]
     assert "Example P101 specifications" in request["instructions"]
     schema = request["text"]["format"]["schema"]
     assert schema["additionalProperties"] is False
@@ -315,7 +397,8 @@ def test_trial_uses_direct_outputs_and_separate_input_identity(trial, extracted,
     assert "12 VDC" in evidence and "\u03bc" in evidence
     assert "Go to product viewer dialog for this item." not in evidence
     assert "### Results Summary" in row["ai_mode_results_clean"]
-    assert "https://www.google.com/search?ibp=oshop&prds=productid:123" in row["ai_mode_results_clean"].split("### Results Summary")[1]
+    assert GOOGLE_VIEWER not in row["ai_mode_results"].split("### Results Summary")[1]
+    assert GOOGLE_VIEWER in row["ai_mode_results_clean"].split("### Links from Product Description")[1]
     assert "search_metadata" not in evidence
     identity = {field: runner.INPUT_ROWS[0][field] for field in ("Mfr", "MPN", "Description")}
     assert row["Input Product Information"] == identity
@@ -331,7 +414,7 @@ def test_trial_uses_direct_outputs_and_separate_input_identity(trial, extracted,
     assert "$13.15 USD per pack of 10, excluding VAT" in row["ai_mode_results_clean"]
     assert r"$12\text{ VDC}$" in row["ai_mode_results"]
     assert "Example P12Go to product viewer dialog for this item." in row["ai_mode_results"]
-    assert row["references"][0]["id"] == "01"
+    assert row["references"] == [GOOGLE_REFERENCE, *extracted["references"]]
     assert row["Pricing"][0]["reference_ids"] == ["02"]
     assert row["Product Description"] == extracted["Product Description"]
     assert row["Product Description"] in row["ai_mode_results_clean"]
@@ -341,6 +424,24 @@ def test_trial_uses_direct_outputs_and_separate_input_identity(trial, extracted,
     schema_text = json.dumps(request["text"]["format"]["schema"])
     assert '"number"' in schema_text and '"null"' in schema_text
     assert all(field in schema_text for field in ("currency", "uom", "price_text", "reference_ids", "references"))
+
+
+def test_trial_does_not_retry_extraction_after_a_transient_failure(trial):
+    trial[2]["extract_error"] = requests.exceptions.Timeout("Synthetic extraction timeout")
+    row = runner.main().iloc[0]
+    assert len(trial[0]) == 1 and len(trial[1]) == 1
+    assert row["references"] == [GOOGLE_REFERENCE]
+    assert row["Pricing"] == []
+    assert row["ai_mode_structured_meta"]["status"] == "error"
+
+
+def test_trial_without_a_google_viewer_keeps_only_model_references(trial, markdown, extracted):
+    trial[2]["default"] = markdown.replace(
+        f"[Example P12Go to product viewer dialog for this item.]({GOOGLE_VIEWER})", "Example P12"
+    )
+    row = runner.main().iloc[0]
+    assert row["references"] == extracted["references"]
+    assert "google_product_url" not in row["ai_mode_metadata"]
 
 
 @pytest.mark.parametrize("confidence", ["Certain", "Likely", "Uncertain"])
@@ -409,7 +510,8 @@ def test_trial_skips_unusable_answers(trial, monkeypatch, markdown, state):
     row = runner.main().iloc[0]
     assert not trial[1]
     assert row["ai_mode_structured_meta"]["status"] == "skipped"
-    assert row["Pricing"] == [] and row["references"] == []
+    assert row["Pricing"] == []
+    assert row["references"] == ([GOOGLE_REFERENCE] if state == "disabled" else [])
     assert row["Product Description"] == "" and row["Match Confidence"] == "Uncertain"
 
 
