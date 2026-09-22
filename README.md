@@ -2,11 +2,18 @@
 
 Full documentation available at [wrangles.io](https://wrangles.io/python).
 
+## Python support
+
+Wrangles supports Python 3.11, 3.12, 3.13, and 3.14. Pull requests targeting
+`main` and pushes to `main` run tests and package-install checks on Python 3.11,
+3.13, and 3.14 on Ubuntu and Windows. Tagged releases run tests on Python 3.13
+and 3.14 on Ubuntu and macOS, plus package-install checks on Ubuntu.
+
 ## Local development
 
-Supported local development uses Python 3.13. On Windows, create or refresh the
-complete test and tooling environment with one command from the repository
-root:
+The standard local development environment uses Python 3.13. On Windows,
+create or refresh the complete test and tooling environment with one command
+from the repository root:
 
 ```powershell
 .\scripts\bootstrap-dev.ps1
