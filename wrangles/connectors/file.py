@@ -176,7 +176,7 @@ def read(
 
     # If drop_empty is set, drop any columns that are completely empty
     if drop_empty:
-        df = df.replace('(\s+|^$)', _pd.NA, regex=True).dropna(axis=1, how='all')
+        df = df.replace(r'(\s+|^$)', _pd.NA, regex=True).dropna(axis=1, how='all')
 
     return df
 

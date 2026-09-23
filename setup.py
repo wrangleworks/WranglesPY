@@ -41,7 +41,10 @@ setup(
     keywords = ['data','wrangling'],
     install_requires = requirements,
     entry_points ={
-        'console_scripts': ['wrangles.recipe = wrangles.console:recipe']
+        'console_scripts': [
+            'wrangles = wrangles.console:main',
+            'wrangles.recipe = wrangles.console:recipe',
+        ]
     },
     project_urls = {
         'Bug Tracker': 'https://github.com/wrangleworks/WranglesPy/issues',
