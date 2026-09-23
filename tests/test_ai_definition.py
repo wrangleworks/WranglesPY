@@ -3,6 +3,7 @@ import logging
 import pandas as pd
 import pytest
 import wrangles
+from pydantic import ValidationError
 
 import wrangles.ai_definition as ai_definition
 import wrangles.ai_cache as ai_cache
@@ -332,6 +333,32 @@ def test_outputs_are_nullable_by_default_but_keys_remain_required():
             },
             schema,
         )
+
+
+@pytest.mark.parametrize(
+    "field_schema",
+    [
+        {"type": ["string", "integer", "null"]},
+        {"anyOf": [{"type": "string"}, {"type": "integer"}, {"type": "null"}]},
+    ],
+    ids=["type-list", "anyOf"],
+)
+@pytest.mark.parametrize("value", ["25mm", 25, None, [], {}])
+def test_structured_output_union_validation(field_schema, value):
+    """Union fields must build and validate on every supported Python version."""
+    schema = {
+        "type": "object",
+        "properties": {"value": field_schema},
+        "required": ["value"],
+        "additionalProperties": False,
+    }
+    parsed = {"value": value}
+
+    if isinstance(value, (list, dict)):
+        with pytest.raises(ValidationError):
+            openai_responses.validate_structured_output(parsed, schema)
+    else:
+        assert openai_responses.validate_structured_output(parsed, schema) == parsed
 
 
 def test_nullable_false_is_an_explicit_opt_out():

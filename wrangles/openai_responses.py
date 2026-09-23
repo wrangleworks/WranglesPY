@@ -429,7 +429,7 @@ def schema_type_to_python(schema: dict, name: str) -> _Any:
             if isinstance(option, dict)
         )
         if python_types:
-            return _Union.__getitem__(python_types)
+            return _Union[python_types]
 
     if schema.get("enum"):
         return _Literal.__getitem__(tuple(schema["enum"]))
@@ -440,7 +440,7 @@ def schema_type_to_python(schema: dict, name: str) -> _Any:
             schema_type_to_python({**schema, "type": item}, name)
             for item in schema_type
         )
-        return _Union.__getitem__(python_types)
+        return _Union[python_types]
 
     if schema_type == "array":
         return _List[schema_type_to_python(schema.get("items", {}), f"{name}Item")]

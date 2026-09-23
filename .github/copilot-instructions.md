@@ -13,7 +13,7 @@
 
 ## Tech Stack
 
-- **Python:** 3.11, 3.12, 3.13 (multi-version support)
+- **Python:** 3.11, 3.12, 3.13, 3.14 (package support); the standard local development environment uses Python 3.13
 - **Core Dependencies:** pandas (>=2.0,<3.0), numpy, polars (1.33.0), pyyaml
 - **Database Connectors:** sqlalchemy, pymssql, psycopg2-binary, pymysql, pymongo
 - **Cloud/External:** boto3 (AWS S3), simple-salesforce, fabric (SFTP)
@@ -243,7 +243,7 @@ current `main`; never merge `dev` wholesale into `main`.
 
 **Pushing to a feature branch currently runs nothing.** Open a pull request to
 `main` (Draft is fine) to trigger `ci.yml`. A PR to `main` runs the full Ubuntu
-and Windows, Python 3.11 and 3.13 matrix.
+and Windows, Python 3.11, 3.13, and 3.14 matrix.
 
 PR #1115 established the current workflows, but some triggers still mention the
 legacy `dev` branch. That support is transitional compatibility and does not
@@ -281,8 +281,8 @@ to define.
 ### GitHub Actions Workflows
 - **ci.yml** (*CI*)**:** PRs into `main` and pushes to `main`; legacy `dev`
   triggers remain temporarily while recovery is completed
-  - Pytest on Ubuntu + Windows across Python 3.11 + 3.13 for `main` PRs
-  - Test pip installation
+  - Pytest on Ubuntu + Windows across Python 3.11 + 3.13 + 3.14 for `main` PRs and pushes
+  - Test pip installation across the same matrix
   - Generate and test JSON schema
   - Build the CI test image and, on PRs, run smoke checks and local recipes against that exact image
   - Push the image on merges to `main` under the new policy
@@ -293,6 +293,9 @@ to define.
 - **publish-tagged.yml** (*Deploy Prod*)**:** `v*` tag push. GHCR, then
   CodeArtifact, then PyPI. The file name is pinned by PyPI Trusted Publishing
   and cannot be renamed without updating the publisher on PyPI first.
+  - Pytest on Ubuntu + macOS across Python 3.13 + 3.14
+  - Test pip installation on Ubuntu across Python 3.13 + 3.14
+  - Validate the Python 3.13 CI test image before package publication
 
 ### Workflow Jobs
 1. **pytest:** Run test suite across OS/Python matrix

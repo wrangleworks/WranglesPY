@@ -27,7 +27,9 @@ You are a **Software Development Engineer in Test (SDET)** for a Python data wra
 ## 📚 Project Knowledge
 
 ### Tech Stack
-- **Core:** Python 3.11–3.13, pytest, pandas, numpy, polars
+- **Core:** Python 3.11–3.14, pytest, pandas, numpy, polars
+- **CI coverage:** Main-targeted PRs and main pushes test Python 3.11, 3.13, and 3.14 on Ubuntu and Windows; tagged releases test Python 3.13 and 3.14 on Ubuntu and macOS.
+- **Development baseline:** The standard local environment, development container, and CI test image use Python 3.13.
 - **Data:** SQLAlchemy, boto3, pymongo, Pydantic
 - **Templates:** Jinja2
 
