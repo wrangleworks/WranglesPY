@@ -1082,7 +1082,7 @@ def test_extract_ai_retries_transport_error_then_succeeds(monkeypatch, error_typ
 @pytest.mark.parametrize("retries", [0, 1, 2])
 @pytest.mark.parametrize("error_type, expected_error", [
     (requests.exceptions.Timeout, "Timed Out"),
-    (requests.exceptions.ConnectionError, "Connection failed on attempt {attempt}"),
+    (requests.exceptions.ConnectionError, "OpenAI API error | transport: Connection failed on attempt {attempt}"),
 ])
 def test_extract_ai_transport_error_exhausts_retries(monkeypatch, error_type, expected_error, retries):
     calls = []
