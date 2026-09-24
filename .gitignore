@@ -127,6 +127,7 @@ docs/*
 !docs/github-app-deployment.md
 !docs/search_ai_mode.md
 !docs/search_ai_overview_research.md
+!docs/runtime-manifest.md
 .DS_Store
 
 # Spyder project settings
@@ -146,3 +147,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Generated runtime manifest; published as a CI/release artifact
+/schema/wrangle_runtime_manifest.json

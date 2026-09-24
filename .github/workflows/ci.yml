@@ -134,6 +134,8 @@ jobs:
 
   test-generate-schema:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
@@ -145,17 +147,35 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install -r requirements-full.txt
-          pip install jsonschema
+          python -m pip install -r requirements-full.txt jsonschema pytest
 
       - name: Generate and Test Schema
         run: cd schema && python generate_recipe_schema.py
 
-      - name: Save Schema as Artifact
+      - name: Test runtime manifest
+        run: python -m pytest tests/test_wrangle_runtime_manifest.py -q
+
+      - name: Export validated runtime manifest
+        run: |
+          python schema/generate_wrangle_manifest.py --source-revision "$GITHUB_SHA" --artifact-dir "$RUNNER_TEMP/runtime-manifest"
+          cp "$RUNNER_TEMP/runtime-manifest/wrangles-runtime-manifest.json" schema/wrangle_runtime_manifest.json
+
+      - name: Save Schema and Runtime Manifest as Artifacts
         uses: actions/upload-artifact@v6
         with:
           name: schema
-          path: schema/schema.json
+          path: |
+            schema/schema.json
+            schema/wrangle_runtime_manifest.json
+            schema/wrangles-runtime-manifest.schema.json
+          if-no-files-found: error
+
+      - name: Save runtime manifest bundle as Artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: runtime-manifest
+          path: ${{ runner.temp }}/runtime-manifest/
+          if-no-files-found: error
 
   build:
     runs-on: ubuntu-latest
