@@ -17,6 +17,8 @@ wrangles:
 """
 from .standardize import clean as _standardize_clean
 from .standardize import custom as _standardize_custom
+from .lookup import key as _lookup_key
+from .lookup import semantic as _lookup_semantic
 from .main import *
 from .pandas import *
 from . import convert
@@ -36,3 +38,6 @@ from . import search
 # standardize namespace to recipe resolution and schema discovery.
 standardize.clean = _standardize_clean
 standardize.custom = _standardize_custom
+
+lookup.key = _lookup_key
+lookup.semantic = _lookup_semantic
