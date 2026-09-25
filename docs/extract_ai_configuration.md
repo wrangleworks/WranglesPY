@@ -6,12 +6,14 @@ in recipe YAML, see [`extract_ai_user_guide.md`](extract_ai_user_guide.md).
 The packaged defaults and base prompt live in
 `wrangles/ai_defaults.yml`. Set `WRANGLES_AI_CONFIG` to the path of a
 versioned replacement YAML file to override the complete configuration.
+Model capability entries are merged with the packaged entries; see
+[model defaults and capabilities](extract_ai_user_guide.md#model-defaults-and-capabilities).
 
 ## Runtime defaults
 
 - Provider: `openai`
 - Protocol: `responses`
-- Model: `gpt-5.4-mini`
+- Model: `gpt-6-luna` (also the default for `generate.ai`)
 - Default worker concurrency (`default_concurrency`): 32 per `extract.ai` call
 - Network timeout per HTTP attempt: 12 seconds
 - Retries: 1 additional attempt per row after a retryable failure

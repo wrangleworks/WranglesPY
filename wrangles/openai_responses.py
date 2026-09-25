@@ -21,6 +21,8 @@ from pydantic import Field as _Field
 from pydantic import ValidationError as _ValidationError
 from pydantic import create_model as _create_model
 
+from . import ai_config as _ai_config
+
 
 _LOG = _logging.getLogger(__name__)
 _LOCK = _threading.Lock()
@@ -337,15 +339,18 @@ def supports_reasoning(model: str) -> bool:
     """
     Return whether a model supports the Responses API reasoning parameter.
     """
-    model = (model or "").lower()
-    return model.startswith(("gpt-5", "o1", "o3", "o4"))
+    model = (model or "").strip().lower()
+    return _ai_config.model_capabilities(model).get(
+        "reasoning", model.startswith(("gpt-5", "o1", "o3", "o4"))
+    )
 
 
 def supports_reasoning_effort(model: str, effort: str) -> bool:
     """
     Return whether a model supports a specific reasoning effort.
 
-    OpenAI models before GPT-5.1 do not support ``none``. Pro models also
+    Configured capabilities take precedence. Older models before GPT-5.1
+    do not support ``none``. Pro models also
     require reasoning, so they cannot honor the package's no-reasoning
     default. Other effort/model compatibility is left to the provider because
     it varies more narrowly by model.
@@ -358,6 +363,9 @@ def supports_reasoning_effort(model: str, effort: str) -> bool:
         return True
 
     model = (model or "").strip().lower()
+    capabilities = _ai_config.model_capabilities(model)
+    if "reasoning_none" in capabilities:
+        return capabilities["reasoning_none"]
     if "-pro" in model:
         return False
 
@@ -369,8 +377,10 @@ def supports_low_verbosity(model: str) -> bool:
     """
     Return whether a model supports low text verbosity.
     """
-    model = (model or "").lower()
-    return model.startswith("gpt-5")
+    model = (model or "").strip().lower()
+    return _ai_config.model_capabilities(model).get(
+        "low_verbosity", model.startswith("gpt-5")
+    )
 
 
 def sanitize_schema(schema: dict, strict: bool = True) -> dict:

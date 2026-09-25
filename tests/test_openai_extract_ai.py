@@ -587,10 +587,49 @@ def test_extract_ai_omits_default_reasoning_for_non_reasoning_models(monkeypatch
         ("gpt-5.1", True),
         ("gpt-5.4-mini", True),
         ("gpt-5.4-pro", False),
+        ("gpt-6-luna", True),
+        ("gpt-6-luna-2026-09-25", True),
+        ("unknown-model", False),
     ],
 )
 def test_reasoning_none_model_compatibility(model, supported):
     assert extract._openai_responses.supports_reasoning_effort(model, "none") is supported
+
+
+@pytest.mark.parametrize("reasoning", [None, {"effort": "low"}])
+def test_extract_ai_default_model_capabilities_reach_request(monkeypatch, reasoning):
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(),
+    )
+
+    assert extract.ai(
+        "wrench 25mm", "key", output={"length": {"type": "string"}},
+        reasoning=reasoning, threads=1,
+    ) == {"length": "25mm"}
+
+    payload = calls[0]["json"]
+    assert payload["model"] == ai_config.extract_ai()["model"]
+    assert payload["reasoning"] == (reasoning or {"effort": "none"})
+    assert payload["text"]["verbosity"] == "low"
+
+
+@pytest.mark.parametrize(
+    "model, supported",
+    [
+        ("gpt-6-luna", True),
+        (" GPT-6-LUNA-2026-09-25 ", True),
+        ("gpt-6-luna-other", False),
+        ("gpt-6-unknown", False),
+        ("gpt-4o-mini", False),
+        ("gpt-5.4-mini", True),
+    ],
+)
+def test_model_reasoning_and_verbosity_capabilities(model, supported):
+    assert extract._openai_responses.supports_reasoning(model) is supported
+    assert extract._openai_responses.supports_low_verbosity(model) is supported
 
 
 def test_extract_ai_scalar_output_returns_scalar_with_responses(monkeypatch):
@@ -863,6 +902,7 @@ def test_ai_defaults_are_packaged_and_public():
     assert ai_config.config_path().is_file()
     assert policy["provider"] == "openai"
     assert policy["protocol"] == "responses"
+    assert policy["model"] == "gpt-6-luna"
     assert policy["default_concurrency"] == 32
     assert policy["request_timeout_seconds"] == 12
     assert "total_deadline_seconds" not in policy
@@ -896,6 +936,58 @@ def test_ai_config_can_be_overridden(monkeypatch, tmp_path):
     ai_config.clear_cache()
     try:
         assert ai_config.extract_ai()["model"] == "custom-model"
+        assert ai_config.model_capabilities("gpt-6-luna")["reasoning"] is True
+    finally:
+        ai_config.clear_cache()
+
+
+def test_ai_config_capability_overrides(monkeypatch, tmp_path):
+    override = tmp_path / "ai.yml"
+    override.write_text(json.dumps({
+        "version": 1,
+        "extract_ai": {"model": "custom-model"},
+        "model_capabilities": {
+            "custom-model": {"reasoning": True, "reasoning_none": False},
+            "gpt-6-luna": {"reasoning_none": False},
+            "gpt-6-luna-2026-09-25": {"reasoning": False},
+            "gpt-5": {"reasoning": False, "low_verbosity": False},
+        },
+    }), encoding="utf-8")
+    monkeypatch.setenv("WRANGLES_AI_CONFIG", str(override))
+    ai_config.clear_cache()
+    try:
+        responses = extract._openai_responses
+        assert responses.supports_reasoning("custom-model") is True
+        assert responses.supports_reasoning_effort("custom-model", "low") is True
+        assert responses.supports_reasoning_effort("custom-model", "none") is False
+        assert responses.supports_low_verbosity("custom-model") is False
+        assert responses.supports_reasoning("gpt-6-luna") is True
+        assert responses.supports_reasoning_effort("gpt-6-luna", "none") is False
+        assert responses.supports_reasoning("gpt-6-luna-2026-09-25") is False
+        assert responses.supports_reasoning("gpt-5") is False
+        assert responses.supports_low_verbosity("gpt-5") is False
+        flags = ai_config.model_capabilities("gpt-6-luna")
+        flags["reasoning"] = False
+        assert ai_config.model_capabilities("gpt-6-luna")["reasoning"] is True
+    finally:
+        ai_config.clear_cache()
+
+
+@pytest.mark.parametrize("capabilities", [
+    [], {"model": []}, {"model": {"reasoning": "false"}},
+    {"model": {"unknown_flag": True}},
+])
+def test_ai_config_rejects_invalid_capabilities(monkeypatch, tmp_path, capabilities):
+    override = tmp_path / "ai.yml"
+    override.write_text(json.dumps({
+        "version": 1, "extract_ai": {"model": "custom-model"},
+        "model_capabilities": capabilities,
+    }), encoding="utf-8")
+    monkeypatch.setenv("WRANGLES_AI_CONFIG", str(override))
+    ai_config.clear_cache()
+    try:
+        with pytest.raises(ValueError, match="model_capabilities"):
+            ai_config.load()
     finally:
         ai_config.clear_cache()
 

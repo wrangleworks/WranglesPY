@@ -4,6 +4,40 @@ Use `extract.ai` when each input row should produce one or more consistently
 named attributes. You can define the attributes in an Excel saved model or
 directly in a recipe. Both routes compile to the same output contract.
 
+## Model defaults and capabilities
+
+`wrangles/ai_defaults.yml` is the packaged source of model configuration.
+`extract_ai.model` defaults to `gpt-6-luna` and is shared by Python and recipe
+calls to both `extract.ai` and `generate.ai`. Omit `model` in ordinary recipes
+and live tests to follow this default. Explicit model arguments and saved
+extraction models retain their existing precedence; saved model names are not
+automatically migrated.
+
+Set `WRANGLES_AI_CONFIG` to a version-1 YAML policy to override the packaged
+configuration. Start from a copy of `ai_defaults.yml`: extraction settings
+are replaced, not merged. Model capability entries are merged with packaged
+entries, so existing override files without `model_capabilities` remain valid.
+Call `wrangles.ai_config.clear_cache()` after editing an already-loaded file.
+
+The optional `model_capabilities` map accepts boolean `reasoning`,
+`reasoning_none`, and `low_verbosity` flags per model. Extraction checks these
+before falling back to its legacy GPT-5/o-series rules. Dated snapshots inherit
+their base model's flags and can have explicit overrides. Unknown families are
+not assumed to support these options; register verified capabilities when
+adopting a new model. Generation continues to forward reasoning options verbatim
+and retains its `low` reasoning default.
+
+For each model upgrade, verify the flags against
+[OpenAI's model documentation](https://developers.openai.com/api/docs/models)
+and run credentialed extraction/generation checks. Mocked tests verify request
+construction, not provider availability or accepted parameters. The GPT-6 Luna
+flags in this change still require that live verification.
+
+Embedding calls retain their separate `text-embedding-3-small` default;
+generation models are not replacements for embedding models. A future
+embedding-default policy can use the same YAML file without changing existing
+vector dimensions or stored indexes implicitly.
+
 ## Start with the output
 
 Define the result you want before writing general instructions or examples.
@@ -163,7 +197,10 @@ wrangles.connectors.train.extract.write(
     definition,
     name="Voltage schema",
     variant="ai",
-    settings={"GPTModel": "gpt-5.4-mini", "ReasoningEffort": "none"},
+    settings={
+        "GPTModel": wrangles.ai_config.extract_ai()["model"],
+        "ReasoningEffort": "none",
+    },
 )
 ```
 
@@ -310,7 +347,6 @@ wrangles:
         - Title
         - Technical Data
       api_key: ${OPENAI_API_KEY}
-      model: gpt-5.6-luna
       reasoning:
         effort: low
       instructions:

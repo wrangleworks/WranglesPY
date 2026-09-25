@@ -27,7 +27,6 @@ def test_generate_ai_recipe_without_web_search_real_call():
                         type: string
                         description: use any word of the input as category name.
                 api_key: ${OPENAI_API_KEY}
-                model: gpt-5-nano
                 reasoning:
                     effort: low
                 threads: 1
@@ -81,7 +80,6 @@ def test_generate_ai_recipe_without_web_search_real_call_chain():
                         type: string
                         description: use any word of the input as category name.
                 api_key: ${OPENAI_API_KEY}
-                model: gpt-5-nano
                 reasoning:
                     effort: low
                 threads: 1

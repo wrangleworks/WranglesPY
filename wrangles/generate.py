@@ -13,6 +13,8 @@ except ImportError:
 
 from pydantic import BaseModel
 
+from . import ai_config as _ai_config
+
 JsonSchemaType = Literal["string", "number", "integer", "boolean", "null", "object", "array"]
 
 class PropertyDefinition(BaseModel):
@@ -139,7 +141,7 @@ def ai(
     input: Union[Any, List[Any]],
     api_key: str,
     output: Dict[str, Any],
-    model: str = "gpt-5-mini",
+    model: str = None,
     threads: int = 20,
     timeout: int = 90,
     retries: int = 0,
@@ -177,7 +179,7 @@ def ai(
         description: Target schema; string/array shorthands are expanded automatically.
       model:
         type: string
-        description: Responses model name (e.g. gpt-5-mini).
+        description: Responses model name. Defaults to extract_ai.model in the AI configuration.
       threads:
         type: integer
         description: Maximum concurrent requests (default 20).
@@ -210,6 +212,7 @@ def ai(
         description: Request summary text to be merged into the output.
     """
 
+    model = model or _ai_config.extract_ai()["model"]
     _logging.info(f": Generating data using AI :: model :: {model}, thread_count :: {threads}, record_count :: {1 if not isinstance(input, list) else len(input)}")
     input_was_scalar = not isinstance(input, list)
     input_list = [input] if input_was_scalar else input

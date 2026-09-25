@@ -11,7 +11,7 @@ def ai(
     api_key: str,
     output: _Union[_Dict, str, _List],
     input: _Union[str, _List] = None,
-    model: str = "gpt-5",
+    model: str = None,
     threads: int = 20,
     timeout: int = 90,
     retries: int = 0,
@@ -48,7 +48,7 @@ def ai(
         description: Target schema; string/array shorthands are expanded automatically.
       model:
         type: string
-        description: Responses model name (e.g. gpt-5-mini).
+        description: Responses model name. Defaults to extract_ai.model in the AI configuration.
       threads:
         type: integer
         description: Maximum concurrent requests (default 20).

@@ -1,5 +1,11 @@
 version: 1
 
+model_capabilities:
+  gpt-6-luna:
+    reasoning: true
+    reasoning_none: true
+    low_verbosity: true
+
 extract_ai:
   profile: extract_fast
   provider: openai
