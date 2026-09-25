@@ -86,8 +86,10 @@ still fail export.
 Evaluated union annotations use the existing Docs spelling, `Union[...]` and
 `Optional[...]`, on all supported Python versions, including Python 3.14.
 This applies to parameter annotations and complete signatures, including nested
-types and return annotations. Quoted forward references, literal values, and
-annotation metadata are preserved without evaluating their text. Existing `X | Y`
+types and return annotations. Type names such as `typing.Annotated` are rendered
+without the `typing.` qualifier on every supported Python version. Quoted forward
+references, literal values, and annotation metadata retain their text, including
+any literal `typing.` prefix or pipe, without evaluation. Existing `X | Y`
 annotations also use this canonical spelling; the textual representation changes,
 while the accepted types, defaults, and recipe behavior stay the same.
 

@@ -108,11 +108,13 @@ def test_runtime_manifest_preserves_signature_and_embedded_schema_separately():
     (Optional[str], "Optional[str]"),
     (str | int | None, "Union[str, int, NoneType]"),
     (Callable[[list[str | int]], str | None], "Callable[[list[Union[str, int]]], Optional[str]]"),
-    (Annotated[list[str | int], "str | int"], "Annotated[list[Union[str, int]], 'str | int']"),
-    (Literal["str | int"], "Literal['str | int']"),
-    ("str | int", "'str | int'"),
+    (Annotated[list[str | int], "typing.Union[str, int] | None"],
+     "Annotated[list[Union[str, int]], 'typing.Union[str, int] | None']"),
+    (Annotated[int, "typing.Optional[str]"], "Annotated[int, 'typing.Optional[str]']"),
+    (Literal["typing.Union[str, int] | None"], "Literal['typing.Union[str, int] | None']"),
+    ("typing.Union[str, int] | None", "'typing.Union[str, int] | None'"),
 ], ids=["typing-union", "pipe-union", "optional", "nullable-union", "nested-callable",
-        "annotated-metadata", "literal-text", "forward-reference"])
+        "annotated-metadata", "annotated-without-union", "literal-text", "forward-reference"])
 def test_union_annotations_keep_docs_spelling_in_parameters_and_signatures(annotation, expected):
     def typed(df, input, /, *, output=None):
         raise AssertionError("Export must never execute the operation")
