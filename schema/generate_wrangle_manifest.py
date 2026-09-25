@@ -90,12 +90,23 @@ def _iter_callables(obj: Any, path: tuple[str, ...] = (), *, config: Any = None,
                                    ancestors=ancestors | {id(obj)})
 
 
-class _UnionAnnotations(ast.NodeTransformer):
-    """Render evaluated union annotations in the existing Docs spelling."""
+class _AnnotationNormalizer(ast.NodeTransformer):
+    """Normalize type syntax without rewriting quoted metadata or references."""
+
+    def __init__(self):
+        self.changed = False
+
+    def visit_Attribute(self, node):
+        node = self.generic_visit(node)
+        if isinstance(node.value, ast.Name) and node.value.id == "typing":
+            self.changed = True
+            return ast.Name(id=node.attr, ctx=node.ctx)
+        return node
 
     def visit_BinOp(self, node):
         if not isinstance(node.op, ast.BitOr):
             return self.generic_visit(node)
+        self.changed = True
         members = []
 
         def collect(member):
@@ -118,20 +129,23 @@ class _UnionAnnotations(ast.NodeTransformer):
 def _annotation_text(annotation: Any) -> str | None:
     if annotation is inspect.Parameter.empty:
         return None
-    value = inspect.formatannotation(annotation)
+    # inspect's typing-prefix substitution also rewrites quoted metadata.
+    value = (repr(annotation) if getattr(annotation, "__module__", None) == "typing"
+             else inspect.formatannotation(annotation))
     if re.search(r"\bat 0x[0-9a-fA-F]+", value) or "\\" in value:
         raise ManifestError("Nonportable runtime annotation")
     # Python 3.14 renders typing.Union as X | Y, including inside containers.
-    # Parse without evaluating; quoted forward references and Literal strings
-    # remain unchanged, including text that happens to contain a pipe.
-    if "|" in value:
+    # Python 3.11 also retains typing.Annotated where newer versions omit typing.
+    # Parse without evaluating; quoted metadata and references stay unchanged.
+    if "|" in value or "typing." in value:
         try:
             expression = ast.parse(value, mode="eval")
         except SyntaxError:
             return value
-        if any(isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr)
-               for node in ast.walk(expression)):
-            value = ast.unparse(_UnionAnnotations().visit(expression))
+        normalizer = _AnnotationNormalizer()
+        expression = normalizer.visit(expression)
+        if normalizer.changed:
+            value = ast.unparse(expression)
     return value
 
 
