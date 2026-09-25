@@ -28,6 +28,10 @@ The [Example P12Go to product viewer dialog for this item.](https://www.google.c
 | Supplier A | $13.15 USD per pack of 10, excluding VAT | [Product page](https://supplier.invalid/item?variant=1&currency=USD&srsltid=tracking) |
 | Supplier A | $12.00 USD per pack of 10 for 5+ packs | [Same product](https://supplier.invalid/item?variant=1&currency=USD) |
 
+### Results Summary
+
+Three references and two prices found.
+
 ### References
 
 [0] [Manufacturer](https://maker.invalid/specs) — Example P12 specifications.

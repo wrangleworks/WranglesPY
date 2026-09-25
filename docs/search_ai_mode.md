@@ -49,15 +49,18 @@ conditional two-request trial, source limitations and proposed next steps.
 search.ai_mode (output=md)
   -> ai_mode_results (original Markdown body)
   -> ai_mode_metadata (JSON-compatible frontmatter and transport status)
+custom.structure_search_response
+  -> ai_mode_results_clean (description links moved out of the passage)
+  -> ai_mode_metadata.google_product_url (when found in the description)
+  -> original provider response saved when file output is enabled
 standardize.clean
-  -> ai_mode_results_clean
-custom.clean_ai_mode_links
-  -> ai_mode_results_clean (viewer-label repair)
+  -> ai_mode_results_clean (encoding/LaTeX repair)
 merge.to_dict
   -> Input Product Information (Mfr, MPN, Description)
 extract.ai
   -> Product Description, Match Confidence, Specifications, references, Pricing
 validate source URLs and offer references in place
+  -> captured Google viewer added to references as ID "00"
   -> ai_mode_structured_meta
 ```
 
@@ -74,7 +77,7 @@ Metadata also contains `query`, `query_index`, `input_row_id`, `search_id`,
     id: ID
     output: [ai_mode_results, ai_mode_metadata]
     client: serpapi
-    threads: 1
+    threads: 5
     location: null
     country: null
     language: null
@@ -88,9 +91,15 @@ contain one query string; explode query lists before searching.
 Blank queries are skipped without a provider request. Provider errors, missing
 or malformed frontmatter/status, and empty successful answers are explicit
 failures in metadata. Non-successful or empty answers do not enter extraction.
-The client uses synchronous SerpAPI requests; it does not poll queued or
-processing jobs or read Google's browser token stream. A successful provider
-response does not establish that Google returned every available source.
+The client makes one synchronous SerpAPI request per nonblank query, without
+retries, polling queued/processing jobs, or reading Google's browser token stream.
+The trial uses `THREADS = 5` to run up to five independent synchronous searches
+concurrently. This is local worker concurrency, not SerpAPI async mode.
+`EXTRACT_THREADS = 1` processes extraction rows sequentially, and
+`EXTRACT_RETRIES = 0` gives each row one extraction attempt; timeouts and failures
+are returned for inspection instead of retried.
+A successful provider response does not establish that Google returned every
+available source.
 
 This **replaces the experimental compact/complete/Markdown output contract**.
 Remove `query_config` from `search.ai_mode`, change its outputs to the two shown
@@ -110,11 +119,18 @@ The trial uses low reasoning effort for identity and source/offer associations; 
 The recipe's Jinja template begins with product identity:
 
 ```text
-Search for RENOLD GY08B2S26I RENOLD SYNERGY GY08B2S26I DUPLEX CONN LINK. Summarize information in 3 sections: Product Description | Specifications (as name value pairs) | Pricing (including the supplier name and source link). Summarize the information you found (e.g. matched the part number, 5 sources, 3 prices), but do not ask follow-on questions.
+Search for RENOLD GY08B2S26I RENOLD SYNERGY GY08B2S26I DUPLEX CONN LINK. Summarize information in 4 sections: Product Description (1-3 sentences, plain text with no links) | Specifications (as name value pairs) | Pricing (including the supplier name and source link) | Results Summary (count of references and count of prices found). Use the exact section labels as headings. Do not ask follow-up questions.
 ```
 
-`AI_MODE_QUERY` drives the prompt's summary instruction, heading labels and
-optional suffix. Only `Description`, `Mfr` and `MPN` supply product information;
+`AI_MODE_QUERY` drives the heading labels and their instructions. Results Summary
+is the fourth requested section, not an unheaded summary suffix. Its counts are
+reported by Google, not independently calculated by the runner. Asking Google
+to put its product-viewer URL in that summary proved unreliable; the runner now
+captures it directly when linked in Product Description. The summary remains
+part of the Markdown evidence;
+this change does not add an `extract.ai` output column. The remaining suffix asks
+for exact headings and no follow-up questions.
+Only `Description`, `Mfr` and `MPN` supply product information;
 `ID` identifies the row. Extra fields such as `query` and `part_codes` remain
 available in the DataFrame and JSON snapshot but are not inserted into the query.
 The generated `search_query` is the exact text sent as `q`.
@@ -128,17 +144,37 @@ not reproduce a signed-in browser's location, history or session context.
 
 ## Cleanup and extraction
 
-The recipe immediately applies `standardize.clean` with `unescape_unicode`
-and `latex_to_text`. It preserves Markdown line breaks and destinations, and
-leaves unsupported formulas intact for the model. Raw and cleaned bodies are
-separate columns. Cleanup controls remain opt-in for other recipes.
+`custom.structure_search_response` combines raw-response capture and description
+link cleanup. It creates `ai_mode_results_clean`, leaving `ai_mode_results`
+untouched. File output controls saving the provider response, not whether the
+cleanup runs: live searches, replays and runs with `WRITE_OUTPUTS = False` all
+use the same preparation step.
 
-The trial then applies `custom.clean_ai_mode_links` to the cleaned column. It
-removes the exact trailing text `Go to product viewer dialog for this item.`
-from Markdown link labels before extraction. Product wording, escaped
-punctuation, link destinations and code examples are retained. The original
-`ai_mode_results` remains untouched. This repairs the label only; it does not
-turn a Google viewer link into a supplier URL or add it to accepted references.
+Within Product Description, inline and resolved reference links become their
+visible labels, HTML anchors lose their destinations, and bare URLs disappear.
+The known Google viewer instruction is removed from link labels as well. The
+step recognizes ordinary Markdown headings, bold or colon labels, and the
+headingless introductory description seen in older responses. Code examples
+remain untouched. Unknown provider formatting can still require a fixture and
+matcher update; `extract.ai` is also instructed to return link-free description
+text without rewriting the wording.
+
+Links in other sections, including Pricing and Results Summary, stay intact.
+Description destinations that would otherwise disappear are retained in a
+`Links from Product Description` evidence appendix, so the model can still select
+relevant inline-only sources. The first Google product-viewer URL found in the
+description is also saved in `ai_mode_metadata.google_product_url`, using the
+existing URL sanitizer to remove tracking while preserving product parameters.
+Additional destinations remain in the evidence. Capture uses the link destination,
+not the presence of the viewer's UI instruction, and recomputes from the original
+body on replay so stale URLs cannot carry over.
+This step does not interpret specifications, prices or source relevance, and
+there is no separate link-cleanup wrangle after extraction.
+
+Next, `standardize.clean` applies `unescape_unicode` and `latex_to_text` to the
+prepared column. It preserves Markdown line breaks and destinations, and leaves
+unsupported formulas intact for the model. These cleanup controls remain opt-in
+for other recipes.
 
 `merge.to_dict` builds **Input Product Information** from `Mfr`, `MPN` and
 `Description`, retaining blank fields. `extract.ai` receives that dictionary
@@ -150,9 +186,10 @@ there is no outer extraction object, presentation wrapper or dictionary-split
 step. The outputs are:
 
 - **Product Description**: the field definition asks for a verbatim copy of the
-  description passage from cleaned Markdown, excluding its heading and retaining
-  its wording and Markdown. No downstream helper rewrites it. The strict schema
-  controls output keys and types; faithful copying is a model instruction.
+  description wording from cleaned Markdown, excluding its heading, hyperlinks,
+  bare URLs and viewer instructions. No downstream helper rewrites it. The strict
+  schema controls output keys and types; faithful, link-free copying is a model
+  instruction.
 - **Match Confidence**: `Certain`, `Likely` or `Uncertain`, assessing product
   identity against all three input fields. Certain requires matching manufacturer
   and exact part number plus a compatible description; Likely indicates a probable
@@ -162,7 +199,8 @@ step. The outputs are:
   when evaluating that conflict. It is not a rating of price accuracy or
   reference count. Skipped extraction defaults to Uncertain.
 - **Specifications**: a list of records such as `{"name": "Voltage", "value": "12 VDC"}`.
-- **references**: selected relevant source records, including sources without prices.
+- **references**: selected relevant source records, including sources without prices,
+  plus the captured Google viewer under reserved ID `"00"` when present.
 - **Pricing**: offer records associated with references by ID.
 
 For specifications, pricing and references, extraction interprets prose, lists,
@@ -196,6 +234,18 @@ Its reference is a separate record:
 {"id": "02", "source": "Supplier A", "url": "https://supplier.invalid/product"}
 ```
 
+The existing source validator adds a captured viewer deterministically:
+
+```json
+{"id": "00", "source": "Google", "url": "https://www.google.com/search?ibp=oshop&prds=productid:123"}
+```
+
+This uses the URL observed in Product Description, not a model-generated URL.
+No `"00"` placeholder is added when it is absent. The model's supplier/reference
+IDs start at `"01"` and are not renumbered. A model-generated `"00"` is rejected
+to prevent collisions; the viewer is a navigation reference and is not used as
+a substitute for a supplier's offer reference.
+
 IDs are local strings independent of Google's citation numbering. Join offers
 and references by ID. Lists are **not positionally aligned or padded**. Multiple
 offers may share a reference, and an offer may have multiple references.
@@ -209,7 +259,9 @@ amounts, reference-ID integrity and whether each cleaned source URL occurs in
 the supplied Markdown. It leaves Product Description, Match Confidence and
 Specifications unchanged. It reuses the existing URL sanitizer to remove tracking parameters
 such as `srsltid` while preserving functional parameters. It rejects invented
-URLs, Google product viewers and opaque redirects. It does not fetch sources,
+URLs and opaque redirects. Google product viewers are accepted only through
+the captured `"00"` pathway, after checking the URL is still in the evidence.
+It does not fetch sources,
 match supplier names, decide relevance or reconstruct missing destinations.
 Rejected references, unmatched IDs and unselected candidate URLs remain in
 `ai_mode_structured_meta`. A `complete` status means these structural checks
@@ -218,13 +270,16 @@ passed, not that the content or supplier association has been fact-checked.
 The Markdown/frontmatter and URL helpers are engine-independent so a future
 `search.ai_overview` can reuse them. Overview retrieval is not implemented here.
 
-## Known recurring glitch: viewer text in description links
+## Known recurring glitch: injected description links and viewer text
 
 Google's product-viewer UI text can be appended directly to a product name in
 the first sentence of a description. The Markdown link is syntactically valid,
 but its label includes `Go to product viewer dialog for this item.` and its
 destination is a Google shopping viewer, not a supplier page. This is a provider
-formatting artifact, not product information.
+formatting artifact, not product information. Other responses include a viewer
+link with a perfectly ordinary product label, or link a manufacturer catalog in
+the same sentence. Matching the instruction alone misses these cases: Product
+Description must not contain any links, regardless of destination or label.
 
 Before cleanup (shortened product label and synthetic viewer URL):
 
@@ -232,38 +287,43 @@ Before cleanup (shortened product label and synthetic viewer URL):
 The [Renold \(GY08B2S26I\)Go to product viewer dialog for this item.](https://www.google.com/search?ibp=oshop&prds=productid:123) typically ranges in price...
 ```
 
-Expected cleaned Markdown, with the product wording and destination retained:
+Expected description prose, with the product wording retained:
 
 ```markdown
-The [Renold \(GY08B2S26I\)](https://www.google.com/search?ibp=oshop&prds=productid:123) typically ranges in price...
+The Renold \(GY08B2S26I\) typically ranges in price...
 ```
 
-This cleanup was removed during the Markdown refactor (`73f9b85a`). Because
-Product Description copies cleaned evidence verbatim, the UI text then reached
-the extracted description. The dedicated `custom.clean_ai_mode_links` step was
-restored in `0bffe32f`, before `extract.ai`. Keep this formatting repair separate
-from semantic extraction; filtering viewer URLs out of references does not
-repair description text.
+The earlier repair removed only the exact viewer instruction, retaining the
+hyperlink. Description link removal now belongs to `structure_search_response`,
+alongside raw capture. Removed destinations remain in the evidence outside the
+description. When one is a Google product viewer, it is captured for reference
+`"00"` even when Results Summary omits it. The same applies to viewer links
+without the UI instruction. Capture does not depend on asking the model to
+recover the URL or waiting for another provider response.
 
 When changing the provider adapter, recipe or cleanup path, check these stages:
 
 - **Raw `ai_mode_results`:** the artifact may remain intentionally, preserving
   the provider response for diagnosis.
-- **`ai_mode_results_clean`:** the instruction must be absent from affected
-  link labels; product names, escaped punctuation and destinations must survive.
-- **Product Description:** the instruction must not reappear in the copied
-  passage. The viewer URL still must not become an accepted source reference.
+- **`ai_mode_results_clean`:** description prose must have no links or viewer
+  instructions; product names, escaped punctuation and citations must survive.
+  Pricing/reference links and removed description destinations must remain available.
+- **Product Description:** links and viewer instructions must not reappear in
+  the copied passage.
+- **references:** a captured viewer appears once as `{"id": "00", "source": "Google", "url": "..."}`;
+  supplier IDs and their price associations remain unchanged. No viewer means no
+  `"00"` entry.
 
-The matcher targets this exact instruction at the end of an inline link label.
 Different wording or markup may require an update. If it reappears, retain the
 new raw response under `.data/`, add a small sanitized regression example, and
-adjust the targeted cleanup. Avoid broadly deleting product links or rewriting
-the description to hide the symptom.
+adjust the structuring step. Preserve original evidence and avoid deleting links
+throughout the answer or rewriting product prose to hide the symptom.
 
 [Regression coverage](../tests/test_search_ai_extraction.py) includes
-`test_viewer_label_cleanup_preserves_product_wording_links_and_raw_evidence`,
-the full recipe's cleaned model input, and replay preservation. Keep those
-checks when refactoring this pipeline.
+the catalog-plus-viewer case without UI boilerplate, alternative link/heading
+forms, the full recipe's cleaned model input, viewer capture when absent from
+the summary, reserved-ID collisions, optional raw capture and replay preservation.
+Keep those checks when refactoring this pipeline.
 
 ## Captures, replay and evaluation
 
@@ -284,8 +344,10 @@ names preserve the earlier evidence. Replaying earlier Markdown snapshots drops
 the retired `search_ai_extracted` and `ai_mode_result_structured` wrapper columns.
 Snapshots from the retired three-output
 contract must be recaptured or converted first. `EXTRACT_ENABLED = False`
-skips the model call and needs no OpenAI key; the structured fields remain empty,
-Match Confidence is Uncertain, and diagnostics say `skipped`.
+skips the model call and needs no OpenAI key; model-produced fields remain empty,
+Match Confidence is Uncertain, and diagnostics say `skipped`. The deterministically
+captured Google reference is still retained for successful searches, including
+when extraction is disabled or fails.
 `WRITE_OUTPUTS = False` disables exports, and
 `PRETTY_PRINT = True` prints returned records.
 

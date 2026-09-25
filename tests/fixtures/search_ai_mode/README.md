@@ -27,7 +27,11 @@ This makes live SerpAPI and extraction requests using the existing
 `SERPAPI_API_KEY` and `OPENAI_API_KEY` environment variables. The runner can also
 load the repository's ignored `.env` when `python-dotenv` is installed. Keep
 credentials outside these files. The editable configuration block holds the
-model, row limit, concurrency, locale and replay controls.
+model, row limit, concurrency, locale and replay controls. Searches are synchronous
+and are not retried or polled. `THREADS = 5` runs up to five independent searches
+concurrently through local workers; it does not enable SerpAPI async mode.
+`EXTRACT_THREADS = 1` processes extraction rows one at a time, with
+`EXTRACT_RETRIES = 0` for a single extraction attempt.
 
 All generated Markdown, JSON and XLSX files stay under the repository's ignored
 `.data/` directory by default. Relative replay/output paths start at the
@@ -37,9 +41,12 @@ these files. Set `REPLAY_FILE` to reuse a saved answer without another search.
 ## Synthetic response and offline verification
 
 `response.md` is a synthetic, single-response SerpAPI Markdown fixture. It has
-YAML frontmatter, three answer sections, a table with two offers from one source,
+YAML frontmatter, four answer sections, a table with two offers from one source,
 references (including an irrelevant candidate), inline Google viewer boilerplate,
-LaTeX, a literal Unicode escape, and tracking/functional URL parameters.
+LaTeX, a literal Unicode escape, and tracking/functional URL parameters. Results
+Summary omits the Google viewer URL; structuring captures it from Product
+Description for reference `"00"` with source `Google`, while removing description
+links and retaining source evidence elsewhere for extraction.
 All product/source domains are reserved `.invalid`; Google/SerpAPI URLs are
 synthetic and no network requests are made. There are no credentials or user data.
 

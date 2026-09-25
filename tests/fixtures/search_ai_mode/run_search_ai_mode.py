@@ -10,7 +10,6 @@ from datetime import datetime
 import json
 from pathlib import Path
 from pprint import pprint
-import re
 import sys
 
 import pandas as pd
@@ -25,7 +24,7 @@ OUTPUT_DIRECTORY = REPOSITORY / ".data"
 WRITE_OUTPUTS = True  # Unique Excel/JSON filenames preserve earlier trial evidence.
 PRETTY_PRINT = False
 NROWS = None  # None = all input rows; 1 = a one-row trial.
-THREADS = 1
+THREADS = 5
 LOCATION = None  # Example: "Austin, Texas, United States"; None omits the override.
 COUNTRY = None  # SerpAPI gl, e.g. "us" or "uk".
 LANGUAGE = None  # SerpAPI hl, e.g. "en".
@@ -34,17 +33,18 @@ EXTRACT_MODEL = "gpt-5.6-luna"  # None uses the configured extract.ai default.
 EXTRACT_REASONING = {"effort": "low"}  # Source/offer matching benefits from reasoning.
 EXTRACT_THREADS = 1
 EXTRACT_TIMEOUT = 60
-EXTRACT_RETRIES = 1
+EXTRACT_RETRIES = 0  # One attempt per row; no automatic retries.
 DESCRIPTION_HEADING = "Product Description"
 SPECIFICATIONS_HEADING = "Specifications"
 PRICING_HEADING = "Pricing"
+SUMMARY_HEADING = "Results Summary"
 AI_MODE_QUERY = [
-    {"base_query": "Summarize information in 3 sections:"},
-    {DESCRIPTION_HEADING: ""},
+    {"base_query": "Summarize information in 4 sections:"},
+    {DESCRIPTION_HEADING: "1-3 sentences, plain text with no links"},
     {SPECIFICATIONS_HEADING: "as name value pairs"},
     {PRICING_HEADING: "including the supplier name and source link"},
-    {"query_suffix": "Summarize the information you found (e.g. matched the part number, "
-                     "5 sources, 3 prices), but do not ask follow-on questions."},
+    {SUMMARY_HEADING: "count of references and count of prices found"},
+    {"query_suffix": "Use the exact section labels as headings. Do not ask follow-up questions."},
 ]
 
 # Three user-supplied product examples; JSON-style records, without generated data.
@@ -79,34 +79,29 @@ INPUT_ROWS = [
 # ---------------------------------------------------------------------------
 
 
-def capture_search_response(df, input, metadata, prefix):
-    """Save raw provider Markdown outside Excel, then remove it from metadata."""
-    for index, value in enumerate(df[metadata], 1):
-        raw = value.pop("raw_response", None)
-        if isinstance(raw, str) and raw:
+def structure_search_response(df, input, metadata, output, prefix=None, save_raw=False):
+    """Preserve raw evidence and prepare link-free description prose for extraction."""
+    from wrangles._search_ai_content import google_product_url, unlink_description
+
+    headings = [heading for entry in AI_MODE_QUERY for heading in entry
+                if heading not in {"base_query", "query_suffix"}]
+    cleaned = []
+    for index, (body, value) in enumerate(zip(df[input], df[metadata]), 1):
+        raw = value.get("raw_response")
+        if save_raw and prefix and isinstance(raw, str) and raw:
             path = Path(f"{prefix}_row{index:03d}.md")
             path.write_text(raw, encoding="utf-8")
+            value.pop("raw_response")
             value["raw_response_file"] = str(path)
-    return df
-
-
-def clean_ai_mode_links(df, input, output=None):
-    """Remove Google's viewer instruction from Markdown link labels only."""
-    from wrangles._text_cleanup import map_markdown_prose
-
-    viewer_label = re.compile(
-        r'(\[(?:\\.|[^\]\\\n])*?)\s*'
-        r'Go to product viewer dialog for this item\.(?=\]\()'
-    )
-
-    def clean(value):
-        if not isinstance(value, str):
-            return value
-        return map_markdown_prose(
-            value, lambda prose: viewer_label.sub(lambda match: match[1].rstrip(), prose)
-        )
-
-    df[output or input] = df[input].map(clean)
+        links = {}
+        cleaned.append(unlink_description(body, DESCRIPTION_HEADING, headings, removed_links=links))
+        # Recompute from original evidence on replay; do not retain stale URLs.
+        value.pop("google_product_url", None)
+        for destination in links:
+            if url := google_product_url(destination):
+                value["google_product_url"] = url
+                break
+    df[output] = cleaned
     return df
 
 
@@ -125,20 +120,22 @@ def prepare_search_extraction(df, input, metadata, enabled=True):
     return df
 
 
-def validate_search_sources(df, input, references, pricing, diagnostics):
+def validate_search_sources(df, input, references, pricing, diagnostics, metadata):
     """Check source URLs and IDs in place; leave the other AI outputs untouched."""
     from wrangles._search_ai_extraction import validate_sources
 
-    sources, offers, metadata = [], [], []
-    for refs, prices, body, ready in zip(df[references], df[pricing], df[input], df["__search_ai_ready"]):
-        if ready:
-            refs, prices, diagnostic = validate_sources(refs, prices, body)
-        else:
-            diagnostic = {"status": "skipped", "warnings": [], "rejected_references": []}
+    sources, offers, checks = [], [], []
+    for refs, prices, body, ready, meta in zip(
+        df[references], df[pricing], df[input], df["__search_ai_ready"], df[metadata]
+    ):
+        viewer = meta.get("google_product_url") if meta.get("status") == "Success" else None
+        refs, prices, diagnostic = validate_sources(refs, prices, body, google_product=viewer)
+        if not ready:
+            diagnostic["status"] = "skipped"
         sources.append(refs)
         offers.append(prices)
-        metadata.append(diagnostic)
-    df[references], df[pricing], df[diagnostics] = sources, offers, metadata
+        checks.append(diagnostic)
+    df[references], df[pricing], df[diagnostics] = sources, offers, checks
     return df
 
 
@@ -209,7 +206,7 @@ def main():
     results_df = wrangles.recipe.run(
         str(RECIPE_FILE),
         dataframe=input_df,
-        functions=[capture_search_response, clean_ai_mode_links, prepare_search_extraction, validate_search_sources],
+        functions=[structure_search_response, prepare_search_extraction, validate_search_sources],
         variables=variables,
     )
 

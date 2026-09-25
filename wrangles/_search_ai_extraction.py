@@ -5,14 +5,16 @@ from collections.abc import Mapping
 import math
 from urllib.parse import urlsplit
 
-from ._search_ai_content import markdown_urls, source_url
+from ._search_ai_content import google_product_url, markdown_urls, source_url
 
 
-def validate_sources(references, offers, markdown):
+def validate_sources(references, offers, markdown, *, google_product=None):
     """Validate source URLs and offer references without reshaping AI outputs.
 
     Product Description, Match Confidence and Specifications remain the direct
     extract.ai outputs. Relevance and supplier matching belong to the model.
+    google_product is captured from the description before extraction; it alone
+    can populate reserved navigation reference 00.
     """
     checked_references, checked_offers = [], []
     warnings, rejected = [], []
@@ -33,6 +35,12 @@ def validate_sources(references, offers, markdown):
         return value
 
     observed_urls = set(markdown_urls(markdown))
+    if google_product:
+        viewer = google_product_url(google_product)
+        if viewer and viewer in markdown_urls(markdown, include_google_products=True):
+            checked_references.append({"id": "00", "source": "Google", "url": viewer})
+        else:
+            warnings.append("google_product_url_not_in_evidence")
     references = records(references, "references")
     counts = Counter(ref["id"].strip() for ref in references
                      if isinstance(ref, Mapping) and isinstance(ref.get("id"), str))
@@ -43,7 +51,9 @@ def validate_sources(references, offers, markdown):
         ref_id = text(reference.get("id"), f"references[{index}].id")
         url = source_url(reference.get("url"))
         reason = None
-        if not ref_id or counts[ref_id] != 1:
+        if ref_id == "00":
+            reason = "reserved_reference_id"
+        elif not ref_id or counts[ref_id] != 1:
             reason = "missing_or_duplicate_reference_id"
         elif not url or url not in observed_urls:
             reason = "reference_url_not_in_evidence"
@@ -54,7 +64,8 @@ def validate_sources(references, offers, markdown):
         source = text(reference.get("source"), f"references[{index}].source")
         checked_references.append({"id": ref_id, "source": source or urlsplit(url).hostname, "url": url})
 
-    accepted_ids = {reference["id"] for reference in checked_references}
+    # The captured viewer is navigation, not a substitute for an offer's supplier.
+    accepted_ids = {reference["id"] for reference in checked_references if reference["id"] != "00"}
     for index, offer in enumerate(records(offers, "offers")):
         if not isinstance(offer, Mapping):
             warnings.append(f"invalid_offer: {index}")
