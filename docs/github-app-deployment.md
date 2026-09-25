@@ -1,15 +1,17 @@
 # GitHub App authentication for deployments
 
 The DEV and PROD deployment workflows use an organization-owned GitHub App for
-operations in other repositories. Normal WranglesPY CI uses `GITHUB_TOKEN` for
-checkout and GHCR publishing. AWS publishing and Lambda updates continue to use
-GitHub OIDC. No personal access token is required by these deployment workflows.
+operations in other repositories. WranglesPY CI uses `GITHUB_TOKEN` for checkout
+and GHCR publishing; its temporary manifest-preview job also uses this app to
+update a test branch in Wrangles-Docs. AWS publishing and Lambda updates continue
+to use GitHub OIDC. No personal access token is required by these workflows.
 
 The registered organization app is
 [Wrangleworks Deployments](https://github.com/organizations/wrangleworks/settings/apps/wrangleworks-deployments).
 Its [installation](https://github.com/organizations/wrangleworks/settings/installations/160195536)
-is restricted to `wrangleworks.github.io` and `Lambda-Recipes`. Reuse this app for
-the workflow configuration below.
+was originally restricted to `wrangleworks.github.io` and `Lambda-Recipes`.
+For the CI runtime-manifest preview, also grant it access to `Wrangles-Docs`.
+Reuse this app for the workflow configuration below.
 
 ## Register and install the app
 
@@ -24,8 +26,8 @@ An administrator of `wrangleworks` performs this setup once:
    **Actions: Read and write**. GitHub includes **Metadata: Read-only**. Leave
    other repository, organization, and account permissions unset.
 3. Install the app on **Only select repositories** and select exactly
-   `wrangleworks.github.io` and `Lambda-Recipes`. It does not need installation
-   on WranglesPY to issue tokens for those two repositories.
+   `wrangleworks.github.io`, `Lambda-Recipes`, and `Wrangles-Docs`. It does not
+   need installation on WranglesPY to issue tokens for those repositories.
 4. Copy the app's **Client ID** into the WranglesPY Actions repository variable
    `DEPLOY_APP_CLIENT_ID`. Use the Client ID, not the numeric App ID.
 5. Generate an app private key and store the complete PEM, including its header
@@ -41,19 +43,28 @@ configuration, so remove stale overrides when moving configuration.
 
 ## Token scope and lifetime
 
-The app's registration permissions are its maximum access across the two
-installed repositories. Each workflow requests a narrower installation token:
+The app's registration permissions are its maximum access across the selected
+repositories. Each workflow requests a narrower installation token:
 
 | Operation | Token repository | Token permission |
 | --- | --- | --- |
 | Publish `schema/recipes/schema_dev.json` | `wrangleworks.github.io` | Contents: write |
+| Update the `test_deploying_manifest` preview branch | `Wrangles-Docs` | Contents: write |
 | Dispatch and wait for DEV or PROD deployment | `Lambda-Recipes` | Actions: write |
 
-The first DEV job validates both repository scopes; the first PROD job validates
-the Lambda scope. Missing configuration, invalid app credentials, or insufficient
-installation permissions stop the workflow before tests and package publishing.
-These validation steps create tokens but do not write to either repository or
-start a deployment. Repository branch rules can still reject a later schema push.
+The first DEV job validates the schema and Lambda scopes; the first PROD job
+validates the Lambda scope. Missing configuration, invalid app credentials, or
+insufficient installation permissions stop those workflows before tests and
+package publishing. These validation steps create tokens but do not write to the
+repositories or start a deployment. The separate CI preview job requests its Docs
+token after tests and build pass. Invalid configuration fails that job. Repository
+branch rules can still reject a later schema or manifest preview push.
+
+The Docs `test_deploying_manifest` branch is covered by the active
+`merge-allow-list` ruleset, which restricts branch updates. Before testing, an
+administrator must confirm that the deployment app is permitted to update this
+branch under that ruleset; installation access and Contents write alone do not
+override branch rules. The workflow does not change repository protection.
 
 Each publishing or dispatch job creates a fresh token immediately before use.
 Tokens are limited to one repository and automatically revoked when their job
@@ -61,8 +72,8 @@ finishes; GitHub installation tokens also expire after one hour. The pinned
 `actions/create-github-app-token` action handles generation, masking, and
 revocation. Tokens are not passed between jobs or retained as secrets.
 
-Schema commits use `github-actions[bot]` as the author. This is commit attribution;
-the app installation token supplies the actual authorization. Deployment payloads
+Schema and manifest preview commits use `github-actions[bot]` as the author.
+The app installation token supplies the actual authorization. Deployment payloads
 continue to record the original initiating user through `github.actor`.
 
 ## Validate the migration in DEV
@@ -89,6 +100,17 @@ because WranglesPY no longer references them.
 For key rotation, create a replacement key on the same app, update
 `DEPLOY_APP_PRIVATE_KEY`, validate the app checks, and then revoke the old key.
 The app and Client ID can remain unchanged.
+
+## Validate the temporary CI preview
+
+After configuring the app's Wrangles-Docs access and branch-rule permission, push
+the CI change to
+`generate-and-publish-a-versioned-runtime-manifest-for-every-WranglesPY-release`.
+Its same-repository PR run starts **Sync runtime manifest preview** after the
+schema job and build (including the pytest and pip-install gates) pass. Check the
+commit in Docs `test_deploying_manifest` and compare the JSON with that run's
+`runtime-manifest` artifact. This job is skipped for push events, other PR
+branches, and forks. It does not invoke the DEV deployment workflow.
 
 ## References
 

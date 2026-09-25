@@ -12,7 +12,9 @@ from Eric's [commit 7916bf15](https://github.com/wrangleworks/WranglesPY/commit/
 on `codex/runtime-wrangle-manifest`. Focused generator and provenance checks live in
 `tests/test_wrangle_runtime_manifest.py`; provenance fixtures use full revisions.
 There is one runtime exporter. CI stores its output as GitHub Actions artifacts;
-automatic retrieval by Wrangles-Docs remains a separate part of #35.
+A temporary CI job copies the current feature branch's PR preview into the
+separate Wrangles-Docs `test_deploying_manifest` branch. Production import and
+catalog synchronization remain part of #35.
 
 The original `--output <file>` and `--source-revision <sha>` options remain.
 With no output option, the generator writes `schema/wrangle_runtime_manifest.json`.
@@ -142,9 +144,9 @@ The supported workflow paths are:
 
 | Workflow | Trigger and recorded revision | Manifest output |
 |---|---|---|
-| `ci.yml` | PRs targeting `main`/`dev` and pushes to those branches; the checked-out `GITHUB_SHA` | Preview Actions artifacts |
+| `ci.yml` | PRs targeting `main`/`dev` and pushes to those branches; the checked-out `GITHUB_SHA` | Preview artifacts; temporary Docs copy for the feature-branch PR described below |
 | `publish-tagged.yml` | A stable `vN.N.N` tag push, or a manual run selecting that tag; the verified tag commit | Versioned Actions artifacts |
-| `deploy-dev.yml` | Existing DEV/RC deployment workflow | No runtime-manifest export in this change |
+| `deploy-dev.yml` | Existing DEV/RC deployment workflow | No runtime-manifest export or Docs synchronization |
 
 For a PR, `source.revision` is the checked-out merge commit used by CI, not
 necessarily the feature branch's head. The tagged-release workflow checks the
@@ -152,13 +154,14 @@ literal package version and full checkout SHA before export. Existing package
 jobs depend on the schema job, so its artifacts may exist before the rest of the
 release succeeds. Artifact availability alone does not confirm package publication.
 Only a successful tagged-release run should be used as a package-version source.
-DEV/RC versions are outside the current manifest-export scope.
+CI previews record the stable source version in `setup.py` and are not
+versioned RC contracts.
 
-Both jobs use the default shallow `actions/checkout@v5` checkout. A tagged run
+The export jobs use the default shallow `actions/checkout@v5` checkout. A tagged run
 fetches the selected tag into its local tag reference, so the exporter can check
 `refs/tags/<tag>^{commit}` without downloading the full repository history.
 
-Both manifest-export jobs upload:
+The CI and tagged-release manifest jobs upload:
 
 - `schema`: `schema.json`, `wrangle_runtime_manifest.json`, and
   `wrangles-runtime-manifest.schema.json`;
@@ -173,10 +176,55 @@ The workflows do not set `retention-days`, so artifact expiry follows the
 repository's settings; Actions artifacts are not permanent release storage.
 See the [upload-artifact v6 options](https://github.com/actions/upload-artifact/tree/v6#usage).
 
-The manifest is stored only in Actions artifacts. This workflow does not create
-GitHub Releases or attach manifest files to them. It adds no release-publication
-token or `contents: write` permission; the schema job uses `contents: read`.
-Existing package publication and Lambda deployment steps are unchanged.
+CI and tagged releases store the manifest in Actions artifacts. They do not
+create GitHub Releases or attach manifest files to them. The temporary CI preview
+job additionally copies its artifact to Wrangles-Docs with a repository-scoped
+GitHub App token. That job's `GITHUB_TOKEN` retains `contents: read`. Existing
+package publication and Lambda deployment steps are unchanged.
+
+## CI preview in Wrangles-Docs
+
+The temporary `sync-runtime-manifest-preview` job in `ci.yml` runs only for a
+`pull_request` whose source repository is this repository and whose head branch is
+`generate-and-publish-a-versioned-runtime-manifest-for-every-WranglesPY-release`.
+It waits for `test-generate-schema` and `build` to succeed; `build` already depends
+on the pytest and pip-install matrices. Push runs, other PR branches, and fork PRs
+do not run this publishing job. No `pull_request_target` workflow is used.
+
+Add `Wrangles-Docs` to the deployment app's selected repositories with
+**Contents: Read and write** before the first run, and ensure its branch rules
+allow the app to update `test_deploying_manifest`; see
+[GitHub App configuration](github-app-deployment.md). The job reuses
+`DEPLOY_APP_CLIENT_ID` and `DEPLOY_APP_PRIVATE_KEY` without adding another secret.
+
+The job downloads the `runtime-manifest` artifact from the same CI run and checks
+its SHA-256 checksum before creating the publishing token. It updates only these
+files in `wrangleworks/Wrangles-Docs`, branch `test_deploying_manifest`:
+
+- `registry/runtime/wranglespy.json` (identical manifest bytes);
+- `registry/runtime/wranglespy.json.sha256` (checksum with the destination filename).
+
+If the branch does not exist, it is created from Docs `main`. Later runs build on
+the existing preview branch and skip the commit when both files are unchanged.
+The push names the preview branch explicitly and never force-pushes. Concurrent
+updates can reject a push; rerun the failed sync job to pick up the new branch
+head. Docs `main`, generated Registry files, and the central catalog are not
+updated. This is a source preview for testing delivery, not a reviewed Registry
+release; content reconciliation remains part of Docs #35.
+
+To verify delivery before merging the WranglesPY PR:
+
+1. Commit and push the workflow change to the feature branch above. Open its new
+   CI run and check **Sync runtime manifest preview** after tests and build pass.
+2. Open the two files on the Docs `test_deploying_manifest` branch and compare the
+   manifest's `source.revision` with the WranglesPY run's checked-out merge SHA.
+3. Download that run's `runtime-manifest` artifact and compare its JSON bytes
+   with `registry/runtime/wranglespy.json`. In the Docs `registry/runtime`
+   directory, run `sha256sum --check wranglespy.json.sha256`.
+
+This PR path tests delivery without running `Deploy Dev`, publishing an RC, or
+triggering Lambda deployment. The branch filter is deliberately temporary; remove
+the sync job or agree on its long-term trigger after the delivery test.
 
 ## Retrieving the manifest
 
@@ -186,10 +234,11 @@ section. For a package version, select the successful tagged-release run for
 `source.version`, and compare the full `source.revision` with that tag's commit.
 A PR preview is not a substitute for a tagged-release contract.
 
-Automatic lookup, download and import into Wrangles-Docs will be added separately
+Production lookup, download and import into Wrangles-Docs will be added separately
 under Docs #35. The importer must select the correct version and commit rather
 than whichever workflow ran most recently. No release-download URL is provided
-by this change, and the Docs checkout remains pinned to its reviewed snapshot.
+by this change. Docs `main` remains pinned to its reviewed snapshot; the CI
+preview is available only on `test_deploying_manifest`.
 
 ## Wrangles-Docs readiness
 
@@ -214,8 +263,8 @@ new runtime version. Before importing the 1.20.4 manifest, Docs #35 must:
 Keep Docs pinned to its reviewed runtime until these content changes pass its
 normal reconciliation. Do not filter the new producer's operations, fabricate
 defaults, or relax validation to hide content drift. Automatic download/import
-and these Registry source updates remain in Docs #35; this PR does not update the
-Docs checkout or central catalog.
+and these Registry source updates remain in Docs #35. The CI copy updates only
+the preview branch's runtime input, not Docs `main` or the central catalog.
 
 ## Recovery
 

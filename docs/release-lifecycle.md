@@ -52,14 +52,22 @@ extends the generator recovered from `codex/runtime-wrangle-manifest` at commit
    commit or tag. Reproducing the same bytes requires the same source, Python
    and resolved dependency versions; there are no separate manifest constraints.
 
-Manifest delivery currently uses GitHub Actions artifacts only. There is no
-manifest publication job for GitHub Releases. Existing package publishing and
-Lambda deployment continue through their existing workflows. `ci.yml` also
-exports preview manifests for its PR/push runs; `deploy-dev.yml` does not export
-runtime manifests for DEV/RC packages in this change. Artifact expiry follows the
-repository settings because these uploads do not override `retention-days`.
+Stable manifest delivery uses GitHub Actions artifacts; there is no manifest
+publication job for GitHub Releases. Existing package publishing and Lambda
+deployment continue through their existing workflows. `ci.yml` also exports
+preview manifests for its PR/push runs. A temporary CI job copies the successful
+same-repository PR preview from
+`generate-and-publish-a-versioned-runtime-manifest-for-every-WranglesPY-release`
+to the Wrangles-Docs `test_deploying_manifest` branch after tests and build pass.
+The deployment app must have Contents write access to Wrangles-Docs and permission
+under the target branch's rules. The branch is created from Docs `main` if absent;
+only the runtime manifest and checksum are committed, and unchanged files produce
+no commit. This preview records the checked-out merge SHA and stable `setup.py`
+version. It is not a versioned RC contract or a production Registry update.
+`deploy-dev.yml` has no runtime-manifest export or Docs sync. Artifact expiry
+follows repository settings because uploads do not override `retention-days`.
 
-Automatic download and import into Wrangles-Docs remain a separate part of
+Production download and import into Wrangles-Docs remain a separate part of
 [Docs #35](https://github.com/wrangleworks/Wrangles-Docs/issues/35). Before an
 import, verify checksum, source version/repository and full tag SHA. Docs also
 requires reviewed content updates before advancing from its 1.20.2 pin to 1.20.4;
