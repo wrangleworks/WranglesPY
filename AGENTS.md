@@ -1,5 +1,30 @@
 # Repository instructions for AI agents
 
+## Running tests locally
+
+- Do not run bare `pytest` (or a broad `-k`/name-filter selection) to verify
+  changes in an agent sandbox. The full suite intentionally exercises live
+  databases, AWS, WrangleWorks/Keycloak SSO, and AI/search providers, and a
+  sandbox without those credentials will fail on unrelated live-service tests
+  rather than on anything your change touched.
+- Instead run the credential-free local suite: `pytest -c pytest-local.ini`
+  (on Windows, `scripts/test-local.ps1` also clears credential environment
+  variables first and isolates pytest's temp state). This selection excludes
+  tests that require live SSO tokens or other live-service credentials by
+  design — it is not a smaller or lower-quality run, it is the correct one to
+  use when you don't have those credentials.
+- A failure that only reproduces when running bare `pytest` (not under
+  `pytest-local.ini`) is very likely a live-service/credential issue, not a
+  regression in your change. Say so explicitly in your handoff rather than
+  reporting it as a contract failure, and separate that evidence from any
+  local `pytest-local.ini` results.
+- `pytest-local.ini` is checked in CI (`pytest-local-config` job, via
+  `scripts/check_pytest_local_config.py`) to stay in sync with the real test
+  suite. If you add a new `tests/**/test_*.py` file, that check will fail
+  until it's covered by `testpaths` (if it's offline-safe) or explicitly
+  `--ignore=`d (if it needs live credentials) — fix `pytest-local.ini`
+  yourself rather than leaving the new file silently untested locally.
+
 ## Integration and recovery workflow
 
 - Treat `main` as the only integration branch for new work. Create each feature,
