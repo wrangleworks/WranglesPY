@@ -4,7 +4,7 @@ extract_ai:
   profile: extract_fast
   provider: openai
   protocol: responses
-  model: gpt-5.4-mini
+  model: gpt-6-luna
   endpoints:
     responses: https://api.openai.com/v1/responses
     chat_completions: https://api.openai.com/v1/chat/completions
