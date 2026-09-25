@@ -90,12 +90,48 @@ def _iter_callables(obj: Any, path: tuple[str, ...] = (), *, config: Any = None,
                                    ancestors=ancestors | {id(obj)})
 
 
+class _UnionAnnotations(ast.NodeTransformer):
+    """Render evaluated union annotations in the existing Docs spelling."""
+
+    def visit_BinOp(self, node):
+        if not isinstance(node.op, ast.BitOr):
+            return self.generic_visit(node)
+        members = []
+
+        def collect(member):
+            if isinstance(member, ast.BinOp) and isinstance(member.op, ast.BitOr):
+                collect(member.left)
+                collect(member.right)
+            else:
+                members.append(self.visit(member))
+
+        collect(node)
+        without_none = [member for member in members
+                        if not (isinstance(member, ast.Constant) and member.value is None)]
+        if len(members) == 2 and len(without_none) == 1:
+            return ast.Subscript(value=ast.Name(id="Optional"), slice=without_none[0])
+        members = [ast.Name(id="NoneType") if isinstance(member, ast.Constant) and member.value is None
+                   else member for member in members]
+        return ast.Subscript(value=ast.Name(id="Union"), slice=ast.Tuple(elts=members))
+
+
 def _annotation_text(annotation: Any) -> str | None:
     if annotation is inspect.Parameter.empty:
         return None
     value = inspect.formatannotation(annotation)
     if re.search(r"\bat 0x[0-9a-fA-F]+", value) or "\\" in value:
         raise ManifestError("Nonportable runtime annotation")
+    # Python 3.14 renders typing.Union as X | Y, including inside containers.
+    # Parse without evaluating; quoted forward references and Literal strings
+    # remain unchanged, including text that happens to contain a pipe.
+    if "|" in value:
+        try:
+            expression = ast.parse(value, mode="eval")
+        except SyntaxError:
+            return value
+        if any(isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr)
+               for node in ast.walk(expression)):
+            value = ast.unparse(_UnionAnnotations().visit(expression))
     return value
 
 
@@ -256,7 +292,7 @@ def json_value(value):
     raise ValueError(f"Non-JSON runtime metadata/default: {type(value).__name__}")
 
 
-class _NamedDefault:
+class _StableRepr:
     def __init__(self, name):
         self.name = name
 
@@ -267,20 +303,23 @@ class _NamedDefault:
 def _signature_text(function, signature):
     parameters = []
     for parameter in signature.parameters.values():
-        _annotation_text(parameter.annotation)
+        annotation = _annotation_text(parameter.annotation)
+        if annotation is not None:
+            parameter = parameter.replace(annotation=_StableRepr(annotation))
         if parameter.default is not inspect.Parameter.empty:
             if type(parameter.default) is object:
                 names = [name for name, value in function.__globals__.items()
                          if value is parameter.default and name.isidentifier()]
                 if len(names) != 1:
                     raise ManifestError(f"Default sentinel for {parameter.name} needs one stable module name")
-                default = _NamedDefault(function.__module__ + "." + names[0])
+                default = _StableRepr(function.__module__ + "." + names[0])
             else:
                 default = json_value(parameter.default)
             parameter = parameter.replace(default=default)
         parameters.append(parameter)
-    _annotation_text(signature.return_annotation)
-    return str(signature.replace(parameters=parameters))
+    annotation = _annotation_text(signature.return_annotation)
+    return_annotation = _StableRepr(annotation) if annotation is not None else signature.return_annotation
+    return str(signature.replace(parameters=parameters, return_annotation=return_annotation))
 
 
 def read_version(root):
