@@ -14,6 +14,9 @@ def lookup(
 ) -> _Union[str, list]:
     """
     Find information using a lookup wrangle. Requires WrangleWorks Account.
+
+    Deprecated: Use ``wrangles.lookup.key`` for key lookup models or
+    ``wrangles.lookup.semantic`` for semantic lookup models instead.
     
     :param input: A value or list of values to be looked up.
     :param model_id: The model to be used.
@@ -21,6 +24,21 @@ def lookup(
     :param n: (Optional) Number of matches to return per input. When > 1, returns a list of n
             dicts per input - each match is always a dict, even if a single column is requested.
             """
+    return _lookup(None, input, model_id, columns, n, **kwargs)
+
+
+def _validate_lookup_variant(metadata, operation):
+    """Check explicit operations against the currently stored model variants."""
+    expected = 'key' if operation == 'key' else 'embedding'
+    actual = metadata.get('variant')
+    if actual != expected:
+        raise ValueError(
+            f"lookup.{operation} requires a model with variant '{expected}'; "
+            f"got {actual!r}. Use lookup for legacy or unknown variants."
+        )
+
+
+def _lookup(expected_variant, input, model_id, columns=None, n=None, **kwargs):
     # Check if user has entered a single input or multiple inputs
     single_input = False
     if not isinstance(input, list):
@@ -59,6 +77,9 @@ def lookup(
         raise ValueError(
             f'Using {purpose} model_id {model_id} in a lookup wrangle.'
         )
+
+    if expected_variant is not None:
+        _validate_lookup_variant(metadata, expected_variant)
 
     _logging.info(f": Looking up {len(input)} values :: model_id :: {model_id}")
 
@@ -101,3 +122,58 @@ def lookup(
         results = results[0]
 
     return results
+
+
+def key(
+    input: _Union[str, list],
+    model_id: str,
+    columns: _Union[str, list] = None,
+    n: int = None,
+    **kwargs
+) -> _Union[str, list]:
+    """
+    Look up values using a saved key lookup model. Requires WrangleWorks Account.
+
+    The model must have purpose ``lookup`` and stored variant ``key``.
+    Missing or unknown variants are rejected; legacy callers can use ``lookup``.
+
+    :param input: A value or list of values to look up.
+    :param model_id: The saved key lookup model to execute.
+    :param columns: Return one named column, a list of columns, or all columns
+        as a dictionary when omitted.
+    :param n: Optional number of matches, using the existing lookup behavior.
+        When greater than one, each input produces a list of match dictionaries.
+    :param kwargs: Additional options forwarded to the existing lookup API.
+    :return: One result for scalar input, or a list of results for list input.
+    """
+    return _lookup('key', input, model_id, columns, n, **kwargs)
+
+
+def semantic(
+    input: _Union[str, list],
+    model_id: str,
+    columns: _Union[str, list] = None,
+    n: int = None,
+    **kwargs
+) -> _Union[str, list]:
+    """
+    Look up values using a saved semantic model. Requires WrangleWorks Account.
+
+    The model must have purpose ``lookup`` and stored variant ``embedding``.
+    Missing or unknown variants are rejected; legacy callers can use ``lookup``.
+
+    :param input: A value or list of values to look up semantically.
+    :param model_id: The saved semantic lookup model to execute.
+    :param columns: Return one named column, a list of columns, or all columns
+        as a dictionary when omitted.
+    :param n: Optional number of matches. When greater than one, each input
+        produces a list of match dictionaries, even for a single named column.
+    :param kwargs: Additional options forwarded to the existing lookup API.
+    :return: One result for scalar input, or a list of results for list input.
+    """
+    return _lookup('semantic', input, model_id, columns, n, **kwargs)
+
+
+# Preserve wrangles.lookup(...) while exposing the explicit dotted operations.
+lookup.key = key
+lookup.semantic = semantic

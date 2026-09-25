@@ -25,6 +25,7 @@ from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
 from ..data import model as _model
 from ..lookup import lookup as _lookup
+from ..lookup import _validate_lookup_variant
 from .. import extract as _extract
 from .. import recipe as _recipe
 from .convert import to_json as _to_json
@@ -947,7 +948,9 @@ def lookup(
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Lookup values from a saved lookup wrangle
+    description: >-
+      Deprecated: Use lookup.key for key lookup models or lookup.semantic
+      for semantic lookup models instead. Lookup values from a saved lookup wrangle.
     required:
       - input
       - model_id
@@ -987,6 +990,20 @@ def lookup(
           - by_matrix
           - by_dataframe
     """
+    return _lookup_with_variant(
+        None, df, input, output, model_id, lookup_mode, n, **kwargs
+    )
+
+
+def _lookup_with_variant(
+    expected_variant, df, input, output=None, model_id=None,
+    lookup_mode='by_row', n=None, **kwargs
+):
+    # The legacy implementation only forwards n in by_row mode. Explicit
+    # operations reject unsupported combinations instead of silently ignoring n.
+    if expected_variant is not None and n is not None and lookup_mode != 'by_row':
+        raise ValueError('n is only supported with lookup_mode=by_row')
+
     # Ensure input is only 1 value
     if isinstance(input, list):
         if len(input) == 1:
@@ -1027,6 +1044,9 @@ def lookup(
         purpose = metadata['purpose']
         if purpose != 'lookup':
             raise ValueError(f'Using {purpose} model_id {model_id} in a lookup function.')
+
+        if expected_variant is not None:
+            _validate_lookup_variant(metadata, expected_variant)
         
         # Split input/output if user differentiated e.g. "wrangle_column: output_column"
         wrangle_output = [
