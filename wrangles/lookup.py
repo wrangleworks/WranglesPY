@@ -14,6 +14,9 @@ def lookup(
 ) -> _Union[str, list]:
     """
     Find information using a lookup wrangle. Requires WrangleWorks Account.
+
+    Deprecated: Use ``wrangles.lookup.key`` for key lookup models or
+    ``wrangles.lookup.semantic`` for semantic lookup models instead.
     
     :param input: A value or list of values to be looked up.
     :param model_id: The model to be used.

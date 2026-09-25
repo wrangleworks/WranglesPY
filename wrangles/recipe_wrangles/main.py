@@ -948,7 +948,9 @@ def lookup(
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Lookup values from a saved lookup wrangle
+    description: >-
+      Deprecated: Use lookup.key for key lookup models or lookup.semantic
+      for semantic lookup models instead. Lookup values from a saved lookup wrangle.
     required:
       - input
       - model_id
