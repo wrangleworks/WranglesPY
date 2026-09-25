@@ -77,7 +77,7 @@ Metadata also contains `query`, `query_index`, `input_row_id`, `search_id`,
     id: ID
     output: [ai_mode_results, ai_mode_metadata]
     client: serpapi
-    threads: 1
+    threads: 5
     location: null
     country: null
     language: null
@@ -93,9 +93,11 @@ or malformed frontmatter/status, and empty successful answers are explicit
 failures in metadata. Non-successful or empty answers do not enter extraction.
 The client makes one synchronous SerpAPI request per nonblank query, without
 retries, polling queued/processing jobs, or reading Google's browser token stream.
-The trial uses `THREADS = 1` and `EXTRACT_THREADS = 1`, so each stage processes
-rows sequentially. `EXTRACT_RETRIES = 0` gives extraction one attempt as well;
-timeouts and failures are returned for inspection instead of retried.
+The trial uses `THREADS = 5` to run up to five independent synchronous searches
+concurrently. This is local worker concurrency, not SerpAPI async mode.
+`EXTRACT_THREADS = 1` processes extraction rows sequentially, and
+`EXTRACT_RETRIES = 0` gives each row one extraction attempt; timeouts and failures
+are returned for inspection instead of retried.
 A successful provider response does not establish that Google returned every
 available source.
 

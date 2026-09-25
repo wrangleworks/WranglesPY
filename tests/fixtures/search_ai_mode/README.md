@@ -28,8 +28,10 @@ This makes live SerpAPI and extraction requests using the existing
 load the repository's ignored `.env` when `python-dotenv` is installed. Keep
 credentials outside these files. The editable configuration block holds the
 model, row limit, concurrency, locale and replay controls. Searches are synchronous
-and are not retried or polled. The defaults process each stage one row at a time,
-with `EXTRACT_RETRIES = 0` for a single extraction attempt.
+and are not retried or polled. `THREADS = 5` runs up to five independent searches
+concurrently through local workers; it does not enable SerpAPI async mode.
+`EXTRACT_THREADS = 1` processes extraction rows one at a time, with
+`EXTRACT_RETRIES = 0` for a single extraction attempt.
 
 All generated Markdown, JSON and XLSX files stay under the repository's ignored
 `.data/` directory by default. Relative replay/output paths start at the

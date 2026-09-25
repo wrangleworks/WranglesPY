@@ -24,7 +24,7 @@ OUTPUT_DIRECTORY = REPOSITORY / ".data"
 WRITE_OUTPUTS = True  # Unique Excel/JSON filenames preserve earlier trial evidence.
 PRETTY_PRINT = False
 NROWS = None  # None = all input rows; 1 = a one-row trial.
-THREADS = 1
+THREADS = 5
 LOCATION = None  # Example: "Austin, Texas, United States"; None omits the override.
 COUNTRY = None  # SerpAPI gl, e.g. "us" or "uk".
 LANGUAGE = None  # SerpAPI hl, e.g. "en".
