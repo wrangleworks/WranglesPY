@@ -262,7 +262,10 @@ def test_generated_schema_preserves_legacy_and_explicit_contracts(tmp_path, monk
     generated = json.loads((tmp_path / 'schema.json').read_text())
     contracts = generated['$defs']['wrangles']['items']['properties']
     assert {'lookup', 'lookup.key', 'lookup.semantic'} <= contracts.keys()
-    assert contracts['lookup']['description'] == 'Lookup values from a saved lookup wrangle'
+    assert contracts['lookup']['description'] == (
+        'Deprecated: Use lookup.key for key lookup models or lookup.semantic '
+        'for semantic lookup models instead. Lookup values from a saved lookup wrangle.'
+    )
     for operation, variant, _ in VARIANTS:
         method = getattr(wrangles.recipe._recipe_wrangles.lookup, operation)
         contract = contracts[f'lookup.{operation}']
