@@ -525,7 +525,11 @@ def delayed_variable_interpretation(df, variables=None):
         variables = {}
 
     variables = {
-        **variables,
+        **{
+            k: v
+            for k, v in variables.items()
+            if not str(k).startswith("__runtime_")
+        },
         **{
             "row_count": len(df),
             "column_count": len(df.columns),
@@ -600,6 +604,8 @@ def replace_templated_values(
 
         # Whole string is a variable
         if variable_pattern.fullmatch(new_recipe_object):
+            if new_recipe_object.startswith("${runtime."):
+                return new_recipe_object
             try:
                 replacement_value = variables[new_recipe_object[2:-1]]
             except:
@@ -647,6 +653,8 @@ def replace_templated_values(
         # Since this is within a string, the type is forced to also be a string
         elif variable_pattern.search(new_recipe_object):
             for var in variable_pattern.findall(new_recipe_object):
+                if var.startswith("${runtime."):
+                    continue
                 try:
                     replacement_value = variables[var[2:-1]]
                 except:

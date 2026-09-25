@@ -222,7 +222,7 @@ for run in schema['run']:
 
     run_properties = schema['run'][run]['properties']
 
-    for x in ["if"]:
+    for x in ["if", "result_variable"]:
         run_properties[x] = {
             "$ref": f"#/$defs/run/commonProperties/{x}"
         }
