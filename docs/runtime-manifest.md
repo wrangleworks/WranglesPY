@@ -83,6 +83,14 @@ when declared in the callable's schema (including `anyOf`), as in `matrix` and
 retained even when they are not valid YAML. Malformed schema-looking docstrings
 still fail export.
 
+Evaluated union annotations use the existing Docs spelling, `Union[...]` and
+`Optional[...]`, on all supported Python versions, including Python 3.14.
+This applies to parameter annotations and complete signatures, including nested
+types and return annotations. Quoted forward references, literal values, and
+annotation metadata are preserved without evaluating their text. Existing `X | Y`
+annotations also use this canonical spelling; the textual representation changes,
+while the accepted types, defaults, and recipe behavior stay the same.
+
 JSON-compatible defaults are retained exactly. A named Python `object()` sentinel
 (for example `convert.parse`'s `_DEFAULT_NOT_SET`) is represented by its stable
 module-qualified name in the signature. Its parameter has `required: false` and
@@ -188,7 +196,9 @@ optional identity reference already proposed in Docs #35. Eight independently
 pinned complete Docs contracts live in `tests/fixtures/runtime_manifest/` and are
 compared against the real runtime during CI. They cover public/injected variables,
 legacy aliases, nested callables, reserved names, defaults, and capabilities.
-On the historical runtime, all 98 exported entries reproduce the Docs snapshot.
+Before union spelling was normalized, the historical runtime reproduced all 98
+entries in the Docs snapshot. Normalization changes only union annotation text;
+Registry reconciliation still uses the same executable parameter contract.
 
 Format compatibility does not mean Docs' editorial sources already describe a
 new runtime version. Before importing the 1.20.4 manifest, Docs #35 must:

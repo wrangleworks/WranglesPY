@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 from types import ModuleType, SimpleNamespace
+from typing import Annotated, Callable, Literal, Optional, Union
 
 import jsonschema
 import pytest
@@ -99,6 +100,35 @@ def test_runtime_manifest_preserves_signature_and_embedded_schema_separately():
         "where": True,
         "where_params": True,
     }
+
+
+@pytest.mark.parametrize("annotation,expected", [
+    (Union[str, list], "Union[str, list]"),
+    (str | list, "Union[str, list]"),
+    (Optional[str], "Optional[str]"),
+    (str | int | None, "Union[str, int, NoneType]"),
+    (Callable[[list[str | int]], str | None], "Callable[[list[Union[str, int]]], Optional[str]]"),
+    (Annotated[list[str | int], "str | int"], "Annotated[list[Union[str, int]], 'str | int']"),
+    (Literal["str | int"], "Literal['str | int']"),
+    ("str | int", "'str | int'"),
+], ids=["typing-union", "pipe-union", "optional", "nullable-union", "nested-callable",
+        "annotated-metadata", "literal-text", "forward-reference"])
+def test_union_annotations_keep_docs_spelling_in_parameters_and_signatures(annotation, expected):
+    def typed(df, input, /, *, output=None):
+        raise AssertionError("Export must never execute the operation")
+
+    typed.__annotations__ = {"input": annotation, "return": annotation}
+    original_signature = inspect.signature(typed)
+    entry = _entry(manifest(namespace(typed=typed)), "typed")
+
+    assert entry["parameters"][0] == {
+        "name": "input", "kind": "positional_only", "required": True, "annotation": expected,
+    }
+    assert entry["signature"] == f"(df, input: {expected}, /, *, output=None) -> {expected}"
+    assert entry["parameters"][1] == {
+        "name": "output", "kind": "keyword_only", "required": False, "default": None,
+    }
+    assert inspect.signature(typed) == original_signature
 
 
 @pytest.mark.parametrize("expected", DOCS_CONTRACTS["contracts"], ids=lambda entry: entry["runtime_key"])
