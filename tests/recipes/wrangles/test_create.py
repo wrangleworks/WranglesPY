@@ -1201,6 +1201,22 @@ class TestCreateBins:
         assert df.empty and list(df.columns) == ['col', 'Pricing']
 
 
+class TestEmbeddingArgumentValidation:
+    """Validate embedding arguments without contacting a provider."""
+
+    def test_create_embeddings_jina_invalid_task(self):
+        with patch("wrangles.openai._requests.post") as mock_post:
+            with pytest.raises(ValueError, match="task must be one of"):
+                wrangles.openai.embeddings(
+                    ["test text"],
+                    api_key="fake-key",
+                    provider="jina",
+                    model="jina-embeddings-v3",
+                    task="invalid-task",
+                )
+            mock_post.assert_not_called()
+
+
 class TestCreateEmbeddings:
     """
     Test create.embeddings
@@ -2053,18 +2069,6 @@ class TestCreateEmbeddings:
         assert isinstance(result, list)
         assert isinstance(result[0], np.ndarray)
         assert len(result[0]) > 0
-
-    def test_create_embeddings_jina_invalid_task(self):
-        """
-        Test that an invalid task value raises a ValueError.
-        """
-        with pytest.raises(ValueError, match="task must be one of"):
-            wrangles.openai.embeddings(
-                ["test text"],
-                api_key="fake-key",
-                provider="jina",
-                task="invalid-task",
-            )
 
     def test_create_embeddings_task_warns_for_non_jina(self):
         """

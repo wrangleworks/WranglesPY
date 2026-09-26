@@ -690,6 +690,111 @@ def test_extract_ai_keeps_chat_completions_override(monkeypatch):
     assert settings["tools"][0]["function"]["parameters"]["required"] == ["length"]
 
 
+@pytest.mark.parametrize("via_recipe", [False, True])
+@pytest.mark.parametrize("infer_protocol", [False, True])
+def test_extract_chat_sends_catalog_tuning_defaults(monkeypatch, via_recipe, infer_protocol):
+    calls = []
+    monkeypatch.setattr(
+        extract._openai._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response("chat_completions"),
+    )
+    selection = (
+        {"url": "https://api.openai.com/v1/chat/completions"}
+        if infer_protocol else {"protocol": "chat_completions"}
+    )
+    options = {
+        "api_key": "key", "output": {"length": {"type": "string"}},
+        "threads": 1, "cache": False, **selection,
+    }
+    if via_recipe:
+        result = recipe.run(
+            {"wrangles": [{"extract.ai": options}]},
+            dataframe=pd.DataFrame({"data": ["wrench 25mm"]}),
+        )
+        assert result["length"].tolist() == ["25mm"]
+    else:
+        assert extract.ai("wrench 25mm", **options) == {"length": "25mm"}
+
+    payload = calls[0]["json"]
+    assert calls[0]["url"] == "https://api.openai.com/v1/chat/completions"
+    assert payload["model"] == ai_config.resolve("extract.ai")["model"]
+    # Chat function tools require an explicit none effort for the default model.
+    assert payload["reasoning_effort"] == "none"
+    assert payload["verbosity"] == "low"
+    assert payload["tools"][0]["function"]["name"] == "parse_output"
+    assert "reasoning" not in payload
+    assert "text" not in payload
+
+
+@pytest.mark.parametrize("saved_effort,explicit,expected_effort,expected_verbosity", [
+    (None, {}, "none", "low"),
+    ("low", {}, "low", "low"),
+    ("low", {"reasoning": {"effort": "high"}, "verbosity": "high"}, "high", "high"),
+    ("low", {"reasoning_effort": "medium"}, "medium", "low"),
+    ("low", {"reasoning": {"effort": "none"}, "reasoning_effort": "high"}, "none", "low"),
+])
+def test_extract_chat_tuning_uses_saved_model_and_caller_precedence(
+    extraction_config, monkeypatch, saved_effort, explicit, expected_effort, expected_verbosity,
+):
+    config, save = extraction_config
+    config["providers"]["openai"]["models"]["saved-chat-model"] = {
+        "status": "active", "default_for": [],
+        "defaults": {"reasoning": {"effort": "medium"}, "text": {"verbosity": "medium"}},
+        "protocol_defaults": {
+            "chat_completions": {"reasoning": {"effort": "none"}, "text": {"verbosity": "low"}},
+        },
+        "supported_values": {
+            "reasoning.effort": ["none", "low", "medium", "high"],
+            "text.verbosity": ["low", "medium", "high"],
+        },
+    }
+    save()
+    saved_settings = {"GPTModel": "saved-chat-model"}
+    if saved_effort is not None:
+        saved_settings["ReasoningEffort"] = saved_effort
+    monkeypatch.setattr(extract._data, "model_content", lambda model_id: {
+        "Settings": saved_settings,
+        "Columns": ["Find", "Type"], "Data": [["length", "string"]],
+    })
+    calls = []
+    monkeypatch.setattr(
+        extract._openai._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response("chat_completions"),
+    )
+    assert extract.ai(
+        "wrench 25mm", "key", model_id="saved-model", model="gpt-4o-mini",
+        protocol="chat_completions", threads=1, cache=False, **explicit,
+    ) == {"length": "25mm"}
+    payload = calls[0]["json"]
+    assert payload["model"] == "saved-chat-model"
+    assert payload["reasoning_effort"] == expected_effort
+    assert payload["verbosity"] == expected_verbosity
+    assert "reasoning" not in payload
+    assert "text" not in payload
+
+
+@pytest.mark.parametrize("explicit", [
+    {"reasoning": {"effort": "none"}, "verbosity": "low"},
+    {"reasoning_effort": "none", "verbosity": "low"},
+])
+def test_extract_chat_omits_unsupported_tuning(monkeypatch, caplog, explicit):
+    calls = []
+    monkeypatch.setattr(
+        extract._openai._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response("chat_completions"),
+    )
+    with caplog.at_level(logging.WARNING, logger="wrangles.extract"):
+        assert extract.ai(
+            "wrench 25mm", "key", model="gpt-4o-mini",
+            output={"length": {"type": "string"}}, protocol="chat_completions",
+            threads=1, cache=False, **explicit,
+        ) == {"length": "25mm"}
+    assert "reasoning_effort" not in calls[0]["json"]
+    assert "verbosity" not in calls[0]["json"]
+    assert "Ignoring reasoning effort" in caplog.text
+    assert "Ignoring 'verbosity' parameter" in caplog.text
+
+
 def test_extract_ai_validates_responses_output_with_pydantic(monkeypatch):
     body = {
         "output": [

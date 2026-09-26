@@ -551,6 +551,37 @@ def ai(
         **kwargs
     }
 
+    # The catalog and public arguments use Responses-style names. Translate
+    # their effective values for the legacy endpoint instead of dropping them.
+    explicit_effort = kwargs.pop("reasoning_effort", None)
+    configured_reasoning = (
+        reasoning if reasoning is not None
+        else {"effort": explicit_effort} if explicit_effort is not None
+        else saved_reasoning or policy.get("reasoning", {})
+    )
+    effort = configured_reasoning.get("effort")
+    if effort is not None:
+        if _openai_responses.supports_reasoning_effort(model, effort):
+            kwargs["reasoning_effort"] = effort
+        else:
+            _LOG.warning(
+                "Ignoring reasoning effort %r: not supported by model '%s'; "
+                "the provider's default reasoning effort will apply.",
+                effort, model,
+            )
+    configured_verbosity = (
+        verbosity if verbosity is not None
+        else policy.get("text", {}).get("verbosity")
+    )
+    if configured_verbosity is not None:
+        if _openai_responses.supports_verbosity(model, configured_verbosity):
+            kwargs["verbosity"] = configured_verbosity
+        else:
+            _LOG.warning(
+                "Ignoring 'verbosity' parameter: not supported by model '%s'",
+                model,
+            )
+
     settings = {
         "model": model,
         "messages": messages,
