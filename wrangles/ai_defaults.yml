@@ -105,6 +105,17 @@ providers:
         supported_values:
           task: [retrieval.query, retrieval.passage, text-matching, clustering, classification]
 
+  typesafe:
+    endpoints:
+      systemone: https://api.typesafe.ai/v1/systemone
+    documentation:
+      api: https://docs.typesafe.ai/introduction
+    models:
+      jev-1.13.0:
+        status: active
+        applications: [classification, scoring, true_false]
+        default_for: [ai.choose, ai.score, ai.true_false, ai.answers]
+
   huggingface:
     endpoints:
       hf_inference: https://router.huggingface.co/hf-inference/models
@@ -118,6 +129,62 @@ providers:
     models: {}
 
 operations:
+  ai.choose:
+    provider: typesafe
+    protocol: systemone
+    defaults:
+      default_concurrency: 10
+      request_timeout_seconds: 30
+      retries: 1
+      cache:
+        enabled: true
+        ttl_seconds: 3600
+        max_entries: 512
+        max_value_bytes: 65536
+        single_flight: true
+        log_every: 0
+  ai.score:
+    provider: typesafe
+    protocol: systemone
+    defaults:
+      default_concurrency: 10
+      request_timeout_seconds: 30
+      retries: 1
+      cache:
+        enabled: true
+        ttl_seconds: 3600
+        max_entries: 512
+        max_value_bytes: 65536
+        single_flight: true
+        log_every: 0
+  ai.true_false:
+    provider: typesafe
+    protocol: systemone
+    defaults:
+      default_concurrency: 10
+      request_timeout_seconds: 30
+      retries: 1
+      cache:
+        enabled: true
+        ttl_seconds: 3600
+        max_entries: 512
+        max_value_bytes: 65536
+        single_flight: true
+        log_every: 0
+  ai.answers:
+    provider: typesafe
+    protocol: systemone
+    defaults:
+      default_concurrency: 10
+      request_timeout_seconds: 30
+      retries: 1
+      cache:
+        enabled: true
+        ttl_seconds: 3600
+        max_entries: 512
+        max_value_bytes: 65536
+        single_flight: true
+        log_every: 0
   extract.ai:
     provider: openai
     protocol: responses

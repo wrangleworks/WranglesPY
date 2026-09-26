@@ -41,6 +41,7 @@ class CachePolicy:
     max_value_bytes: int
     single_flight: bool
     log_every: int
+    event_name: str = "extract_ai_result_cache"
 
 
 class _Flight:
@@ -68,8 +69,8 @@ def _env_number(name: str, default, converter):
         return default
     try:
         return converter(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{name} must be a valid {converter.__name__}.") from exc
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be a valid {converter.__name__}.") from None
 
 
 def resolve_policy(
@@ -77,8 +78,9 @@ def resolve_policy(
     *,
     enabled: bool = None,
     ttl_seconds: float = None,
+    env_prefix: str = "WRANGLES_EXTRACT_AI_CACHE",
 ) -> CachePolicy:
-    """Resolve config, per-call overrides, and operational environment switches."""
+    """Resolve cache settings, retaining extraction's existing switches by default."""
     config = config or {}
     configured_enabled = config.get("enabled", True)
     configured_single_flight = config.get("single_flight", True)
@@ -92,7 +94,7 @@ def resolve_policy(
         else configured_enabled
     )
     resolved_enabled = _env_bool(
-        "WRANGLES_EXTRACT_AI_CACHE_ENABLED",
+        f"{env_prefix}_ENABLED",
         resolved_enabled,
     )
     resolved_ttl = (
@@ -101,26 +103,26 @@ def resolve_policy(
         else config.get("ttl_seconds", 3600)
     )
     resolved_ttl = _env_number(
-        "WRANGLES_EXTRACT_AI_CACHE_TTL_SECONDS",
+        f"{env_prefix}_TTL_SECONDS",
         resolved_ttl,
         float,
     )
     max_entries = _env_number(
-        "WRANGLES_EXTRACT_AI_CACHE_MAX_ENTRIES",
+        f"{env_prefix}_MAX_ENTRIES",
         config.get("max_entries", 512),
         int,
     )
     max_value_bytes = _env_number(
-        "WRANGLES_EXTRACT_AI_CACHE_MAX_VALUE_BYTES",
+        f"{env_prefix}_MAX_VALUE_BYTES",
         config.get("max_value_bytes", 65536),
         int,
     )
     single_flight = _env_bool(
-        "WRANGLES_EXTRACT_AI_CACHE_SINGLE_FLIGHT",
+        f"{env_prefix}_SINGLE_FLIGHT",
         configured_single_flight,
     )
     log_every = _env_number(
-        "WRANGLES_EXTRACT_AI_CACHE_LOG_EVERY",
+        f"{env_prefix}_LOG_EVERY",
         config.get("log_every", 100),
         int,
     )
@@ -134,15 +136,15 @@ def resolve_policy(
     ):
         raise ValueError("cache_ttl must be a positive number of seconds.")
     if not isinstance(max_entries, int) or isinstance(max_entries, bool) or max_entries < 0:
-        raise ValueError("WRANGLES_EXTRACT_AI_CACHE_MAX_ENTRIES must be non-negative.")
+        raise ValueError(f"{env_prefix}_MAX_ENTRIES must be non-negative.")
     if (
         not isinstance(max_value_bytes, int)
         or isinstance(max_value_bytes, bool)
         or max_value_bytes < 0
     ):
-        raise ValueError("WRANGLES_EXTRACT_AI_CACHE_MAX_VALUE_BYTES must be non-negative.")
+        raise ValueError(f"{env_prefix}_MAX_VALUE_BYTES must be non-negative.")
     if not isinstance(log_every, int) or isinstance(log_every, bool) or log_every < 0:
-        raise ValueError("WRANGLES_EXTRACT_AI_CACHE_LOG_EVERY must be non-negative.")
+        raise ValueError(f"{env_prefix}_LOG_EVERY must be non-negative.")
 
     return CachePolicy(
         enabled=resolved_enabled and max_entries > 0 and max_value_bytes > 0,
@@ -151,6 +153,8 @@ def resolve_policy(
         max_value_bytes=max_value_bytes,
         single_flight=single_flight,
         log_every=log_every,
+        event_name=("extract_ai_result_cache" if env_prefix == "WRANGLES_EXTRACT_AI_CACHE"
+                    else "ai_result_cache"),
     )
 
 
@@ -232,7 +236,7 @@ def _maybe_log(policy: CachePolicy) -> None:
         if operations == 0 or operations % policy.log_every:
             return
         payload = {
-            "event": "extract_ai_result_cache",
+            "event": policy.event_name,
             **_STATS,
             "entries": len(_CACHE),
             "inflight": len(_INFLIGHT),

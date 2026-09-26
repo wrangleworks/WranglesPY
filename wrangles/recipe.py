@@ -559,6 +559,31 @@ def _read_data(
     else:
         return results
 
+_NAMED_AI_WRANGLES = {"ai.choose", "ai.score", "ai.true_false", "ai.answers"}
+
+
+def _declared_output_columns(wrangle: str, params: dict):
+    """Return declared destinations, including named AI answer columns.
+
+    None means the wrangle does not declare outputs. Keep ordinary wrangles'
+    existing output interpretation while sharing AI discovery with concurrent.
+    """
+    if wrangle in _NAMED_AI_WRANGLES:
+        kind = wrangle.split(".", 1)[1]
+        return _recipe_wrangles.ai._output_columns(
+            params.get("questions"), kind=None if kind == "answers" else kind,
+        )
+    if "output" not in params:
+        return None
+    output = params["output"]
+    if isinstance(output, list):
+        return [name for column in output
+                for name in (column.values() if isinstance(column, dict) else [column])]
+    if isinstance(output, dict):
+        return list(output.keys())
+    return [output]
+
+
 def _execute_wrangles(
     df: _pandas.DataFrame,
     wrangles_list: list,
@@ -672,28 +697,14 @@ def _execute_wrangles(
                     # at least one row matches - otherwise batching with where can
                     # produce inconsistent columns between batches
                     if len(df) == 0:
-                        if 'output' in params:
-                            if isinstance(params['output'], list):
-                                output_columns = [
-                                    list(col.values()) if isinstance(col, dict) else [col]
-                                    for col in params['output']
-                                ]
-                                output_columns = [
-                                    item
-                                    for sublist in output_columns
-                                    for item in sublist
-                                ]
-                            elif isinstance(params['output'], dict):
-                                output_columns = list(params['output'].keys())
-                            else:
-                                output_columns = [params['output']]
-
+                        output_columns = _declared_output_columns(wrangle, params)
+                        if output_columns is not None:
                             for col in output_columns:
                                 # Wildcard outputs (e.g. 'Col*') are expanded into
                                 # concrete column names based on the actual data,
                                 # which can't be determined with no rows to work
                                 # with - skip adding those, only add named columns
-                                if '*' in str(col):
+                                if wrangle not in _NAMED_AI_WRANGLES and '*' in str(col):
                                     continue
                                 if col not in df_original.columns:
                                     df_original[col] = ''
@@ -895,32 +906,11 @@ def _execute_wrangles(
                 if 'where' in original_params and wrangle not in _where_overwrite_output:
 
                     # Wrangle explictly defined the output
-                    if 'output' in params.keys():
-                        # Get the columns that should have been added
-                        if isinstance(params['output'], list):
-                            # Wrangle output was a list
-                            # this may be a list of columns or
-                            # a list of dictionaries with renamed outputs
-                            output_columns = [
-                                list(col.values()) if isinstance(col, dict) else [col]
-                                for col in params['output']
-                            ]
-                            # Spread to a 1D list
-                            output_columns = [
-                                item
-                                for sublist in output_columns
-                                for item in sublist
-                            ]
-                        elif isinstance(params['output'], dict):
-                            # Wrangle output was a dictionary,
-                            # the keys should be the columns that were added
-                            output_columns = list(params['output'].keys())
-                        else:
-                            # Scalar value
-                            output_columns = [params['output']]
-
+                    output_columns = _declared_output_columns(wrangle, params)
+                    if output_columns is not None:
                         # Expand the columns if using any wildcards
-                        output_columns = _wildcard_expansion(df.columns, output_columns)
+                        if wrangle not in _NAMED_AI_WRANGLES:
+                            output_columns = _wildcard_expansion(df.columns, output_columns)
 
                         df = df[output_columns]
 
@@ -976,7 +966,9 @@ def _execute_wrangles(
                     df = df.fillna('0')
                     if wrangle != 'log':  
                         # Determine what columns were actually produced for logging  
-                        if 'output' in params:  
+                        if wrangle in _NAMED_AI_WRANGLES:
+                            output_columns = _declared_output_columns(wrangle, params)
+                        elif 'output' in params:
                             if isinstance(params['output'], list):  
                                 # Handle mixed list types (strings and dicts)  
                                 output_columns = []  

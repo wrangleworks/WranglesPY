@@ -18,6 +18,7 @@ from .dataframe import DataFrame
 
 from .classify import classify
 from . import extract
+from . import ai
 from .lookup import lookup
 from .translate import translate
 from .standardize import standardize
@@ -33,5 +34,4 @@ from .train import train
 from . import select
 from . import compare
 from . import generate
-
 

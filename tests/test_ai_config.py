@@ -59,6 +59,81 @@ def test_catalog_metadata_is_separate_from_request_defaults():
     assert "documentation" not in policy
 
 
+@pytest.mark.parametrize("operation", ["ai.choose", "ai.score", "ai.true_false", "ai.answers"])
+def test_typesafe_operations_resolve_independent_packaged_defaults(operation):
+    policy = ai_config.resolve(operation)
+    assert policy["provider"] == "typesafe"
+    assert policy["protocol"] == "systemone"
+    assert policy["model"] == "jev-1.13.0"
+    assert policy["endpoints"] == {"systemone": "https://api.typesafe.ai/v1/systemone"}
+    assert policy["default_concurrency"] == 10
+    assert policy["request_timeout_seconds"] == 30
+    assert policy["retries"] == 1
+    assert policy["cache"] == {
+        "enabled": True, "ttl_seconds": 3600, "max_entries": 512,
+        "max_value_bytes": 65536, "single_flight": True, "log_every": 0,
+    }
+    assert "reasoning" not in policy
+    assert "text" not in policy
+    for role in ("global", "test"):
+        with pytest.raises(ValueError, match="cannot select"):
+            ai_config.resolve(operation, role=role)
+
+
+@pytest.mark.parametrize("operation", ["ai.choose", "ai.score", "ai.true_false", "ai.answers"])
+def test_typesafe_explicit_unlisted_models_preserve_provider_settings(operation):
+    policy = ai_config.resolve(operation, provider=" TYPESAFE ", model="jev-custom")
+    assert policy["model"] == "jev-custom"
+    assert policy["provider"] == "typesafe"
+    assert policy["protocol"] == "systemone"
+    assert policy["endpoints"]["systemone"] == "https://api.typesafe.ai/v1/systemone"
+    with pytest.raises(ValueError, match="No AI provider"):
+        ai_config.resolve(operation, provider="unconfigured", model="jev-custom")
+    with pytest.raises(ValueError, match="specify model explicitly"):
+        ai_config.resolve(operation, provider="openai")
+
+
+@pytest.mark.parametrize("operation", ["ai.score", "ai.answers"])
+def test_typesafe_custom_model_defaults_are_provider_local(monkeypatch, tmp_path, operation):
+    config = ai_config.load()
+    config["providers"]["typesafe"]["models"]["jev-1.13.0"]["default_for"].remove(operation)
+    config["providers"]["typesafe"]["models"]["jev-custom-task"] = {
+        "status": "active", "default_for": [operation],
+    }
+    config["providers"]["typesafe"]["endpoints"]["systemone"] = "https://custom.example/systemone"
+    use_config(config, monkeypatch, tmp_path)
+    assert ai_config.resolve(operation)["model"] == "jev-custom-task"
+    assert ai_config.resolve("ai.choose")["model"] == "jev-1.13.0"
+    assert ai_config.resolve("extract.ai")["model"] == "gpt-6-luna"
+    assert ai_config.resolve(operation)["endpoints"]["systemone"] == "https://custom.example/systemone"
+
+
+def test_catalog_has_no_legacy_questions_operation_or_model_role():
+    config = ai_config.load()
+    assert "ai.questions" not in config["operations"]
+    for model in config["providers"]["typesafe"]["models"].values():
+        assert "ai.questions" not in model.get("default_for", [])
+    with pytest.raises(ValueError, match="No AI operation"):
+        ai_config.resolve("ai.questions")
+
+
+@pytest.mark.parametrize("operation", ["ai.choose", "ai.score", "ai.true_false", "ai.answers"])
+def test_version_1_overrides_keep_packaged_typesafe_operations(monkeypatch, tmp_path, operation):
+    packaged = ai_config.resolve(operation)
+    use_config({"version": 1, "extract_ai": {"model": "legacy-custom"}}, monkeypatch, tmp_path)
+    assert ai_config.resolve(operation) == packaged
+
+
+@pytest.mark.parametrize("operation", ["ai.choose", "ai.score", "ai.true_false", "ai.answers"])
+def test_version_2_does_not_merge_missing_typesafe_operations(monkeypatch, tmp_path, operation):
+    config = ai_config.load()
+    del config["operations"][operation]
+    config["providers"]["typesafe"]["models"]["jev-1.13.0"]["default_for"].remove(operation)
+    use_config(config, monkeypatch, tmp_path)
+    with pytest.raises(ValueError, match="No AI operation"):
+        ai_config.resolve(operation)
+
+
 def test_generic_task_operation_requires_explicit_model():
     with pytest.raises(ValueError, match="requires an explicit model"):
         ai_config.resolve("huggingface")

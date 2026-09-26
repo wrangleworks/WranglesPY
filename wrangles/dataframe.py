@@ -90,6 +90,11 @@ class _wrangles:
                     setattr(self, name, make_method(name).__get__(self))
 
     @property
+    def ai(self):
+        """Provide structured answers to common questions about each row."""
+        return _wrangles_accessor(self._df, _recipe_wrangles.ai)
+
+    @property
     def compare(self):
         """
         Compare data
