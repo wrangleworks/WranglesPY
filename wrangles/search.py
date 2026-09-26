@@ -3,6 +3,7 @@ import concurrent.futures as _futures
 # Import our client factory
 from .clients import get_client as _get_client
 from . import _ai_mode
+from . import ai_config as _ai_config
 
 
 def find_links(
@@ -68,13 +69,21 @@ def retrieve_link_content(
     client: str = "google_url_context",
     client_config: dict | None = None,
     prompt: str | None = None,
-    model_id: str = "models/gemini-3-flash-preview",
+    model_id: str = None,
     output_format: str = "json",
-    threads: int = 10
+    threads: int = None
 ) -> dict | list:
     """
     Retrieve formatted content from web URLs using a specified client.
+    Omitted model and concurrency settings are resolved from the AI configuration.
     """
+    policy = _ai_config.resolve("search.retrieve_link_content", model=model_id)
+    if policy["provider"] != "google":
+        raise ValueError("URL content retrieval currently supports only the 'google' provider.")
+    if policy["protocol"] != "generate_content":
+        raise ValueError("Google URL content retrieval requires the 'generate_content' protocol.")
+    model_id = policy["model"]
+    threads = policy["default_concurrency"] if threads is None else threads
     if client_config is None: client_config = {}
         
     retriever = _get_client(client, client_config)

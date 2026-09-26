@@ -311,9 +311,9 @@ def retrieve_link_content(
     client: str = "google_url_context",
     api_key: str | None = None,
     prompt: str | None = None,
-    model_id: str = "models/gemini-3-flash-preview",
+    model_id: str = None,
     output_format: str = "json",
-    threads: int = 10
+    threads: int = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -347,7 +347,7 @@ def retrieve_link_content(
         description: Optional custom system prompt to guide the extraction behavior and output format.
       model_id:
         type: string
-        description: The specific model ID to use (default models/gemini-3-flash-preview).
+        description: The specific model ID to use. Defaults to the AI configuration.
       output_format:
         type: string
         description: The desired format for the extracted content.
@@ -357,8 +357,7 @@ def retrieve_link_content(
         default: json
       threads:
         type: integer
-        description: Number of concurrent threads for parallel processing (default 10).
-        default: 10
+        description: Number of concurrent threads for parallel processing. Defaults to the AI configuration.
     """
     if output is None: output = input
 

@@ -6,8 +6,9 @@ in recipe YAML, see [`extract_ai_user_guide.md`](extract_ai_user_guide.md).
 The packaged defaults and base prompt live in
 `wrangles/ai_defaults.yml`. Set `WRANGLES_AI_CONFIG` to the path of a
 versioned replacement YAML file to override the complete configuration.
-Model capability entries are merged with the packaged entries; see
-[model defaults and capabilities](extract_ai_user_guide.md#model-defaults-and-capabilities).
+Version 2 separates the provider/model catalog from operation settings. See
+[AI model configuration](ai_configuration.md) for structure, model-default roles,
+and compatibility with existing version-1 override files.
 
 ## Runtime defaults
 
@@ -23,9 +24,10 @@ Model capability entries are merged with the packaged entries; see
 Recipes and Python calls can override these settings individually. Saved XL
 models and recipe outputs are compiled through the same definition compiler.
 
-When `threads` is omitted, the call uses `extract_ai.default_concurrency`.
+When `threads` is omitted, the call uses
+`operations.extract.ai.defaults.default_concurrency` in version 2.
 An explicit `threads` value can raise or lower concurrency for that call.
-Custom `WRANGLES_AI_CONFIG` files should use `extract_ai.default_concurrency`.
+Version-1 files continue to use `extract_ai.default_concurrency`.
 
 Each retry receives the full configured timeout. Queued rows and retry delays
 do not consume that timeout, so a complete batch can take much longer than one
@@ -58,7 +60,8 @@ wrangles:
 
 Direct Python calls can likewise pass `store=False`. A per-call value overrides
 the configuration. A replacement `WRANGLES_AI_CONFIG` file should set
-`extract_ai.store` explicitly; if it omits that key, the runtime's fallback
+`operations.extract.ai.defaults.store` explicitly (`extract_ai.store` in version
+1); if it omits that key, the runtime's fallback
 is `true`.
 
 Response storage is separate from the local result cache. Cache hits do not

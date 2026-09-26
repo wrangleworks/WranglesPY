@@ -142,14 +142,14 @@ def ai(
     api_key: str,
     output: Dict[str, Any],
     model: str = None,
-    threads: int = 20,
-    timeout: int = 90,
-    retries: int = 0,
+    threads: int = None,
+    timeout: int = None,
+    retries: int = None,
     messages: Optional[List[dict]] = None,
-    url: str = "https://api.openai.com/v1/responses",
-    strict: bool = True,
+    url: str = None,
+    strict: bool = None,
     web_search: bool = False,
-    reasoning: Dict[str, str] = {"effort": "low"},
+    reasoning: Dict[str, str] = None,
     previous_response: bool = False,  
     examples: Optional[List[Dict[str, Any]]] = None,
     summary: bool = False,
@@ -179,7 +179,7 @@ def ai(
         description: Target schema; string/array shorthands are expanded automatically.
       model:
         type: string
-        description: Responses model name. Defaults to extract_ai.model in the AI configuration.
+        description: Responses model name. Defaults to the generate.ai role in the AI configuration.
       threads:
         type: integer
         description: Maximum concurrent requests (default 20).
@@ -212,7 +212,16 @@ def ai(
         description: Request summary text to be merged into the output.
     """
 
-    model = model or _ai_config.extract_ai()["model"]
+    policy = _ai_config.resolve("generate.ai", model=model)
+    if policy["provider"] != "openai" or policy["protocol"] != "responses":
+        raise ValueError("generate.ai supports only the openai provider and responses protocol.")
+    model = policy["model"]
+    threads = threads if threads is not None else policy["default_concurrency"]
+    timeout = timeout if timeout is not None else policy["request_timeout_seconds"]
+    retries = retries if retries is not None else policy["retries"]
+    url = url if url is not None else policy["endpoints"]["responses"]
+    strict = strict if strict is not None else policy["strict"]
+    reasoning = dict(reasoning if reasoning is not None else policy.get("reasoning", {}))
     _logging.info(f": Generating data using AI :: model :: {model}, thread_count :: {threads}, record_count :: {1 if not isinstance(input, list) else len(input)}")
     input_was_scalar = not isinstance(input, list)
     input_list = [input] if input_was_scalar else input
@@ -272,13 +281,16 @@ def ai(
         contexts = [None for _ in input_list]
     if summary:
         reasoning['summary'] = 'auto'
-    else:
-        reasoning = reasoning
 
     payload_template = {
+        **{
+            key: value for key, value in policy.items()
+            if key in {"temperature", "top_p", "max_output_tokens", "store"}
+        },
         "model": model,
         "reasoning": reasoning,
         "text": {
+            **policy.get("text", {}),
             "format": {
                 "type": "json_schema",
                 "name": "structured_response",

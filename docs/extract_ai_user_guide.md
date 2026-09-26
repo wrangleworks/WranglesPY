@@ -7,36 +7,25 @@ directly in a recipe. Both routes compile to the same output contract.
 ## Model defaults and capabilities
 
 `wrangles/ai_defaults.yml` is the packaged source of model configuration.
-`extract_ai.model` defaults to `gpt-6-luna` and is shared by Python and recipe
-calls to both `extract.ai` and `generate.ai`. Omit `model` in ordinary recipes
-and live tests to follow this default. Explicit model arguments and saved
-extraction models retain their existing precedence; saved model names are not
-automatically migrated.
+The `extract.ai` default role selects `gpt-6-luna`. Omit `model` in ordinary
+recipes to follow the configured default. Saved extraction model selection
+retains its existing precedence; saved model names are not automatically migrated.
 
-Set `WRANGLES_AI_CONFIG` to a version-1 YAML policy to override the packaged
-configuration. Start from a copy of `ai_defaults.yml`: extraction settings
-are replaced, not merged. Model capability entries are merged with packaged
-entries, so existing override files without `model_capabilities` remain valid.
-Call `wrangles.ai_config.clear_cache()` after editing an already-loaded file.
+Version 2 groups models by provider, separates lifecycle status from default
+roles, and records model defaults and supported enum values together. Extraction
+settings such as concurrency, cache, and the base prompt belong to the operation.
+See [AI model configuration](ai_configuration.md) for the schema, caller coverage,
+override precedence, test-role selection, and version-1 compatibility.
 
-The optional `model_capabilities` map accepts boolean `reasoning`,
-`reasoning_none`, and `low_verbosity` flags per model. Extraction checks these
-before falling back to its legacy GPT-5/o-series rules. Dated snapshots inherit
-their base model's flags and can have explicit overrides. Unknown families are
-not assumed to support these options; register verified capabilities when
-adopting a new model. Generation continues to forward reasoning options verbatim
-and retains its `low` reasoning default.
+The public parameters remain `reasoning: {effort: ...}` and
+`verbosity: low | medium | high`. Supported values in the catalog describe the
+model; they are separate from the value requested by a recipe. Existing saved
+model validation and legacy model-family compatibility behavior are preserved.
 
-For each model upgrade, verify the flags against
+For each model upgrade, verify capabilities against
 [OpenAI's model documentation](https://developers.openai.com/api/docs/models)
-and run credentialed extraction/generation checks. Mocked tests verify request
-construction, not provider availability or accepted parameters. The GPT-6 Luna
-flags in this change still require that live verification.
-
-Embedding calls retain their separate `text-embedding-3-small` default;
-generation models are not replacements for embedding models. A future
-embedding-default policy can use the same YAML file without changing existing
-vector dimensions or stored indexes implicitly.
+and run credentialed extraction checks. Mocked tests verify request construction,
+not provider availability or extraction quality.
 
 ## Start with the output
 

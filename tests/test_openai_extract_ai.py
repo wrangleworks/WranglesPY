@@ -126,9 +126,9 @@ def test_extract_ai_storage_configuration_and_override_have_separate_caches(
 ):
     config = ai_config.load()
     if configured_store is None:
-        config["extract_ai"].pop("store")
+        config["operations"]["extract.ai"]["defaults"].pop("store")
     else:
-        config["extract_ai"]["store"] = configured_store
+        config["operations"]["extract.ai"]["defaults"]["store"] = configured_store
     override = tmp_path / "ai.yml"
     override.write_text(json.dumps(config), encoding="utf-8")
     monkeypatch.setenv("WRANGLES_AI_CONFIG", str(override))
@@ -917,6 +917,158 @@ def test_ai_defaults_are_packaged_and_public():
         "single_flight": True,
         "log_every": 100,
     }
+
+
+@pytest.mark.parametrize("via_recipe", [False, True])
+@pytest.mark.parametrize("use_saved_model", [False, True])
+@pytest.mark.parametrize("explicit_tuning", [False, True])
+def test_extract_uses_selected_catalog_model_defaults(
+    monkeypatch, tmp_path, via_recipe, use_saved_model, explicit_tuning
+):
+    config = ai_config.load()
+    config["providers"]["openai"]["models"]["catalog-model"] = {
+        "status": "active",
+        "default_for": [],
+        "defaults": {
+            "reasoning": {"effort": "medium"},
+            "text": {"verbosity": "high"},
+            "max_output_tokens": 256,
+        },
+        "supported_values": {
+            "reasoning.effort": ["none", "low", "medium"],
+            "text.verbosity": ["low", "medium", "high"],
+        },
+    }
+    override = tmp_path / "ai.yml"
+    override.write_text(json.dumps(config), encoding="utf-8")
+    monkeypatch.setenv("WRANGLES_AI_CONFIG", str(override))
+    ai_config.clear_cache()
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(),
+    )
+    settings = {"api_key": "key", "threads": 1, "cache": False}
+    if use_saved_model:
+        settings.update(model_id="saved-definition", model="gpt-6-luna")
+        monkeypatch.setattr(extract._data, "model_content", lambda model_id: {
+            "Settings": {"GPTModel": "catalog-model"},
+            "Columns": ["Find", "Type"],
+            "Data": [["length", "string"]],
+        })
+    else:
+        settings.update(model="catalog-model", output={"length": {"type": "string"}})
+    if explicit_tuning:
+        settings.update(reasoning={"effort": "low"}, verbosity="medium", max_output_tokens=128)
+    try:
+        if via_recipe:
+            result = recipe.run(
+                {"wrangles": [{"extract.ai": {"input": "data", **settings}}]},
+                dataframe=pd.DataFrame({"data": ["wrench 25mm"]}),
+            )
+            assert result["length"].tolist() == ["25mm"]
+        else:
+            assert extract.ai("wrench 25mm", **settings) == {"length": "25mm"}
+        payload = calls[0]["json"]
+        assert payload["model"] == "catalog-model"
+        assert payload["reasoning"] == {"effort": "low" if explicit_tuning else "medium"}
+        assert payload["text"]["verbosity"] == ("medium" if explicit_tuning else "high")
+        assert payload["max_output_tokens"] == (128 if explicit_tuning else 256)
+    finally:
+        ai_config.clear_cache()
+
+
+@pytest.mark.parametrize("temperature", [None, 0])
+def test_extract_chat_uses_configured_model_temperature(monkeypatch, tmp_path, temperature):
+    config = ai_config.load()
+    config["providers"]["openai"]["models"]["gpt-4o-mini"]["protocol_defaults"][
+        "chat_completions"
+    ]["temperature"] = 0.35
+    override = tmp_path / "ai.yml"
+    override.write_text(json.dumps(config), encoding="utf-8")
+    monkeypatch.setenv("WRANGLES_AI_CONFIG", str(override))
+    ai_config.clear_cache()
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response("chat_completions"),
+    )
+    settings = {} if temperature is None else {"temperature": temperature}
+    try:
+        assert extract.ai(
+            "wrench 25mm", "key", model="gpt-4o-mini", protocol="chat_completions",
+            output={"length": {"type": "string"}}, threads=1, **settings,
+        ) == {"length": "25mm"}
+        assert calls[0]["json"]["temperature"] == (0.35 if temperature is None else 0)
+    finally:
+        ai_config.clear_cache()
+
+
+@pytest.mark.parametrize("infer_protocol", [False, True])
+def test_extract_resolves_protocol_runtime_defaults_before_request(monkeypatch, tmp_path, infer_protocol):
+    config = ai_config.load()
+    operation_defaults = config["operations"]["extract.ai"]["defaults"]
+    for key in ("request_timeout_seconds", "strict", "cache"):
+        operation_defaults.pop(key)
+    config["providers"]["openai"]["models"]["gpt-4o-mini"]["protocol_defaults"][
+        "chat_completions"
+    ].update({"request_timeout_seconds": 7, "strict": False, "cache": {"enabled": False}})
+    override = tmp_path / "ai.yml"
+    override.write_text(json.dumps(config), encoding="utf-8")
+    monkeypatch.setenv("WRANGLES_AI_CONFIG", str(override))
+    ai_config.clear_cache()
+    calls = []
+
+    def chatgpt(data, api_key, settings, url, timeout, retries):
+        calls.append((settings, timeout, retries))
+        return {"length": "25mm"}
+
+    monkeypatch.setattr(extract._openai, "chatGPT", chatgpt)
+    selection = (
+        {"url": "https://api.openai.com/v1/chat/completions"}
+        if infer_protocol else {"protocol": "chat_completions"}
+    )
+    try:
+        for _ in range(2):
+            assert extract.ai(
+                "wrench 25mm", "key", model="gpt-4o-mini",
+                output={"length": {"type": "string"}}, threads=1, **selection,
+            ) == {"length": "25mm"}
+        assert len(calls) == 2  # The model's protocol disables the warm result cache.
+        assert calls[0][0]["tools"][0]["function"]["strict"] is False
+        assert calls[0][1:] == (7, 1)
+    finally:
+        ai_config.clear_cache()
+
+
+@pytest.mark.parametrize("retries", [None, 0])
+def test_v1_chat_preserves_temperature_and_resolves_retries(monkeypatch, tmp_path, retries):
+    override = tmp_path / "ai.yml"
+    override.write_text(json.dumps({
+        "version": 1,
+        "extract_ai": {
+            "model": "gpt-4o-mini", "protocol": "chat_completions",
+            "endpoints": {"chat_completions": "https://api.openai.com/v1/chat/completions"},
+        },
+    }), encoding="utf-8")
+    monkeypatch.setenv("WRANGLES_AI_CONFIG", str(override))
+    ai_config.clear_cache()
+    calls = []
+
+    def chatgpt(data, api_key, settings, url, timeout, retries):
+        calls.append((settings, retries))
+        return {"length": "25mm"}
+
+    monkeypatch.setattr(extract._openai, "chatGPT", chatgpt)
+    try:
+        assert extract.ai(
+            "wrench 25mm", "key", output={"length": {"type": "string"}},
+            threads=1, retries=retries,
+        ) == {"length": "25mm"}
+        assert calls[0][0]["temperature"] == 0.2
+        assert calls[0][1] == (1 if retries is None else 0)
+    finally:
+        ai_config.clear_cache()
 
 
 def test_ai_config_can_be_overridden(monkeypatch, tmp_path):

@@ -1,6 +1,7 @@
 import os
 from typing import Optional, Dict, Any
 from ..utils import LazyLoader as _LazyLoader
+from .. import ai_config as _ai_config
 
 # Lazy-loaded Google GenAI modules
 genai = _LazyLoader("google.genai")
@@ -47,7 +48,7 @@ class GeminiURLContextClient:
                 "Missing API Key: Provide `api_key` in the recipe config or set the GOOGLE_API_KEY environment variable."
             )
 
-    def retrieve(self, url: str, prompt: Optional[str] = None, model_id: str = "models/gemini-3-flash-preview", output_format: str = "markdown") -> Dict[str, Any]:
+    def retrieve(self, url: str, prompt: Optional[str] = None, model_id: str = None, output_format: str = "markdown") -> Dict[str, Any]:
         """
         Retrieves context from a web URL using the Gemini API.
         Includes thread-safe initialization, strict timeouts, and optional JSON parsing.
@@ -65,17 +66,28 @@ class GeminiURLContextClient:
             
         if not url.startswith("http://") and not url.startswith("https://"):
             url = f"https://{url}"
-            result["retrieved_url"] = url 
+            result["retrieved_url"] = url
+
+        policy = _ai_config.resolve("search.retrieve_link_content", model=model_id)
+        if policy["provider"] != "google":
+            raise ValueError("URL content retrieval currently supports only the 'google' provider.")
+        if policy["protocol"] != "generate_content":
+            raise ValueError("Google URL content retrieval requires the 'generate_content' protocol.")
+        model_id = policy["model"]
             
         user_content = f"Please retrieve content from this explicitly bounded URL: <{url}>"
 
         try:
-            # Thread-safe client initialization with a 45-second timeout
+            # The SDK expects milliseconds; configuration stores seconds.
             client = self.genai.Client(
                 api_key=self.api_key, 
                 http_options=self.types.HttpOptions(
                     api_version="v1beta",
-                    timeout=45000 # 45 seconds
+                    timeout=policy["request_timeout_seconds"] * 1000,
+                    retry_options=self.types.HttpRetryOptions(
+                        attempts=policy["retries"] + 1,
+                        http_status_codes=[408, 429, 500, 502, 503, 504],
+                    ),
                 )
             )
         except Exception as e:
@@ -101,7 +113,7 @@ class GeminiURLContextClient:
                     tools=[self.types.Tool(url_context=self.types.UrlContext())],
                     response_modalities=["TEXT"],
                     response_mime_type=mime_type,
-                    temperature=0.1,
+                    temperature=policy.get("temperature"),
                 )
             )
 

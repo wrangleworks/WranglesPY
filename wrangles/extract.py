@@ -251,6 +251,9 @@ def ai(
         else:
             protocol = policy.get("protocol", "responses")
     protocol = _normalize_ai_protocol(protocol)
+    policy = _ai_config.resolve(
+        "extract.ai", model=model, provider=provider, protocol=protocol
+    )
     if not isinstance(web_search, bool):
         raise ValueError("web_search must be true or false.")
     if web_search and protocol != "responses":
@@ -271,7 +274,7 @@ def ai(
         raise ValueError("model must be a non-empty string.")
     threads = threads if threads is not None else policy.get("default_concurrency", 32)
     timeout = timeout if timeout is not None else policy.get("request_timeout_seconds", 12)
-    retries = retries if retries is not None else policy.get("retries", 0)
+    retries = retries if retries is not None else policy.get("retries", 1)
     strict = strict if strict is not None else policy.get("strict", True)
     store = store if store is not None else policy.get("store", True)
     cache_policy = _ai_cache.resolve_policy(
@@ -322,6 +325,21 @@ def ai(
     )
     output = compiled.output
     model = compiled.model
+    # Saved definitions can select a different model. Resolve its tuning defaults
+    # after compilation, preserving the existing saved-model precedence.
+    policy = _ai_config.resolve(
+        "extract.ai", model=model, provider=provider, protocol=protocol
+    )
+    request_defaults = {
+        key: value for key, value in {
+            **_ai_config.model_defaults(model, provider=provider, protocol=protocol),
+            **policy,
+        }.items()
+        if key in {
+            "temperature", "top_p", "max_tokens", "max_completion_tokens",
+            "max_output_tokens",
+        }
+    }
     saved_reasoning = compiled.reasoning
     strict = compiled.strict
     output_generic_key = compiled.output_generic_key
@@ -382,7 +400,7 @@ def ai(
                 },
             },
             "store": store,
-            **_openai_responses.sanitize_request_params(kwargs),
+            **_openai_responses.sanitize_request_params({**request_defaults, **kwargs}),
         }
         if web_search:
             _enable_responses_web_search(payload)
@@ -499,14 +517,9 @@ def ai(
         })
     messages = stable_messages + messages
     
-    default_settings = {
-        "gpt-4o-mini": {"temperature": 0.2},
-        "gpt-4o": {"temperature": 0.2}
-    }
-
     # Blend default settings into kwargs
     kwargs = {
-        **default_settings.get(model, {}),
+        **request_defaults,
         **kwargs
     }
 

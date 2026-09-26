@@ -50,7 +50,7 @@ pymysql
 
 # AI / LLM
 openai
-google-genai
+google-genai>=1.24.0
 
 # Search
 serpapi

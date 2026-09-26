@@ -21,13 +21,17 @@ foreach ($name in @(
     "AWS_SECRET_ACCESS_KEY",
     "AWS_SESSION_TOKEN",
     "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
     "HUGGINGFACE_TOKEN",
     "OPENAI_API_KEY",
     "SERPAPI_API_KEY",
     "WRANGLES_PASSWORD",
-    "WRANGLES_USER"
+    "WRANGLES_USER",
+    "WRANGLES_AI_CONFIG"
 )) {
-    [Environment]::SetEnvironmentVariable($name, $null, "Process")
+    # Newer .NET versions can preserve an empty environment entry when passed
+    # $null. Wrangles treats a missing credential differently from an empty one.
+    Remove-Item -LiteralPath ("Env:" + $name) -ErrorAction SilentlyContinue
 }
 
 $localConfig = Join-Path $repoRoot "pytest-local.ini"

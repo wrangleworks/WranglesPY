@@ -3,6 +3,7 @@ from typing import Union as _Union, Dict as _Dict, List as _List, Optional as _O
 import logging as _logging
 import pandas as _pd
 import wrangles.generate as _generate
+from .. import ai_config as _ai_config
 
 
 
@@ -12,14 +13,14 @@ def ai(
     output: _Union[_Dict, str, _List],
     input: _Union[str, _List] = None,
     model: str = None,
-    threads: int = 20,
-    timeout: int = 90,
-    retries: int = 0,
+    threads: int = None,
+    timeout: int = None,
+    retries: int = None,
     messages: _Optional[_List[dict]] = None,
-    url: str = "https://api.openai.com/v1/responses",
-    strict: bool = False,
+    url: str = None,
+    strict: bool = None,
     web_search: bool = False,
-    reasoning: _Dict[str, str] = {"effort": "low"},
+    reasoning: _Dict[str, str] = None,
     previous_response: bool = False,
     summary: bool = False,
     **kwargs
@@ -48,7 +49,7 @@ def ai(
         description: Target schema; string/array shorthands are expanded automatically.
       model:
         type: string
-        description: Responses model name. Defaults to extract_ai.model in the AI configuration.
+        description: Responses model name. Defaults to the generate.ai role in the AI configuration.
       threads:
         type: integer
         description: Maximum concurrent requests (default 20).
@@ -80,6 +81,8 @@ def ai(
         type: boolean
         description: Request summary text to be merged into the output.
     """
+    if strict is None:
+        strict = _ai_config.resolve("generate.ai", model=model)["recipe_strict"]
     _logging.info(f": Generating AI output :: model :: {model}, thread_count :: {threads}")
     if input is not None:
         if not isinstance(input, list):
