@@ -146,7 +146,11 @@ def read(
     # Open appropriate file type
     if name.split('.')[-1] in ['xlsx', 'xlsm', 'xls']:
         if 'dtype' not in kwargs.keys(): kwargs['dtype'] = 'object'
-        df = _pd.read_excel(file_object, **kwargs).fillna('')
+        df = _pd.read_excel(file_object, **kwargs)
+        # Fill only columns with blanks. Filling complete object columns would
+        # trigger pandas' deprecated implicit downcast; map below infers their
+        # numeric/boolean types as before.
+        df = df.fillna({column: '' for column in df.columns[df.isna().any()]})
         df = df.apply(lambda column: column.map(_unescape_excel_value))
     elif name.split('.')[-1] in ['csv', 'txt'] or '.'.join(name.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
         df = _pd.read_csv(file_object, **kwargs).fillna('')
@@ -176,7 +180,7 @@ def read(
 
     # If drop_empty is set, drop any columns that are completely empty
     if drop_empty:
-        df = df.replace('(\s+|^$)', _pd.NA, regex=True).dropna(axis=1, how='all')
+        df = df.replace(r'(\s+|^$)', _pd.NA, regex=True).dropna(axis=1, how='all')
 
     return df
 

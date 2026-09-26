@@ -101,6 +101,34 @@ class TestRead:
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Not Empty', 'Replace']
 
+    @pytest.mark.parametrize('dtype', ['object', str])
+    def test_read_excel_preserves_values_and_dtypes_with_blanks(self, tmp_path, dtype):
+        """Keep inferred complete columns and blank-containing mixed values."""
+        path = tmp_path / 'blank_values.xlsx'
+        source = _pd.DataFrame({
+            'integer': [1, 2, 3],
+            'decimal': [1.5, 2.5, 3.5],
+            'boolean': [True, False, True],
+            'integer_blank': [1, None, 3],
+            'text_blank': ['001', None, '003'],
+            'boolean_blank': [True, None, False],
+        })
+        source.to_excel(path, index=False)
+
+        result = wrangles.connectors.file.read(path, dtype=dtype)
+
+        expected = _pd.DataFrame({
+            'integer': [1, 2, 3],
+            'decimal': [1.5, 2.5, 3.5],
+            'boolean': [True, False, True],
+            'integer_blank': [1, '', 3],
+            'text_blank': ['001', '', '003'],
+            'boolean_blank': [True, '', False],
+        })
+        if dtype is str:
+            expected = expected.astype(str)
+        _pd.testing.assert_frame_equal(result, expected)
+
     def test_read_excel_drop_empty_default(self):
         """
         Test that empty columns persist when drop_empty is not set

@@ -373,7 +373,7 @@ def test_applied_permission_group_variable(monkeypatch):
     """
     token = wrangles.auth._jwt.encode(
         {"applied_permission_group": "enterprise"},
-        "test-secret",
+        "test-only-signing-key-32-bytes-minimum",
         algorithm="HS256"
     )
     monkeypatch.setattr(wrangles.auth, "get_access_token", lambda: token)
