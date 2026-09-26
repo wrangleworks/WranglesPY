@@ -1,213 +1,316 @@
 # AI questions
 
 `ai.choose`, `ai.score`, `ai.true_false`, and `ai.questions` answer named questions
-about each input record through Typesafe. They use the existing
-[AI model catalog](ai_configuration.md), with `provider: typesafe`,
-`protocol: systemone`, and the pinned model `jev-1.13.0` as defaults.
+about each input record through [Typesafe](https://docs.typesafe.ai/introduction).
+They use the existing [AI model catalog](ai_configuration.md), with
+`provider: typesafe`, `protocol: systemone`, and the pinned model `jev-1.13.0`
+as defaults. `extract.ai` keeps its current API and behavior.
 
-`extract.ai` keeps its current API and behavior. The new `ai` namespace leaves
-room for a later compatible `ai.extract` migration; that alias is not introduced
-here.
+## Input and output schema
 
-## Named questions and answers
+Every wrangle takes a nonempty `questions` mapping. Each key is a nonblank
+question label, used to construct the default output column names. Each
+question requires `instructions`: nonempty text, a JSON object, or a JSON array.
+Objects must have string keys, and all supplied values must be JSON-compatible.
 
-Every operation takes a nonempty `questions` mapping. Its keys are the question
-names and form the default output column names. Every question has
-`instructions`, which can be a string, a JSON object, or a JSON array.
-Instructions and supplied descriptions must be nonempty; choose descriptions
-may also use `null` when the option label is sufficient.
-
-| Operation | Criteria | Answer fields and default recipe columns |
+| Wrangle | Criteria | Answer fields and default output columns |
 | --- | --- | --- |
-| `ai.choose` | A mapping of 1–255 nonblank option labels to descriptions. Descriptions can be strings, JSON objects, JSON arrays, or `null`. | `choice` → `<name>`; `confidence` → `<name>_confidence`; `probabilities` → `<name>_probabilities` |
-| `ai.score` | An ordered list of 2–10 unique nonblank strings describing the scoring criteria. Structured criteria objects are not accepted. | `score` → `<name>`; `confidence` → `<name>_confidence`; `probabilities` → `<name>_probabilities` |
-| `ai.true_false` | Optional `"true"` and/or `"false"` descriptions, supplied as strings, JSON objects, or JSON arrays. Quote these keys in YAML. | `probability_true` → `<name>`; `true_criteria` → `<name>_true_criteria` |
-| `ai.questions` | Each question declares `type: choose`, `type: score`, or `type: true_false` and uses the corresponding schema above. | The columns for that question's type. |
+| `ai.choose` | A mapping of 1–255 nonblank option labels to descriptions. Descriptions can be nonempty strings, JSON objects, JSON arrays, or `null`. | `choice` → `<label>`; `confidence` → `<label>_confidence`; `probabilities` → `<label>_probabilities` |
+| `ai.score` | An ordered list of 2–10 unique nonblank strings describing the scoring levels. | `score` → `<label>`; `confidence` → `<label>_confidence`; `probabilities` → `<label>_probabilities` |
+| `ai.true_false` | Optional `"true"` and/or `"false"` descriptions, supplied as nonempty strings, JSON objects, or JSON arrays. Quote these keys in YAML. | `probability_true` → `<label>`; `true_criteria` → `<label>_true_criteria` |
+| `ai.questions` | Each question declares `type: choose`, `type: score`, or `type: true_false` and uses that type's criteria. | The columns for each question's type. |
 
-The individual operations allow several questions of the same type. Their
-`type` field may be omitted; if supplied, it must match the operation.
-`ai.questions` requires each question's `type`, allowing all three types in one
-request per input record.
+`input` selects the columns to send for each row: one column name, a zero-based
+column position, or a list of names/positions. Omit `input` to send all columns.
+The selected values are sent together as a record keyed by column name, so a
+question can use information from several columns. All questions in a wrangle
+are evaluated together in one request per input row.
 
-Choose probabilities use the option labels as keys. Score probabilities use the
-exact criterion strings as keys, preserving their order. The score is Typesafe's
-native numeric score from `0` to `N-1`, where `N` is the number of criteria;
-there is no `scale` parameter or automatic rescaling.
-True/false returns a probability, without inventing a Boolean decision,
-`probability_false`, or confidence score. Its `true_criteria` field preserves
-the question's supplied `"true"` criterion, including structured JSON; if that
-criterion is omitted, the value is an empty string.
+`ai.choose`, `ai.score`, and `ai.true_false` each accept multiple questions of
+their own type. Their nested `type` field is optional; if supplied, it must
+match the wrangle. `ai.questions` requires a `type` for every question.
 
-## Recipes
+Each example below includes an input table, a recipe to run against that table,
+and an illustrative output. Outputs are shown as YAML records to make
+dictionary-valued cells readable; the input columns remain in the result.
+The numbers illustrate the output format and are not results from a live run.
+Probabilities and confidence values use `0`–`1`, not percentages.
 
-The examples assume a `Description` input column and a managed secret named
-`TYPESAFE_API_KEY`. Local recipes can also resolve this placeholder from that
-environment variable. Never put the key value in a recipe or the model catalog.
+The examples use `api_key: ${TYPESAFE_API_KEY}`. Set that environment variable
+locally or supply the managed secret as a recipe variable in a hosted recipe.
 
-Choose from named options:
+## `ai.choose`
+
+`ai.choose` selects an option for each question and returns its confidence and
+the full probability distribution. `ai.choose` probabilities use the option
+labels as keys, including options with zero probability. See Typesafe's
+[Choice documentation](https://docs.typesafe.ai/primitives/choice).
+
+**Example input**
+
+| Message |
+| --- |
+| The invoice lists two charges for one order. Please refund the extra charge. |
+
+**Recipe**
 
 ```yaml
 wrangles:
   - ai.choose:
-      input: Description
+      input: Message  # Column name; a list selects several columns. Omit for all.
       api_key: ${TYPESAFE_API_KEY}
-      questions:
-        Product Class:
-          instructions: Choose the class supported by the product description.
+      questions:  # Required mapping; add one entry per question.
+        department:  # Question label; also the first default output column.
+          # Required: nonempty text, object, or array.
+          instructions: Which department should handle this message?
+          # Required: 1–255 option labels mapped to descriptions.
+          # Descriptions may be nonempty text, objects, arrays, or null.
           criteria:
-            Bearing: A component supporting a rotating shaft.
-            Belt: A flexible loop that transfers motion.
-            Other: None of the named classes is supported.
+            Billing: Charges, invoices, and refunds for payment errors.
+            Delivery: Parcel tracking and delivery problems.
+            Returns: Returning or exchanging a product.
+          output:  # Blank uses department, department_confidence, department_probabilities.
+        tone:  # A second question of the same type, sent in the same request.
+          instructions: What is the customer's tone?
+          criteria:
+            Calm: null  # null is allowed when the label supplies enough meaning.
+            Frustrated: null
+            Angry: null
+          # Optional: rename all three outputs, in this exact order.
+          output: [Tone, Tone Confidence, Tone Probabilities]
 ```
 
-This adds `Product Class`, `Product Class_confidence`, and
-`Product Class_probabilities`.
+**Example output**
 
-Score against an ordered set of criteria:
+```yaml
+- Message: The invoice lists two charges for one order. Please refund the extra charge.
+  department: Billing
+  department_confidence: 1.0
+  department_probabilities:
+    Billing: 1.0
+    Delivery: 0.0
+    Returns: 0.0
+  Tone: Calm
+  Tone Confidence: 0.7
+  Tone Probabilities:
+    Calm: 0.8
+    Frustrated: 0.2
+    Angry: 0.0
+```
+
+## `ai.score`
+
+`ai.score` rates the input against ordered descriptions. The order and number
+of criteria define positions `0` through `N-1`. The returned score is the
+probability-weighted position and may fall between levels; it is not itself a
+probability. There is no `scale` parameter or automatic rescaling. See
+Typesafe's [Score documentation](https://docs.typesafe.ai/primitives/score).
+
+`ai.score` probabilities use the exact criterion descriptions as keys. This
+wrangle accepts string descriptions for its levels, so each can serve as a
+unique probability key.
+
+**Example input**
+
+| Message |
+| --- |
+| Export crashes in Safari but works in Chrome. Some users cannot switch browsers. |
+
+**Recipe**
 
 ```yaml
 wrangles:
   - ai.score:
-      input: Description
+      input: Message
       api_key: ${TYPESAFE_API_KEY}
       questions:
-        Description Quality:
-          instructions: Assess how specifically this description identifies the product.
+        bug_severity:
+          instructions: How much does this issue prevent users from completing their work?
+          # Required: 2–10 unique, nonblank strings, ordered from low to high.
+          # These descriptions also become the probability keys.
           criteria:
-            - The product cannot be identified.
-            - The general product type can be identified.
-            - The product type and distinguishing specifications can be identified.
+            - Appearance issue; work is unaffected.              # Position 0
+            - A feature fails; another method remains available. # Position 1
+            - Work cannot continue using any available method.   # Position 2
+          # output is omitted: bug_severity, bug_severity_confidence,
+          # and bug_severity_probabilities are created automatically.
+          # Add sibling questions here for additional scores on the same input.
 ```
 
-This adds `Description Quality`, `Description Quality_confidence`, and
-`Description Quality_probabilities`. The probability mapping keeps those three
-criterion sentences as its keys.
+**Example output**
 
-Evaluate a true/false question:
+```yaml
+- Message: Export crashes in Safari but works in Chrome. Some users cannot switch browsers.
+  bug_severity: 1.4
+  bug_severity_confidence: 0.4
+  bug_severity_probabilities:
+    Appearance issue; work is unaffected.: 0.0
+    A feature fails; another method remains available.: 0.6
+    Work cannot continue using any available method.: 0.4
+```
+
+Here, `0 × 0.0 + 1 × 0.6 + 2 × 0.4 = 1.4`. The column named `bug_severity`
+contains that native score; its companion columns retain confidence and the
+complete probability distribution.
+
+## `ai.true_false`
+
+`ai.true_false` returns `probability_true` in the column named by the question
+label. It also returns the supplied `"true"` criterion, or an empty string when
+that criterion is omitted. It does not generate a Boolean, `probability_false`,
+or a confidence column. See Typesafe's
+[Noul documentation](https://docs.typesafe.ai/primitives/noul).
+
+**Example input**
+
+| Message |
+| --- |
+| I have asked three times now. Can I please speak to a real person? |
+
+**Recipe**
 
 ```yaml
 wrangles:
   - ai.true_false:
-      input: Description
+      input: Message
       api_key: ${TYPESAFE_API_KEY}
       questions:
-        Stainless Steel:
-          instructions: Is the product explicitly described as stainless steel?
+        is_human_escalation:
+          instructions: Is the customer asking to speak with a human agent?
+          # criteria is optional. Without a "true" criterion, true_criteria is "".
+        is_repeat_contact:
+          instructions: Has the customer contacted support about this before?
+          # Optional: either or both string keys "true" and "false".
+          # Quote these YAML keys so they are not interpreted as Booleans.
+          # Each description may be nonempty text, an object, or an array.
           criteria:
-            "true": The description explicitly identifies stainless steel.
-            "false": The description identifies a different material or omits the material.
+            "true": Mentions an earlier attempt to contact support.
+            "false": Gives no indication of an earlier contact.
+          # Optional output override: exactly [Probability Column, True Criteria Column].
+          # Omitted here to construct both column names from is_repeat_contact.
 ```
 
-This adds `Stainless Steel` containing `probability_true` and
-`Stainless Steel_true_criteria`. A downstream rule can apply the threshold
-appropriate for the workflow.
+**Example output**
 
-Combine question types in one operation:
+```yaml
+- Message: I have asked three times now. Can I please speak to a real person?
+  is_human_escalation: 0.99
+  is_human_escalation_true_criteria: ""
+  is_repeat_contact: 0.94
+  is_repeat_contact_true_criteria: Mentions an earlier attempt to contact support.
+```
+
+`is_repeat_contact: 0.94` is the probability that the statement is true.
+The question label is the column name, not a separate value in the output.
+
+## `ai.questions`
+
+`ai.questions` combines `ai.choose`, `ai.score`, and `ai.true_false` question
+types in one wrangle. Each question uses the same input record and retains its
+type's output fields. See Typesafe's
+[Primitives documentation](https://docs.typesafe.ai/primitives) for combining
+question types.
+
+**Example input**
+
+| Message | Browser |
+| --- | --- |
+| Export crashes here but works in Chrome. I have reported this twice already. | Safari |
+
+**Recipe**
 
 ```yaml
 wrangles:
   - ai.questions:
-      input: [Manufacturer, Part Number, Description]
+      input: [Message, Browser]  # Both columns form one record for every question.
       api_key: ${TYPESAFE_API_KEY}
       questions:
-        Product Class:
-          type: choose
-          instructions: Select the product class using all available fields.
-          criteria:
-            Bearing: A component supporting a rotating shaft.
-            Belt: A flexible loop that transfers motion.
-            Other: None of the named classes is supported.
-        Description Quality:
+        issue_type:
+          type: choose  # Required here: choose, score, or true_false.
+          instructions: Which kind of issue is being reported?
+          criteria:  # The same option-to-description mapping used by ai.choose.
+            Bug: A feature behaves incorrectly or fails.
+            Account: Sign-in, access, or account administration.
+            Other: A request outside those categories.
+        bug_severity:
           type: score
-          instructions: Assess how specifically the description identifies the product.
-          criteria:
-            - The product cannot be identified.
-            - The general product type can be identified.
-            - The product type and distinguishing specifications can be identified.
-        Stainless Steel:
+          instructions: How much does this issue prevent users from completing their work?
+          criteria:  # The same ordered list used by ai.score.
+            - Appearance issue; work is unaffected.
+            - A feature fails; another method remains available.
+            - Work cannot continue using any available method.
+        is_repeat_contact:
           type: true_false
-          instructions: Is the product explicitly described as stainless steel?
-          criteria:
-            "true": The product information explicitly identifies stainless steel.
-            "false": The product information identifies another material or omits material.
+          instructions: Has the customer contacted support about this before?
+          criteria:  # The same optional descriptions used by ai.true_false.
+            "true": Mentions an earlier attempt to contact support.
+      # Each question can have its own output override; there is no outer output.
 ```
 
-### Output names
-
-Omitting a question's `output`, setting it to `null`, or using an empty or
-whitespace-only string selects the default columns. To rename columns, supply
-the complete ordered list inside that question:
+**Example output**
 
 ```yaml
-questions:
-  Product Class:
-    instructions: Choose the product class.
-    criteria:
-      Bearing: A component supporting a rotating shaft.
-      Other: Any other product.
-    output: [Class, Class Confidence, Class Probabilities]
+- Message: Export crashes here but works in Chrome. I have reported this twice already.
+  Browser: Safari
+  issue_type: Bug
+  issue_type_confidence: 1.0
+  issue_type_probabilities:
+    Bug: 1.0
+    Account: 0.0
+    Other: 0.0
+  bug_severity: 1.4
+  bug_severity_confidence: 0.4
+  bug_severity_probabilities:
+    Appearance issue; work is unaffected.: 0.0
+    A feature fails; another method remains available.: 0.6
+    Work cannot continue using any available method.: 0.4
+  is_repeat_contact: 0.97
+  is_repeat_contact_true_criteria: Mentions an earlier attempt to contact support.
 ```
 
-Choose and score require exactly three output names; true/false requires exactly
-two, in the order shown in the answer table. Every name must be a nonblank
-string. Partial lists, an empty list, and a single nonempty string are invalid.
-Output names must also be unique across all questions in the operation.
-The operation's `questions` mapping controls the outputs; there is no single
-operation-level `output` selection.
+## Output names
+
+Omitting a question's `output`, setting it to `null`, or using an empty or
+whitespace-only string selects the default columns. To rename them, supply the
+complete ordered list inside that question, as shown for `tone` in the
+`ai.choose` example.
+
+`ai.choose` and `ai.score` require exactly three output names; `ai.true_false`
+requires exactly two, in the order shown in the schema table. Every name must
+be a nonblank string and unique across all questions in the wrangle. Partial
+lists, an empty list, and a single nonempty string are invalid.
 
 ## Python
 
-The public functions share these parameters:
+Like any other wrangle, these can also be called as Python functions:
 
 ```python
 from wrangles import ai
 
-ai.choose(data, questions, api_key=None, *, model=None, provider=None,
-          protocol=None, threads=None, timeout=None, retries=None,
-          cache=None, cache_ttl=None)
-ai.score(data, questions, api_key=None, *, model=None, provider=None,
-         protocol=None, threads=None, timeout=None, retries=None,
-         cache=None, cache_ttl=None)
-ai.true_false(data, questions, api_key=None, *, model=None, provider=None,
-              protocol=None, threads=None, timeout=None, retries=None,
-              cache=None, cache_ttl=None)
-ai.questions(data, questions, api_key=None, *, model=None, provider=None,
-             protocol=None, threads=None, timeout=None, retries=None,
-             cache=None, cache_ttl=None)
-```
-
-A string or dictionary input returns a dictionary of named answers. A list of
-strings or dictionaries returns one named-answer dictionary per input record,
-in input order. Question definitions use the same schema as the recipe examples.
-
-```python
-from wrangles import ai
-
-# The client uses TYPESAFE_API_KEY from the environment when api_key is omitted.
+# Uses TYPESAFE_API_KEY from the environment.
 answers = ai.choose(
-    {"Description": "Stainless steel ball bearing"},
+    "Stainless steel ball bearing",
     questions={
-        "Product Class": {
-            "instructions": "Choose the product class.",
+        "product_class": {
+            "instructions": "Which product class fits this description?",
             "criteria": {"Bearing": "Supports a rotating shaft.", "Other": None},
         },
     },
 )
-selected_class = answers["Product Class"]["choice"]
-probabilities = answers["Product Class"]["probabilities"]
+print(answers["product_class"]["choice"])
 ```
 
-Python returns the answer fields listed in the table rather than flattened
-column names. A question's `output` names are recipe column controls.
+A string or dictionary input returns named answers; a list returns one set of
+named answers per input, in order. Question definitions match the YAML schema.
 
 ## Runtime settings and compatibility
 
-Runtime options override the operation's catalog settings: `threads` controls
-concurrent requests, `timeout` is in seconds, and `retries` counts additional
-attempts after the initial request. The defaults are 10 threads, 30 seconds,
-and one retry. Use `retries: 0` to disable retries. Only transient failures are
-retried; invalid credentials, question definitions, and malformed results fail.
-Errors do not become fabricated classification answers.
+Runtime options override the wrangle's catalog settings: `threads` controls
+concurrent requests, `timeout` is the per-attempt timeout in seconds, and
+`retries` counts additional attempts after the initial request. The defaults
+are 10 threads, 30 seconds, and one retry. Use `retries: 0` to disable retries.
+Only transient failures are retried; invalid credentials, question definitions,
+and malformed results fail. Errors do not become fabricated answers.
 
 Successful results are cached in memory by request identity. The packaged
 defaults enable a one-hour TTL, up to 512 entries, and up to 65,536 bytes per
@@ -227,16 +330,11 @@ These controls do not change `extract.ai`'s existing
 input, and question definitions are included in the cache identity, preventing
 results from being shared across different requests or credentials. Secrets
 and raw prompts are not written into cache keys or logs. Cache logging is
-disabled by default for these operations.
+disabled by default for these wrangles.
 
-A version-1 AI configuration uses packaged defaults for the new operations.
+A version-1 AI configuration uses packaged defaults for the new wrangles.
 A version-2 replacement file must include their provider and operation entries;
 missing entries are not silently merged. Only Typesafe's `systemone` adapter is
 implemented for these functions, even if another provider appears in the catalog.
 Explicit Typesafe model names may be supplied; the provider determines whether
 that model is available.
-
-See the [Typesafe introduction](https://docs.typesafe.ai/introduction) for the
-provider's API documentation. Offline tests validate request and response
-contracts; live accuracy, account limits, and deployment behavior require a
-separate live-service check.
