@@ -29,7 +29,7 @@ LOCATION = None  # Example: "Austin, Texas, United States"; None omits the overr
 COUNTRY = None  # SerpAPI gl, e.g. "us" or "uk".
 LANGUAGE = None  # SerpAPI hl, e.g. "en".
 EXTRACT_ENABLED = True
-EXTRACT_MODEL = "gpt-5.6-luna"  # None uses the configured extract.ai default.
+EXTRACT_MODEL = None  # None selects the configured test role for extraction.
 EXTRACT_REASONING = {"effort": "low"}  # Source/offer matching benefits from reasoning.
 EXTRACT_THREADS = 1
 EXTRACT_TIMEOUT = 60
@@ -192,7 +192,9 @@ def main():
         "XLSX_OUTPUT_FILE": str(output_stem.with_suffix(".xlsx")),
         "JSON_OUTPUT_FILE": str(output_stem.with_suffix(".json")),
         "EXTRACT_ENABLED": EXTRACT_ENABLED,
-        "EXTRACT_MODEL": EXTRACT_MODEL,
+        "EXTRACT_MODEL": (
+            EXTRACT_MODEL or wrangles.ai_config.resolve("extract.ai", role="test")["model"]
+        ) if EXTRACT_ENABLED else EXTRACT_MODEL,
         "EXTRACT_REASONING": EXTRACT_REASONING,
         "EXTRACT_THREADS": EXTRACT_THREADS,
         "EXTRACT_TIMEOUT": EXTRACT_TIMEOUT,

@@ -1,35 +1,180 @@
-version: 1
+version: 2
 
-extract_ai:
-  profile: extract_fast
-  provider: openai
-  protocol: responses
-  model: gpt-5.4-mini
-  endpoints:
-    responses: https://api.openai.com/v1/responses
-    chat_completions: https://api.openai.com/v1/chat/completions
-  default_concurrency: 32
-  request_timeout_seconds: 12
-  retries: 1
-  strict: true
-  store: true # enables logging at openai
-  reasoning:
-    effort: none
-  text:
-    verbosity: low
-  cache:
-    enabled: true
-    ttl_seconds: 3600
-    max_entries: 512
-    max_value_bytes: 65536
-    single_flight: true
-    log_every: 100
-  prompt:
-    version: 2
-    instructions: |-
-      You are an expert data extraction assistant.
-      Extract and standardize only the requested fields from the provided data.
-      Use only the provided DATA. Do not invent missing values.
-      Return null when the data does not explicitly support a requested field.
-      For literal extracted strings, preserve concise source text and units unless the field asks for conversion.
-      Return data that satisfies the supplied JSON schema exactly.
+# Status describes lifecycle; default_for lists the independent default roles.
+# The catalog records provider settings; callers determine which models and settings to use.
+providers:
+  openai:
+    endpoints:
+      responses: https://api.openai.com/v1/responses
+      chat_completions: https://api.openai.com/v1/chat/completions
+      embeddings: https://api.openai.com/v1/embeddings
+    documentation:
+      model_cards: https://developers.openai.com/api/docs/models
+
+    models:
+      gpt-6-luna:
+        status: active
+        applications: [data_extraction, description_writing]
+        default_for: [global, test, extract.ai, generate.ai]
+        defaults:
+          reasoning:
+            effort: none
+          text:
+            verbosity: low
+        supported_values:
+          reasoning.effort: [none, low, medium, high, xhigh, max]
+          text.verbosity: [low, medium, high]
+
+      gpt-6-sol:
+        status: active
+        applications: [reasoning, agents]
+        default_for: []
+        defaults:
+          reasoning:
+            effort: low
+          text:
+            verbosity: low
+        supported_values:
+          reasoning.effort: [none, low, medium, high, xhigh, max]
+          text.verbosity: [low, medium, high]
+
+      text-embedding-3-small:
+        applications: [embeddings]
+        status: active
+        default_for: [embeddings]
+      text-embedding-3-large:
+        applications: [embeddings]
+        status: active
+        default_for: []
+
+      # Older OpenAI models; status records each model's catalog lifecycle.
+      gpt-5.4-mini:
+        status: deprecated
+        default_for: []
+        defaults:
+          reasoning:
+            effort: none
+          text:
+            verbosity: low
+      gpt-4o:
+        status: deprecated
+        default_for: []
+        protocol_defaults:
+          chat_completions:
+            temperature: 0.2
+        supported_values:
+          reasoning.effort: []
+          text.verbosity: []
+      gpt-4o-mini:
+        status: active
+        default_for: []
+        protocol_defaults:
+          chat_completions:
+            temperature: 0.2
+        supported_values:
+          reasoning.effort: []
+          text.verbosity: []
+
+  google:
+    endpoints:
+      # The SDK adds /{api_version}/models/{model}:generateContent.
+      base_url: https://generativelanguage.googleapis.com
+    documentation:
+      model_cards: https://deepmind.google/models/model-cards/
+    models:
+      gemini-3.8-flash:
+        status: active
+        applications: [url_retrieval]
+        default_for: [search.retrieve_link_content]
+        defaults:
+          temperature: 0.1
+  jina:
+    endpoints:
+      embeddings: https://api.jina.ai/v1/embeddings
+    documentation:
+      model_cards: https://jina.ai/models
+    # Existing Jina callers supply their model explicitly.
+    models:
+      jina-embeddings-v5-omni-small:
+        status: active
+        applications: [embeddings]
+        default_for: []
+        defaults:
+          # Jina's default for general similarity; retrieval callers override it.
+          task: text-matching
+        supported_values:
+          task: [retrieval.query, retrieval.passage, text-matching, clustering, classification]
+
+  huggingface:
+    endpoints:
+      hf_inference: https://router.huggingface.co/hf-inference/models
+    documentation:
+      api: https://huggingface.co/docs/inference-providers/en/providers/hf-inference
+    # The generic task wrangle requires an explicit model; no task-wide default.
+    models: {}
+
+  anthropic:
+    # Reserved for a future adapter; no runtime support is implied.
+    models: {}
+
+operations:
+  extract.ai:
+    provider: openai
+    protocol: responses
+    defaults:
+      default_concurrency: 32
+      request_timeout_seconds: 12
+      retries: 1
+      strict: true
+      store: true # enables logging at openai
+      cache:
+        enabled: true
+        ttl_seconds: 3600
+        max_entries: 512
+        max_value_bytes: 65536
+        single_flight: true
+        log_every: 100
+      prompt:
+        version: 2
+        instructions: |-
+          You are an expert data extraction assistant.
+          Extract and standardize only the requested fields from the provided data.
+          Use only the provided DATA. Do not invent missing values.
+          Return null when the data does not explicitly support a requested field.
+          For literal extracted strings, preserve concise source text and units unless the field asks for conversion.
+          Return data that satisfies the supplied JSON schema exactly.
+  generate.ai:
+    provider: openai
+    protocol: responses
+    defaults:
+      default_concurrency: 20
+      request_timeout_seconds: 90
+      retries: 1
+      strict: true
+      recipe_strict: false
+      reasoning:
+        effort: low
+  embeddings:
+    provider: openai
+    protocol: embeddings
+    defaults:
+      default_concurrency: 10
+      request_timeout_seconds: 30
+      retries: 1
+      batch_size: 100
+      precision: float32
+  search.retrieve_link_content:
+    provider: google
+    protocol: generate_content
+    defaults:
+      api_version: v1beta
+      default_concurrency: 10
+      request_timeout_seconds: 45
+      retries: 1
+  huggingface:
+    provider: huggingface
+    protocol: hf_inference
+    requires_model: true
+    defaults:
+      request_timeout_seconds: 30
+      retries: 1

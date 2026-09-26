@@ -1,6 +1,7 @@
 import os
 from typing import Optional, Dict, Any
 from ..utils import LazyLoader as _LazyLoader
+from .. import ai_config as _ai_config
 
 # Lazy-loaded Google GenAI modules
 genai = _LazyLoader("google.genai")
@@ -47,11 +48,19 @@ class GeminiURLContextClient:
                 "Missing API Key: Provide `api_key` in the recipe config or set the GOOGLE_API_KEY environment variable."
             )
 
-    def retrieve(self, url: str, prompt: Optional[str] = None, model_id: str = "models/gemini-3-flash-preview", output_format: str = "markdown") -> Dict[str, Any]:
+    def retrieve(self, url: str, prompt: Optional[str] = None, model_id: str = None, output_format: str = "markdown") -> Dict[str, Any]:
         """
         Retrieves context from a web URL using the Gemini API.
         Includes thread-safe initialization, strict timeouts, and optional JSON parsing.
         """
+        policy = None
+        if url and str(url).strip():
+            policy = _ai_config.resolve("search.retrieve_link_content", model=model_id)
+            _ai_config.warn_if_deprecated(policy["model"], policy["provider"])
+        return self._retrieve(url, prompt, output_format, policy)
+
+    def _retrieve(self, url, prompt, output_format, policy):
+        """Retrieve one URL using the operation's already resolved policy."""
         result = {
             "retrieved_url": url, 
             "status": "Failure",
@@ -65,25 +74,18 @@ class GeminiURLContextClient:
             
         if not url.startswith("http://") and not url.startswith("https://"):
             url = f"https://{url}"
-            result["retrieved_url"] = url 
+            result["retrieved_url"] = url
+
+        if policy["provider"] != "google":
+            raise ValueError("URL content retrieval currently supports only the 'google' provider.")
+        if policy["protocol"] != "generate_content":
+            raise ValueError("Google URL content retrieval requires the 'generate_content' protocol.")
+        model_id = policy["model"]
             
         user_content = f"Please retrieve content from this explicitly bounded URL: <{url}>"
 
-        try:
-            # Thread-safe client initialization with a 45-second timeout
-            client = self.genai.Client(
-                api_key=self.api_key, 
-                http_options=self.types.HttpOptions(
-                    api_version="v1beta",
-                    timeout=45000 # 45 seconds
-                )
-            )
-        except Exception as e:
-            result["error"] = f"Failed to initialize thread Client: {e}"
-            return result
-
         base_prompt = prompt if prompt else self.DEFAULT_SYSTEM_PROMPT
-        
+
         # Format-specific prompting
         if output_format.lower() == "json":
             system_instruction = base_prompt + "\n\nCRITICAL FORMAT RULE:\n- You must return the requested sections as a strictly valid JSON object where the section names are the keys."
@@ -91,6 +93,24 @@ class GeminiURLContextClient:
         else:
             system_instruction = base_prompt + "\n\nCRITICAL FORMAT RULE:\n- Strictly use Markdown.\n- Use the section names exactly as listed, with empty lines between each section."
             mime_type = "text/plain"
+
+        try:
+            # The SDK expects milliseconds; configuration stores seconds.
+            client = self.genai.Client(
+                api_key=self.api_key, 
+                http_options=self.types.HttpOptions(
+                    base_url=policy.get("endpoints", {}).get("base_url"),
+                    api_version=policy.get("api_version", "v1beta"),
+                    timeout=policy["request_timeout_seconds"] * 1000,
+                    retry_options=self.types.HttpRetryOptions(
+                        attempts=policy["retries"] + 1,
+                        http_status_codes=[408, 429, 500, 502, 503, 504],
+                    ),
+                )
+            )
+        except Exception as e:
+            result["error"] = f"Failed to initialize thread Client: {e}"
+            return result
 
         try:
             response = client.models.generate_content(
@@ -101,7 +121,9 @@ class GeminiURLContextClient:
                     tools=[self.types.Tool(url_context=self.types.UrlContext())],
                     response_modalities=["TEXT"],
                     response_mime_type=mime_type,
-                    temperature=0.1,
+                    **{key: policy[key] for key in (
+                        "temperature", "top_p", "top_k", "max_output_tokens", "stop_sequences",
+                    ) if key in policy},
                 )
             )
 
@@ -169,5 +191,7 @@ class GeminiURLContextClient:
                 result["error"] = "Bad Gateway: Google's server encountered a temporary error trying to reach the site."
             else:
                 result["error"] = f"Unexpected Error: {error_str}"
+        finally:
+            client.close()
 
         return result

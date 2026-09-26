@@ -3672,7 +3672,6 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3709,7 +3708,6 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3744,7 +3742,6 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3779,10 +3776,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
-                temperature: 0.2
                 timeout: 60
                 retries: 2
                 output:
@@ -3814,7 +3809,6 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3846,7 +3840,6 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3891,7 +3884,6 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3934,7 +3926,6 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4004,7 +3995,6 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 cache: false
                 seed: 1
@@ -4047,7 +4037,6 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4087,10 +4076,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 2
-                temperature: 0.2
                 timeout: 60
                 retries: 2
                 output:
@@ -4118,7 +4105,6 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4231,7 +4217,6 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4269,7 +4254,6 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4613,7 +4597,6 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4651,7 +4634,6 @@ class TestExtractAI:
                 wrangles:
                 - extract.ai:
                     input: Product
-                    model: gpt-4o-mini
                     api_key: dummy
                     output:
                       Size (Diameter):

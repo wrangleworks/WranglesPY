@@ -21,6 +21,8 @@ from pydantic import Field as _Field
 from pydantic import ValidationError as _ValidationError
 from pydantic import create_model as _create_model
 
+from . import ai_config as _ai_config
+
 
 _LOG = _logging.getLogger(__name__)
 _LOCK = _threading.Lock()
@@ -68,8 +70,34 @@ _IGNORED_RESPONSES_PARAMS = {
 
 _INCOMPATIBLE_RESPONSES_PARAMS = {
     "n": "Responses returns one generation per request; submit separate requests instead.",
-    "response_format": "Use the extract.ai output schema; Responses structured output is sent through text.format.",
+    "response_format": "Use the AI output schema; Responses structured output is sent through text.format.",
 }
+
+# Request options that may come from model/operation defaults. Structural
+# fields and runtime settings are assembled by each caller, never forwarded
+# blindly from the configuration. Explicit provider kwargs remain supported.
+_REQUEST_DEFAULT_KEYS = {
+    "responses": {
+        "temperature", "top_p", "max_output_tokens", "max_tokens",
+        "max_completion_tokens", "service_tier", "store", "include",
+        "max_tool_calls", "parallel_tool_calls", "prompt_cache_retention",
+        "safety_identifier", "truncation", "top_logprobs",
+    },
+    "chat_completions": {
+        "temperature", "top_p", "max_tokens", "max_completion_tokens",
+        "service_tier", "frequency_penalty", "presence_penalty", "logit_bias",
+        "logprobs", "top_logprobs", "seed", "stop", "user", "parallel_tool_calls",
+    },
+}
+
+
+def request_defaults(policy: dict, protocol: str = "responses") -> dict:
+    """Return configured provider options separately from runtime metadata."""
+    return {
+        key: _copy.deepcopy(value)
+        for key, value in policy.items()
+        if key in _REQUEST_DEFAULT_KEYS[protocol]
+    }
 
 _RATE_LIMIT_HEADERS = (
     "x-ratelimit-limit-requests",
@@ -337,27 +365,43 @@ def supports_reasoning(model: str) -> bool:
     """
     Return whether a model supports the Responses API reasoning parameter.
     """
-    model = (model or "").lower()
-    return model.startswith(("gpt-5", "o1", "o3", "o4"))
+    model = (model or "").strip().lower()
+    return _ai_config.model_capabilities(model).get(
+        "reasoning", model.startswith(("gpt-5", "o1", "o3", "o4"))
+    )
+
+
+def _supported_values(model: str, option: str):
+    # Legacy files retain their boolean capability overrides. In version 2,
+    # the declared enum is authoritative, including an empty unsupported set.
+    if _ai_config.load()["version"] == 2:
+        return _ai_config.model_supported_values(model).get(option)
+    return None
 
 
 def supports_reasoning_effort(model: str, effort: str) -> bool:
     """
     Return whether a model supports a specific reasoning effort.
 
-    OpenAI models before GPT-5.1 do not support ``none``. Pro models also
+    Configured enums take precedence. Older models before GPT-5.1
+    do not support ``none``. Pro models also
     require reasoning, so they cannot honor the package's no-reasoning
-    default. Other effort/model compatibility is left to the provider because
-    it varies more narrowly by model.
+    default. Uncataloged models retain the legacy family compatibility rules.
     """
     if not supports_reasoning(model):
         return False
 
+    allowed = _supported_values(model, "reasoning.effort")
+    if allowed is not None and effort is not None:
+        return effort in allowed
     effort = str(effort or "").strip().lower()
     if effort != "none":
         return True
 
     model = (model or "").strip().lower()
+    capabilities = _ai_config.model_capabilities(model)
+    if "reasoning_none" in capabilities:
+        return capabilities["reasoning_none"]
     if "-pro" in model:
         return False
 
@@ -365,12 +409,22 @@ def supports_reasoning_effort(model: str, effort: str) -> bool:
     return bool(version and int(version.group(1)) >= 1)
 
 
+def supports_verbosity(model: str, verbosity: str) -> bool:
+    """
+    Return whether a model supports the requested text verbosity.
+    """
+    allowed = _supported_values(model, "text.verbosity")
+    if allowed is not None:
+        return verbosity in allowed
+    model = (model or "").strip().lower()
+    return _ai_config.model_capabilities(model).get(
+        "low_verbosity", model.startswith("gpt-5")
+    )
+
+
 def supports_low_verbosity(model: str) -> bool:
-    """
-    Return whether a model supports low text verbosity.
-    """
-    model = (model or "").lower()
-    return model.startswith("gpt-5")
+    """Compatibility wrapper for the former low-verbosity capability check."""
+    return supports_verbosity(model, "low")
 
 
 def sanitize_schema(schema: dict, strict: bool = True) -> dict:
@@ -683,7 +737,7 @@ def sanitize_request_params(params: dict) -> dict:
             )
         sanitized[new_name] = sanitized.pop(old_name)
         _LOG.warning(
-            "Mapped legacy OpenAI parameter '%s' to '%s'; update this extract.ai definition.",
+            "Mapped legacy OpenAI parameter '%s' to '%s'; update this AI definition.",
             old_name,
             new_name,
         )
@@ -700,7 +754,7 @@ def sanitize_request_params(params: dict) -> dict:
     for name, guidance in _INCOMPATIBLE_RESPONSES_PARAMS.items():
         if name in sanitized:
             raise ValueError(
-                f"OpenAI parameter '{name}' is not compatible with extract.ai Responses calls. "
+                f"OpenAI parameter '{name}' is not compatible with structured AI Responses calls. "
                 f"{guidance}"
             )
 

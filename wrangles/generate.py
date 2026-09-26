@@ -3,7 +3,7 @@ import concurrent.futures
 import copy
 import json
 import logging as _logging
-from typing import Any, Dict, List, Literal, Union, Optional, Tuple
+from typing import Any, Dict, List, Union, Optional, Tuple
 
 import requests
 try:
@@ -11,20 +11,8 @@ try:
 except ImportError:
     BeautifulSoup = None
 
-from pydantic import BaseModel
-
-JsonSchemaType = Literal["string", "number", "integer", "boolean", "null", "object", "array"]
-
-class PropertyDefinition(BaseModel):
-   
-    type: JsonSchemaType = "string"
-    description: str
-    enum: Optional[List[Any]] = None
-    default: Optional[Any] = None
-    examples: Optional[List[Any]] = None
-    items: Optional["PropertyDefinition"] = None
-
-PropertyDefinition.model_rebuild()
+from . import ai_config as _ai_config
+from . import openai_responses as _openai_responses
 
 
 def _perform_web_search(query: str) -> str:
@@ -64,7 +52,6 @@ def _stringify_query(record: Any) -> str:
 
 
 def _call_openai(
-    input_data: Any,
     api_key: str,
     payload: dict,
     url: str,
@@ -74,8 +61,6 @@ def _call_openai(
 ) -> Tuple[dict, Optional[str]]:
     _logging.debug(": Calling OpenAI API")
     payload_copy = payload.copy()
-    if "input" not in payload_copy:
-        payload_copy["input"] = str(input_data)
     if previous_response_id:
         payload_copy["previous_response_id"] = previous_response_id
     elif "previous_response_id" in payload_copy:
@@ -139,15 +124,15 @@ def ai(
     input: Union[Any, List[Any]],
     api_key: str,
     output: Dict[str, Any],
-    model: str = "gpt-5-mini",
-    threads: int = 20,
-    timeout: int = 90,
-    retries: int = 0,
+    model: str = None,
+    threads: int = None,
+    timeout: int = None,
+    retries: int = None,
     messages: Optional[List[dict]] = None,
-    url: str = "https://api.openai.com/v1/responses",
-    strict: bool = True,
+    url: str = None,
+    strict: bool = None,
     web_search: bool = False,
-    reasoning: Dict[str, str] = {"effort": "low"},
+    reasoning: Dict[str, str] = None,
     previous_response: bool = False,  
     examples: Optional[List[Dict[str, Any]]] = None,
     summary: bool = False,
@@ -177,10 +162,10 @@ def ai(
         description: Target schema; string/array shorthands are expanded automatically.
       model:
         type: string
-        description: Responses model name (e.g. gpt-5-mini).
+        description: Responses model name. Defaults to the generate.ai role in the AI configuration.
       threads:
         type: integer
-        description: Maximum concurrent requests (default 20).
+        description: Maximum concurrent requests; defaults to the AI configuration.
       timeout:
         type: integer
         description: Per-request timeout in seconds.
@@ -189,7 +174,7 @@ def ai(
         description: Number of retry attempts on failure.
       messages:
         type: array
-        description: Optional extra messages forwarded to the inner generate helper.
+        description: The first message's content overrides the generation instructions.
       url:
         type: string
         description: Override for the OpenAI-compatible endpoint.
@@ -201,7 +186,10 @@ def ai(
         description: Enable DuckDuckGo context lookup per row.
       reasoning:
         type: object
-        description: Responses API reasoning options (forwarded verbatim).
+        description: Responses API reasoning options, checked against configured model capabilities.
+      examples:
+        type: array
+        description: Few-shot examples with input, output, and optional notes.
       previous_response:
         type: boolean
         description: Chain responses by reusing previous_response_id for field-by-field calls.
@@ -210,12 +198,22 @@ def ai(
         description: Request summary text to be merged into the output.
     """
 
+    policy = _ai_config.resolve("generate.ai", model=model)
+    if policy["provider"] != "openai" or policy["protocol"] != "responses":
+        raise ValueError("generate.ai supports only the openai provider and responses protocol.")
+    model = policy["model"]
+    _ai_config.warn_if_deprecated(model, provider="openai")
+    threads = threads if threads is not None else policy["default_concurrency"]
+    timeout = timeout if timeout is not None else policy["request_timeout_seconds"]
+    retries = retries if retries is not None else policy["retries"]
+    url = url if url is not None else policy["endpoints"]["responses"]
+    strict = strict if strict is not None else policy["strict"]
+    reasoning = dict(reasoning if reasoning is not None else policy.get("reasoning", {}))
     _logging.info(f": Generating data using AI :: model :: {model}, thread_count :: {threads}, record_count :: {1 if not isinstance(input, list) else len(input)}")
     input_was_scalar = not isinstance(input, list)
     input_list = [input] if input_was_scalar else input
 
     properties = output.get("properties", {}) if isinstance(output, dict) else {}
-    property_order = list(properties.keys())
 
     field_summaries: List[str] = []
     for name, details in properties.items():
@@ -269,13 +267,40 @@ def ai(
         contexts = [None for _ in input_list]
     if summary:
         reasoning['summary'] = 'auto'
-    else:
-        reasoning = reasoning
+
+    request_options = {
+        **_openai_responses.sanitize_request_params(_openai_responses.request_defaults(policy)),
+        **_openai_responses.sanitize_request_params(kwargs),
+    }
+    explicit_text = request_options.pop("text", {})
+    if not isinstance(explicit_text, dict):
+        raise ValueError("generate.ai text must be an object containing Responses text options.")
+    if "format" in explicit_text:
+        raise ValueError("generate.ai controls text.format; define the structured schema with output.")
+    text_options = {**policy.get("text", {}), **explicit_text}
+    supported_values = _ai_config.model_supported_values(model)
+    effort = reasoning.get("effort")
+    if (
+        effort is not None
+        and "reasoning.effort" in supported_values
+        and not _openai_responses.supports_reasoning_effort(model, effort)
+    ):
+        _logging.warning("generate.ai model %s does not support reasoning effort %r; omitting it.", model, effort)
+        reasoning.pop("effort")
+    verbosity = text_options.get("verbosity")
+    if (
+        verbosity is not None
+        and "text.verbosity" in supported_values
+        and not _openai_responses.supports_verbosity(model, verbosity)
+    ):
+        _logging.warning("generate.ai model %s does not support text verbosity %r; omitting it.", model, verbosity)
+        text_options.pop("verbosity")
 
     payload_template = {
+        **request_options,
         "model": model,
-        "reasoning": reasoning,
         "text": {
+            **text_options,
             "format": {
                 "type": "json_schema",
                 "name": "structured_response",
@@ -283,8 +308,9 @@ def ai(
                 "strict": strict
             }
         },
-        **kwargs
     }
+    if reasoning:
+        payload_template["reasoning"] = reasoning
 
     example_pairs: List[Tuple[Any, Any]] = []
 
@@ -328,7 +354,6 @@ def ai(
         payload["input"] = _build_messages(example_pairs, item, context)
 
         record, _ = _call_openai(
-            None,
             api_key,
             payload,
             url,
@@ -358,7 +383,6 @@ def ai(
             payload["text"]["format"]["schema"] = field_schema
 
             rec, response_id = _call_openai(
-                None,
                 api_key,
                 payload,
                 url,

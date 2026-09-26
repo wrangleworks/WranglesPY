@@ -632,6 +632,7 @@ def ai(
               - medium
               - high
               - xhigh
+              - max
       verbosity:
         type: string
         description: >-

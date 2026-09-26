@@ -4,6 +4,29 @@ Use `extract.ai` when each input row should produce one or more consistently
 named attributes. You can define the attributes in an Excel saved model or
 directly in a recipe. Both routes compile to the same output contract.
 
+## Model defaults and capabilities
+
+`wrangles/ai_defaults.yml` is the packaged source of model configuration.
+The `extract.ai` default role selects `gpt-6-luna`. Omit `model` in ordinary
+recipes to follow the configured default. Saved extraction model selection
+retains its existing precedence; saved model names are not automatically migrated.
+
+Version 2 groups models by provider, separates lifecycle status from default
+roles, and records model defaults and supported enum values together. Extraction
+settings such as concurrency, cache, and the base prompt belong to the operation.
+See [AI model configuration](ai_configuration.md) for the schema, caller coverage,
+override precedence, test-role selection, and version-1 compatibility.
+
+The public parameters remain `reasoning: {effort: ...}` and
+`verbosity: low | medium | high`. Supported values in the catalog describe the
+model; they are separate from the value requested by a recipe. Existing saved
+model validation and legacy model-family compatibility behavior are preserved.
+
+For each model upgrade, verify capabilities against
+[OpenAI's model documentation](https://developers.openai.com/api/docs/models)
+and run credentialed extraction checks. Mocked tests verify request construction,
+not provider availability or extraction quality.
+
 ## Start with the output
 
 Define the result you want before writing general instructions or examples.
@@ -163,7 +186,10 @@ wrangles.connectors.train.extract.write(
     definition,
     name="Voltage schema",
     variant="ai",
-    settings={"GPTModel": "gpt-5.4-mini", "ReasoningEffort": "none"},
+    settings={
+        "GPTModel": wrangles.ai_config.extract_ai()["model"],
+        "ReasoningEffort": "none",
+    },
 )
 ```
 
@@ -310,7 +336,6 @@ wrangles:
         - Title
         - Technical Data
       api_key: ${OPENAI_API_KEY}
-      model: gpt-5.6-luna
       reasoning:
         effort: low
       instructions:

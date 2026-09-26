@@ -2,7 +2,9 @@ import concurrent.futures as _futures
 
 # Import our client factory
 from .clients import get_client as _get_client
+from .clients.gemini import GeminiURLContextClient as _GeminiURLContextClient
 from . import _ai_mode
+from . import ai_config as _ai_config
 
 
 def find_links(
@@ -68,13 +70,22 @@ def retrieve_link_content(
     client: str = "google_url_context",
     client_config: dict | None = None,
     prompt: str | None = None,
-    model_id: str = "models/gemini-3-flash-preview",
+    model_id: str = None,
     output_format: str = "json",
-    threads: int = 10
+    threads: int = None
 ) -> dict | list:
     """
     Retrieve formatted content from web URLs using a specified client.
+    Omitted model and concurrency settings are resolved from the AI configuration.
     """
+    policy = _ai_config.resolve("search.retrieve_link_content", model=model_id)
+    if policy["provider"] != "google":
+        raise ValueError("URL content retrieval currently supports only the 'google' provider.")
+    if policy["protocol"] != "generate_content":
+        raise ValueError("Google URL content retrieval requires the 'generate_content' protocol.")
+    model_id = policy["model"]
+    _ai_config.warn_if_deprecated(model_id, policy["provider"])
+    threads = policy["default_concurrency"] if threads is None else threads
     if client_config is None: client_config = {}
         
     retriever = _get_client(client, client_config)
@@ -84,16 +95,13 @@ def retrieve_link_content(
         is_scalar = True
         urls = [urls]
 
+    def retrieve(url):
+        if isinstance(retriever, _GeminiURLContextClient):
+            return retriever._retrieve(url, prompt, output_format, policy)
+        return retriever.retrieve(url=url, prompt=prompt, model_id=model_id, output_format=output_format)
+
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
-        results = list(executor.map(
-            lambda u: retriever.retrieve(
-                url=u, 
-                prompt=prompt, 
-                model_id=model_id,
-                output_format=output_format
-            ),
-            urls
-        ))
+        results = list(executor.map(retrieve, urls))
 
     if is_scalar:
         return results[0]

@@ -202,16 +202,16 @@ def embeddings(
     input: str,
     api_key: str,
     output: str = None,
-    batch_size: int = 100,
-    threads: int = 10,
+    batch_size: int = None,
+    threads: int = None,
     output_type: str = "python list",
-    model: str = "text-embedding-3-small",
-    retries: int = 0,
-    url: str = _openai.DEFAULT_EMBEDDING_URLS["openai"],
-    precision: str = "float32",
+    model: str = None,
+    retries: int = None,
+    url: str = None,
+    precision: str = None,
     provider: str = None,
     task: str = None,
-    timeout: float = 30,
+    timeout: float = None,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -237,7 +237,7 @@ def embeddings(
         description: The API key.
       model:
         type: string
-        description: The specific model to use to generate the embeddings.
+        description: The embedding model. Defaults to the AI configuration for the resolved provider. Jina requires an explicit model unless a default is configured.
       batch_size:
         type: integer
         description: The number of rows to submit per individual request.
@@ -259,20 +259,20 @@ def embeddings(
         minimum: 0
         description: >-
           Additional attempts after transient transport or HTTP errors.
-          Defaults to 0. Retries use exponential backoff and respect Retry-After.
+          Defaults to the AI configuration. Retries use exponential backoff and respect Retry-After.
           Permanent errors fail immediately.
       timeout:
         type: number
         exclusiveMinimum: 0
-        default: 30
         description: >-
-          Request timeout in seconds for each attempt. Defaults to 30.
+          Request timeout in seconds for each attempt. Defaults to the AI configuration.
           Each retry receives the full timeout; this is not a total batch deadline.
       provider:
         type: string
         description: >-
           Controls the request/response format for the embedding API.
-          When omitted, inferred from url (jina.ai → jina, otherwise openai).
+          When omitted, inferred from an explicit url (jina.ai → jina, otherwise openai),
+          or the AI configuration when no url is supplied.
           Setting provider also sets the default url for that provider,
           so you only need one of provider or url for standard endpoints.
           Use both together only when pointing to a custom endpoint that uses
@@ -291,7 +291,7 @@ def embeddings(
         type: string
         description: >-
           The precision of the embeddings.
-          Default is float32.
+          Defaults to the AI configuration.
           This should be used with output_type numpy array.
         enum:
           - float16
@@ -300,13 +300,12 @@ def embeddings(
         type: string
         description: >-
           The task type for the embedding model. Only applicable for the Jina provider.
-          Selects the appropriate task-specific adapter.
-        enum:
-          - retrieval.query
-          - retrieval.passage
-          - text-matching
-          - classification
-          - separation
+          Selects the appropriate task-specific adapter. Defaults and allowed values
+          come from the selected model's AI configuration. Jina v5 supports
+          retrieval.query, retrieval.passage, text-matching, classification, and
+          clustering. Legacy models without a configured task enum also support
+          retrieval.query, retrieval.passage, text-matching, and classification,
+          but use separation for clustering.
     """
     if output is None: output = input
 

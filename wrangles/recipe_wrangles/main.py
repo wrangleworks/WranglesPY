@@ -19,6 +19,8 @@ import numpy as _np
 import math as _math
 import concurrent.futures as _futures
 import contextvars as _contextvars
+from urllib3.util.retry import Retry as _Retry
+from urllib3.exceptions import InvalidHeader as _InvalidHeader
 from ..openai import _divide_batches
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
@@ -27,6 +29,7 @@ from ..data import model as _model
 from ..lookup import lookup as _lookup
 from .. import extract as _extract
 from .. import recipe as _recipe
+from .. import ai_config as _ai_config
 from .convert import to_json as _to_json
 from .convert import from_json as _from_json
 from ..connectors.matrix import _define_permutations
@@ -778,7 +781,9 @@ def huggingface(
     api_token: str,
     model: str,
     output: _Union[str, list] = None,
-    parameters = None
+    parameters = None,
+    timeout: float = None,
+    retries: int = None
 ):
     """
     type: object
@@ -810,29 +815,66 @@ def huggingface(
       parameters:
         type: object
         description: Optionally, provide additional parameters to define the model behaviour
+      timeout:
+        type: number
+        exclusiveMinimum: 0
+        description: Request timeout in seconds; defaults to the AI configuration.
+      retries:
+        type: integer
+        minimum: 0
+        description: Additional attempts after transient failures; defaults to the AI configuration.
     """
+    policy = _ai_config.resolve("huggingface", model=model)
+    if policy["provider"] != "huggingface" or policy["protocol"] != "hf_inference":
+        raise ValueError("huggingface requires the 'huggingface' provider and 'hf_inference' protocol.")
+    model = policy["model"]
+    timeout = policy["request_timeout_seconds"] if timeout is None else timeout
+    retries = policy["retries"] if retries is None else retries
+    if type(timeout) not in {int, float} or not _math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("huggingface timeout must be a positive finite number.")
+    if type(retries) is not int or retries < 0:
+        raise ValueError("huggingface retries must be a non-negative integer.")
+    endpoint = policy["endpoints"]["hf_inference"].rstrip("/") + "/" + model
+    _ai_config.warn_if_deprecated(model, provider="huggingface")
     if not output: output = input
     if not isinstance(output, list): output = [output]
     if not isinstance(input, list): input = [input]
 
     json_base = {}
+    parameters = {**policy.get("parameters", {}), **(parameters or {})}
     if parameters:
         json_base['parameters'] = parameters
 
+    def infer(row):
+        for attempt in range(retries + 1):
+            response = None
+            try:
+                response = _requests.post(
+                    endpoint,
+                    headers={"Authorization": f"Bearer {api_token}"},
+                    json={**json_base, "inputs": row},
+                    timeout=timeout,
+                )
+                # Preserve the existing raw JSON result, including terminal
+                # provider errors, while retrying only transient failures.
+                if response.status_code not in {408, 429, 500, 502, 503, 504} or attempt == retries:
+                    return response.json()
+            except (
+                _requests.Timeout,
+                _requests.ConnectionError,
+                _requests.exceptions.ChunkedEncodingError,
+                _requests.exceptions.ContentDecodingError,
+            ):
+                if attempt == retries:
+                    raise
+            try:
+                retry_after = _Retry().get_retry_after(response) if response is not None else None
+            except _InvalidHeader:
+                retry_after = None
+            _time.sleep(retry_after if retry_after is not None else min(2 ** attempt, 30))
+
     for input_col, output_col in zip(input, output):
-        df[output_col] = [
-            _requests.post(
-                f"https://api-inference.huggingface.co/models/{model}",
-                headers={
-                    "Authorization": f"Bearer {api_token}"
-                },
-                json={
-                    **json_base,
-                    **{"inputs": row}
-                }
-            ).json()
-            for row in df[input_col].values
-        ]
+        df[output_col] = [infer(row) for row in df[input_col].values]
 
     return df
 

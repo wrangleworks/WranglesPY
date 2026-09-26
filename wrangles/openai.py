@@ -7,9 +7,9 @@ from itertools import chain as _chain
 import logging as _logging
 import requests as _requests
 import numpy as _np
-import time as _time
 import warnings as _warnings
 from . import openai_responses as _openai_responses
+from . import ai_config as _ai_config
 try:
     from yaml import CSafeDumper as _YAMLDumper
 except ImportError:
@@ -21,7 +21,7 @@ DEFAULT_EMBEDDING_URLS = {
     "openai": "https://api.openai.com/v1/embeddings",
     "jina":   "https://api.jina.ai/v1/embeddings",
 }
-_RETRYABLE_EMBEDDING_TRANSPORT_ERRORS = (
+_RETRYABLE_TRANSPORT_ERRORS = (
     _requests.exceptions.Timeout,
     _requests.exceptions.ConnectionError,
     _requests.exceptions.ChunkedEncodingError,
@@ -43,23 +43,8 @@ def format_input_data(data: any) -> str:
     return str(data)
 
 
-def chatGPT(
-    data: any,
-    api_key: str,
-    settings: dict,
-    url: str = "https://api.openai.com/v1/chat/completions",
-    timeout: int = None,
-    retries: int = 0,
-):
-    """
-    Submit a request to openAI chatGPT.
-
-    :param data: Dict with the data for that row
-    :param api_key: OpenAI API Key
-    :param settings: Custom model settings
-    :param timeout: Time limit to apply to the request
-    :param retries: Number of times to retry if the request fails
-    """
+def _chatGPT(data, api_key, settings, url, timeout, retries):
+    """Send Chat Completions using transport settings resolved by the caller."""
     content = format_input_data(data)
 
     settings_local = _copy.deepcopy(settings)
@@ -70,14 +55,13 @@ def chatGPT(
         }
     )
 
-    if not isinstance(retries, int) or retries < 0:
+    if not isinstance(retries, int) or isinstance(retries, bool) or retries < 0:
         raise ValueError("Retries must be a non-negative integer")
 
     _logging.debug(f": Calling OpenAI ChatGPT :: timeout :: {timeout}, retries :: {retries}")
     response = None
     backoff_time = 1
-    retry_count = 0
-    while (retries + 1):
+    for attempt in range(retries + 1):
         response = None
         try:
             response = _requests.post(
@@ -88,26 +72,17 @@ def chatGPT(
                 json = settings_local,
                 timeout=timeout
             )
-        except _requests.exceptions.Timeout:
-            if retries == 0:
-                if settings_local.get("tools", []):
-                    return {
-                        param: "Timed Out"
-                        for param in 
-                        settings_local.get("tools", [])[0]["function"]["parameters"]["required"]
-                    }
-                else:
-                    return "Timed Out"
         except Exception as e:
-            if retries == 0:
+            if attempt == retries or not isinstance(e, _RETRYABLE_TRANSPORT_ERRORS):
+                error = "Timed Out" if isinstance(e, _requests.exceptions.Timeout) else e
                 if settings_local.get("tools", []):
                     return {
-                        param: e
+                        param: error
                         for param in 
                         settings_local.get("tools", [])[0]["function"]["parameters"]["required"]
                     }
                 else:
-                    return e
+                    return error
 
         if response is not None and response.ok:
             break
@@ -129,17 +104,15 @@ def chatGPT(
                 model=settings_local.get("model"),
             ) if response is not None else {}
             _openai_responses._raise_for_fatal_error(context)
-            if retries == 0 or not _openai_responses._should_retry(context):
+            if attempt == retries or (response is not None and not _openai_responses._should_retry(context)):
                 if response is not None:
                     _openai_responses._log_api_error(context, final=True)
                 break
             if response is not None:
                 _openai_responses._log_api_error(context, final=False)
  
-        retries -= 1
-        retry_count += 1
-        if retries >= 0:
-            _logging.warning(f": Retrying OpenAI request :: attempt :: {retry_count}")
+        if attempt < retries:
+            _logging.warning(f": Retrying OpenAI request :: attempt :: {attempt + 1}")
             if response is not None and not response.ok:
                 _openai_responses._sleep_for_retry(
                     context,
@@ -195,11 +168,11 @@ def _embedding_thread(
     api_key: str,
     model: str,
     url: str,
-    retries: int = 0,
-    request_params: dict = None,
-    precision: str = "float32",
-    provider: str = "openai",
-    timeout: float = 30,
+    retries: int,
+    request_params: dict,
+    precision: str,
+    provider: str,
+    timeout: float,
 ):
     """
     Get embeddings
@@ -210,13 +183,10 @@ def _embedding_thread(
     :param url: The endpoint to send requests to. The expected request/response format is determined by provider.
     :param retries: Number of times to retry. This will exponentially backoff.
     :param request_params: Additional request parameters to pass to the backend.
-    :param precision: The precision of the embeddings. Default is float32.
-    :param provider: The embedding provider to use. Default is openai.
-    :param timeout: Per-attempt request timeout in seconds. Default is 30.
+    :param precision: The resolved precision of the embeddings.
+    :param provider: The resolved embedding provider.
+    :param timeout: Resolved per-attempt request timeout in seconds.
     """
-    if request_params is None:
-        request_params = {}
-
     input_values = [str(val) if val != "" else " " for val in input_list]
 
     _OPENAI_ONLY_PARAMS = {"encoding_format"}
@@ -267,7 +237,7 @@ def _embedding_thread(
             _openai_responses._raise_for_fatal_error(context)
 
         retryable = (
-            isinstance(transport_error, _RETRYABLE_EMBEDDING_TRANSPORT_ERRORS)
+            isinstance(transport_error, _RETRYABLE_TRANSPORT_ERRORS)
             or _openai_responses._should_retry(context)
         )
         final = attempt == retries or not retryable
@@ -305,15 +275,15 @@ def _embedding_thread(
 def embeddings(
     input_list,
     api_key,
-    model: str = "text-embedding-3-small",
-    batch_size: int = 100,
-    threads: int = 10,
-    retries: int = 0,
-    url: str = DEFAULT_EMBEDDING_URLS["openai"],
-    precision: str = "float32",
+    model: str = None,
+    batch_size: int = None,
+    threads: int = None,
+    retries: int = None,
+    url: str = None,
+    precision: str = None,
     provider: str = None,
     task: str = None,
-    timeout: float = 30,
+    timeout: float = None,
     **kwargs
 ) -> list:
     """
@@ -326,25 +296,62 @@ def embeddings(
 
     :param input_list: A list of strings to generate embeddings for.
     :param api_key: API Key for the provider.
-    :param model: (Optional) The model to use for generating embeddings.
-    :param batch_size: (Optional, default 100) The number of rows to submit per individual request.
-    :param threads: (Optional, default 10) The number of requests to submit in parallel. \
+    :param model: (Optional) The model to use for generating embeddings. Defaults to the \
+          configured embeddings model for the resolved provider. Jina requires an explicit \
+          model unless a Jina embeddings default is configured.
+    :param batch_size: (Optional) Rows per request; defaults to the AI configuration.
+    :param threads: (Optional) Concurrent requests; defaults to the AI configuration. \
           Each request contains the number of rows set as batch_size.
     :param retries: Additional attempts after transient HTTP or transport failures.
-          Defaults to 0. Uses exponential backoff and Retry-After; permanent errors fail immediately.
+          Defaults to the AI configuration. Uses exponential backoff and Retry-After; permanent errors fail immediately.
     :param url: The endpoint to send requests to. Defaults to the standard endpoint for \
           the resolved provider. Setting a Jina URL without an explicit provider will \
           automatically use Jina's request/response format.
-    :param precision: The precision of the embeddings. Default is float32.
+    :param precision: The precision of the embeddings. Defaults to the AI configuration.
     :param provider: Controls the request/response format (openai or jina). Inferred from \
-          url when omitted (jina.ai → jina, otherwise openai). Setting provider also sets the \
+          an explicit url when omitted (jina.ai → jina, otherwise openai), or the AI \
+          configuration when neither is supplied. Setting provider also sets the \
           default url for that provider — you only need one of the two for standard endpoints. \
           Pass both only when using a custom endpoint with a non-default provider's API format.
     :param task: (Optional, Jina only) The task type for the embedding model. \
-          Valid values: retrieval.query, retrieval.passage, text-matching, classification, separation.
-    :param timeout: Per-attempt request timeout in seconds. Default is 30.
+          Defaults and allowed values come from the selected model's AI configuration. \
+          Jina v5 supports retrieval.query, retrieval.passage, text-matching, \
+          classification, and clustering. Legacy models without a configured task \
+          enum retain retrieval.query, retrieval.passage, text-matching, \
+          classification, and separation.
+    :param timeout: Per-attempt request timeout in seconds. Defaults to the AI configuration.
     :return: A list of embeddings corresponding to the input
     """
+    # Explicit URLs retain their existing provider inference, including compatible proxies.
+    if provider is None and url is not None:
+        provider = "jina" if "jina.ai" in url else "openai"
+    if provider is not None and provider not in SUPPORTED_PROVIDERS:
+        raise ValueError(f"Provider must be one of {SUPPORTED_PROVIDERS}. Got '{provider}'")
+
+    policy = _ai_config.resolve("embeddings", model=model, provider=provider)
+    provider = policy["provider"]
+    if provider not in SUPPORTED_PROVIDERS:
+        raise ValueError(f"Provider must be one of {SUPPORTED_PROVIDERS}. Got '{provider}'")
+    if policy["protocol"] != "embeddings":
+        raise ValueError("Embedding requests require the 'embeddings' protocol.")
+    model = policy["model"]
+    _ai_config.warn_if_deprecated(model, provider)
+    batch_size = policy["batch_size"] if batch_size is None else batch_size
+    threads = policy["default_concurrency"] if threads is None else threads
+    retries = policy["retries"] if retries is None else retries
+    precision = policy["precision"] if precision is None else precision
+    timeout = policy["request_timeout_seconds"] if timeout is None else timeout
+    task = policy.get("task") if task is None else task
+    request_keys = (
+        ("dimensions", "normalized", "truncate", "late_chunking")
+        if provider == "jina" else ("dimensions", "user")
+    )
+    kwargs = {**{key: policy[key] for key in request_keys if key in policy}, **kwargs}
+    if url is None or (url == DEFAULT_EMBEDDING_URLS["openai"] and provider != "openai"):
+        url = policy.get("endpoints", {}).get("embeddings")
+    if not url:
+        raise ValueError(f"No endpoint is configured for embeddings provider {provider!r}.")
+
     if not isinstance(retries, int) or isinstance(retries, bool) or retries < 0:
         raise ValueError("retries must be a non-negative integer.")
     if (
@@ -352,20 +359,6 @@ def embeddings(
         or not _np.isfinite(timeout) or timeout <= 0
     ):
         raise ValueError("timeout must be a positive finite number of seconds.")
-
-    # Infer provider from URL when not explicitly set
-    if provider is None:
-        if "jina.ai" in url:
-            provider = "jina"
-        else:
-            provider = "openai"
-
-    if provider not in SUPPORTED_PROVIDERS:
-        raise ValueError(f"Provider must be one of {SUPPORTED_PROVIDERS}. Got '{provider}'")
-
-    # If URL is still the OpenAI default but a different provider is set, switch to that provider's URL
-    if url == DEFAULT_EMBEDDING_URLS["openai"] and provider != "openai":
-        url = DEFAULT_EMBEDDING_URLS.get(provider, url)
 
     if precision not in ["float32", "float16"]:
         raise ValueError(f"Precision must be either float32 or float16. Got {precision}")
@@ -377,8 +370,10 @@ def embeddings(
                 UserWarning,
                 stacklevel=2
             )
-        elif task not in JINA_TASKS:
-            raise ValueError(f"task must be one of {sorted(JINA_TASKS)}. Got '{task}'")
+        else:
+            supported_tasks = _ai_config.model_supported_values(model, provider).get("task", sorted(JINA_TASKS))
+            if task not in supported_tasks:
+                raise ValueError(f"task must be one of {supported_tasks} for model '{model}'. Got '{task}'")
 
     if provider == "jina" and task is not None:
         kwargs = {**kwargs, "task": task}

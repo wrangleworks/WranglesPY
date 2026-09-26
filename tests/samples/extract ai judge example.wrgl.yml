@@ -32,7 +32,6 @@ wrangles:
   - extract.ai:
       input: Judge Input
       api_key: ${OPENAI_API_KEY}
-      model: gpt-5.4-mini
       instructions: |
         You are an expert classifier for supplier product content.
 
