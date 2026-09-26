@@ -859,7 +859,12 @@ def huggingface(
                 # provider errors, while retrying only transient failures.
                 if response.status_code not in {408, 429, 500, 502, 503, 504} or attempt == retries:
                     return response.json()
-            except (_requests.Timeout, _requests.ConnectionError):
+            except (
+                _requests.Timeout,
+                _requests.ConnectionError,
+                _requests.exceptions.ChunkedEncodingError,
+                _requests.exceptions.ContentDecodingError,
+            ):
                 if attempt == retries:
                     raise
             try:
