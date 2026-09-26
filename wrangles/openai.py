@@ -360,7 +360,11 @@ def embeddings(
           default url for that provider — you only need one of the two for standard endpoints. \
           Pass both only when using a custom endpoint with a non-default provider's API format.
     :param task: (Optional, Jina only) The task type for the embedding model. \
-          Valid values: retrieval.query, retrieval.passage, text-matching, classification, separation.
+          Defaults and allowed values come from the selected model's AI configuration. \
+          Jina v5 supports retrieval.query, retrieval.passage, text-matching, \
+          classification, and clustering. Legacy models without a configured task \
+          enum retain retrieval.query, retrieval.passage, text-matching, \
+          classification, and separation.
     :param timeout: Per-attempt request timeout in seconds. Defaults to the AI configuration.
     :return: A list of embeddings corresponding to the input
     """
@@ -408,8 +412,10 @@ def embeddings(
                 UserWarning,
                 stacklevel=2
             )
-        elif task not in JINA_TASKS:
-            raise ValueError(f"task must be one of {sorted(JINA_TASKS)}. Got '{task}'")
+        else:
+            supported_tasks = _ai_config.model_supported_values(model, provider).get("task", sorted(JINA_TASKS))
+            if task not in supported_tasks:
+                raise ValueError(f"task must be one of {supported_tasks} for model '{model}'. Got '{task}'")
 
     if provider == "jina" and task is not None:
         kwargs = {**kwargs, "task": task}

@@ -300,13 +300,12 @@ def embeddings(
         type: string
         description: >-
           The task type for the embedding model. Only applicable for the Jina provider.
-          Selects the appropriate task-specific adapter.
-        enum:
-          - retrieval.query
-          - retrieval.passage
-          - text-matching
-          - classification
-          - separation
+          Selects the appropriate task-specific adapter. Defaults and allowed values
+          come from the selected model's AI configuration. Jina v5 supports
+          retrieval.query, retrieval.passage, text-matching, classification, and
+          clustering. Legacy models without a configured task enum also support
+          retrieval.query, retrieval.passage, text-matching, and classification,
+          but use separation for clustering.
     """
     if output is None: output = input
 

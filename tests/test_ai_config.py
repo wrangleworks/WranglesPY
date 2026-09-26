@@ -39,10 +39,71 @@ def test_packaged_operation_defaults_and_model_lifecycle():
     assert extraction["request_timeout_seconds"] == 12
     assert extraction["cache"]["ttl_seconds"] == 3600
     assert ai_config.resolve("embeddings")["model"] == "text-embedding-3-small"
-    assert ai_config.resolve("search.retrieve_link_content")["model"] == "models/gemini-3-flash-preview"
+    assert ai_config.resolve("search.retrieve_link_content")["model"] == "gemini-3.8-flash"
     for operation in config["operations"]:
         assert ai_config.resolve(operation)["retries"] == 1
     assert config["providers"]["anthropic"]["models"] == {}
+
+
+def test_catalog_metadata_is_separate_from_request_defaults():
+    config = ai_config.load()
+    provider = config["providers"]["openai"]
+    assert provider["models"]["gpt-6-luna"]["application"] == "data_extraction"
+    assert provider["models"]["gpt-6-sol"]["application"] == ["reasoning", "agents"]
+    assert provider["models"]["text-embedding-3-large"]["default_for"] == []
+    assert provider["documentation"]["model_cards"].startswith("https://")
+    policy = ai_config.resolve("extract.ai")
+    assert "model_cards" not in policy["endpoints"]
+    assert "application" not in policy
+    assert "documentation" not in policy
+
+
+@pytest.mark.parametrize("catalog_prefix", ["", "models/"])
+@pytest.mark.parametrize("caller_prefix", ["", "models/"])
+def test_google_model_spellings_share_defaults_and_preserve_explicit_model(
+    monkeypatch, tmp_path, catalog_prefix, caller_prefix,
+):
+    config = ai_config.load()
+    config["providers"]["google"]["models"] = {
+        catalog_prefix + "gemini-alias-test": {
+            "status": "active", "default_for": ["search.retrieve_link_content"],
+            "defaults": {"temperature": 0.17},
+        },
+    }
+    use_config(config, monkeypatch, tmp_path)
+    requested_model = caller_prefix + "gemini-alias-test"
+    resolved = ai_config.resolve("search.retrieve_link_content", model=requested_model)
+    assert resolved["model"] == requested_model
+    assert resolved["temperature"] == 0.17
+    assert ai_config.model_defaults(requested_model, provider="google") == {"temperature": 0.17}
+
+
+def test_google_duplicate_catalog_spellings_are_rejected(monkeypatch, tmp_path):
+    config = ai_config.load()
+    models = config["providers"]["google"]["models"]
+    models["gemini-alias-test"] = {"status": "active", "defaults": {"temperature": 0.17}}
+    models["models/gemini-alias-test"] = {"status": "active", "defaults": {"temperature": 0.8}}
+    use_config(config, monkeypatch, tmp_path)
+    with pytest.raises(ValueError, match="Duplicate Google model aliases"):
+        ai_config.load()
+
+
+@pytest.mark.parametrize("application", ["", False, [], ["embeddings", ""], ["embeddings", 3]])
+def test_invalid_application_metadata_is_rejected(monkeypatch, tmp_path, application):
+    config = ai_config.load()
+    config["providers"]["jina"]["models"]["jina-embeddings-v5-omni-small"]["application"] = application
+    use_config(config, monkeypatch, tmp_path)
+    with pytest.raises(ValueError, match="application"):
+        ai_config.load()
+
+
+@pytest.mark.parametrize("documentation", [[], {"model_cards": ""}, {"model_cards": False}])
+def test_invalid_documentation_metadata_is_rejected(monkeypatch, tmp_path, documentation):
+    config = ai_config.load()
+    config["providers"]["google"]["documentation"] = documentation
+    use_config(config, monkeypatch, tmp_path)
+    with pytest.raises(ValueError, match="documentation"):
+        ai_config.load()
 
 
 def test_explicit_and_operation_defaults_have_documented_precedence(monkeypatch, tmp_path):
@@ -185,9 +246,9 @@ def test_inherited_snapshot_defaults_are_validated(monkeypatch, tmp_path):
     (lambda c: c["providers"].update(OpenAI={"models": {}}), "Provider names must be lowercase"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"].update(status=[]), "status must"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"].update(status="deprecated"), "cannot hold default roles"),
-    (lambda c: c["providers"]["openai"]["models"]["gpt-4o"].update(default_for=["global"]), "Duplicate default role"),
+    (lambda c: c["providers"]["openai"]["models"]["gpt-4o-mini"].update(default_for=["global"]), "Duplicate default role"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-4o"].update(default_for="global"), "list of non-empty roles"),
-    (lambda c: c["providers"]["openai"]["models"]["gpt-4o"].update(default_for=["extrcat.ai"]), "unknown default role"),
+    (lambda c: c["providers"]["openai"]["models"]["gpt-4o-mini"].update(default_for=["extrcat.ai"]), "unknown default role"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"]["supported_values"].update({"reasoning.effort": True}), "list of enum values"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"]["supported_values"].update({"reasoning.effort": [True]}), "list of enum values"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"]["defaults"]["reasoning"].update(effort="invalid"), "must be one of"),

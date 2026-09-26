@@ -66,6 +66,7 @@ def configured_ai(monkeypatch, tmp_path):
     })
     config["providers"]["openai"]["endpoints"]["embeddings"] = "https://openai.example/embeddings"
     config["providers"]["jina"]["endpoints"]["embeddings"] = "https://jina.example/embeddings"
+    config["providers"]["google"]["endpoints"]["base_url"] = "https://google.example/gemini"
     path = tmp_path / "ai.yml"
 
     def save():
@@ -291,6 +292,71 @@ def test_embeddings_selects_configured_jina_model_and_task(configured_ai, embedd
     assert embedding_transport[1]["json"]["task"] == "retrieval.query"
 
 
+@pytest.mark.parametrize("via_recipe", [False, True])
+@pytest.mark.parametrize("task,expected_task", [(None, "text-matching"), ("clustering", "clustering")])
+def test_embeddings_jina_v5_task_defaults_and_override(
+    configured_ai, embedding_transport, via_recipe, task, expected_task,
+):
+    options = {
+        "api_key": "fake-key", "provider": "jina", "model": "jina-embeddings-v5-omni-small",
+    }
+    if task is not None:
+        options["task"] = task
+    if via_recipe:
+        result = wrangles.recipe.run(
+            {"wrangles": [{"create.embeddings": {"input": "text", "output": "vector", **options}}]},
+            dataframe=pd.DataFrame({"text": ["hello"]}),
+        )["vector"].tolist()
+    else:
+        result = openai.embeddings(["hello"], **options)
+    assert [list(vector) for vector in result] == [[5, 1.25]]
+    assert embedding_transport[0]["json"]["task"] == expected_task
+
+
+def test_embeddings_jina_v5_rejects_legacy_task(configured_ai, embedding_transport):
+    with pytest.raises(ValueError, match="task must be one of.*jina-embeddings-v5-omni-small"):
+        openai.embeddings(
+            "hello", "fake-key", provider="jina", model="jina-embeddings-v5-omni-small", task="separation",
+        )
+    assert embedding_transport == []
+
+
+def test_embeddings_uses_task_enum_from_override_catalog(configured_ai, embedding_transport):
+    config, save = configured_ai
+    model = config["providers"]["jina"]["models"]["jina-embeddings-v5-omni-small"]
+    model["defaults"]["task"] = "custom-default"
+    model["supported_values"]["task"] = ["custom-default", "custom-query"]
+    save()
+    options = {"provider": "jina", "model": "jina-embeddings-v5-omni-small"}
+    openai.embeddings("hello", "fake-key", **options)
+    openai.embeddings("hello", "fake-key", task="custom-query", **options)
+    with pytest.raises(ValueError, match="task must be one of"):
+        openai.embeddings("hello", "fake-key", task="retrieval.query", **options)
+    assert [call["json"]["task"] for call in embedding_transport] == ["custom-default", "custom-query"]
+
+
+@pytest.mark.parametrize("legacy_config", [False, True])
+@pytest.mark.parametrize("task", [None, "separation"])
+def test_embeddings_legacy_jina_task_compatibility(configured_ai, embedding_transport, legacy_config, task):
+    config, save = configured_ai
+    if legacy_config:
+        config.clear()
+        config.update({"version": 1, "extract_ai": {"model": "gpt-6-luna"}})
+        save()
+    openai.embeddings("hello", "fake-key", provider="jina", model="jina-embeddings-v3", task=task)
+    body = embedding_transport[0]["json"]
+    if task is None:
+        assert "task" not in body
+    else:
+        assert body["task"] == "separation"
+
+
+def test_embeddings_task_still_warns_for_non_jina(configured_ai, embedding_transport):
+    with pytest.warns(UserWarning, match="task parameter is only supported for the Jina provider"):
+        openai.embeddings("hello", "fake-key", task="clustering")
+    assert "task" not in embedding_transport[0]["json"]
+
+
 def test_embeddings_explicit_zero_retries_remains_zero(configured_ai, monkeypatch):
     calls = []
 
@@ -368,6 +434,8 @@ def test_google_retrieval_uses_config_at_sdk_boundary(configured_ai, google_tran
         )
     assert result["extracted_content"] == {"name": "Synthetic"}
     assert google_transport["clients"][0]["http_options"]["timeout"] == 3250
+    assert google_transport["clients"][0]["http_options"]["base_url"] == "https://google.example/gemini"
+    assert google_transport["clients"][0]["http_options"]["api_version"] == "v1beta"
     assert google_transport["clients"][0]["http_options"]["retry_options"] == {
         "attempts": 2, "http_status_codes": [408, 429, 500, 502, 503, 504],
     }
@@ -384,13 +452,18 @@ def test_google_direct_client_reads_changed_config_each_call(configured_ai, goog
     client = gemini.GeminiURLContextClient(api_key="fake-key")
     client.retrieve("https://product.example/one")
     config["operations"]["search.retrieve_link_content"]["defaults"].update({
-        "temperature": 0.7, "request_timeout_seconds": 4, "retries": 0,
+        "temperature": 0.7, "request_timeout_seconds": 4, "retries": 0, "api_version": "v1",
     })
+    config["providers"]["google"]["endpoints"]["base_url"] = "https://alternate.example/gemini"
     save()
     client.retrieve("https://product.example/two")
     assert [request["config"]["temperature"] for request in google_transport["requests"]] == [0, 0.7]
     assert [client["http_options"]["timeout"] for client in google_transport["clients"]] == [3250, 4000]
     assert [client["http_options"]["retry_options"]["attempts"] for client in google_transport["clients"]] == [2, 1]
+    assert [client["http_options"]["base_url"] for client in google_transport["clients"]] == [
+        "https://google.example/gemini", "https://alternate.example/gemini",
+    ]
+    assert [client["http_options"]["api_version"] for client in google_transport["clients"]] == ["v1beta", "v1"]
 
 
 @pytest.mark.parametrize("caller", ["client", "python", "recipe"])
@@ -422,6 +495,53 @@ def test_google_explicit_unlisted_model_does_not_require_model_defaults(google_t
         assert request["config"]["temperature"] is None
     finally:
         ai_config.clear_cache()
+
+
+@pytest.mark.parametrize("model", ["gemini-3.8-flash", "models/gemini-3.8-flash"])
+@pytest.mark.parametrize("custom_endpoint", [False, True])
+def test_google_sdk_builds_configured_request_url(configured_ai, monkeypatch, model, custom_endpoint):
+    """Exercise the installed SDK's URL construction without sending a request."""
+    import httpx
+    from google import genai
+    from google.genai import errors, types
+
+    config, save = configured_ai
+    base_url = "https://proxy.example/google" if custom_endpoint else "https://generativelanguage.googleapis.com"
+    version = "v1" if custom_endpoint else "v1beta"
+    config["providers"]["google"]["endpoints"]["base_url"] = base_url
+    config["operations"]["search.retrieve_link_content"]["defaults"]["api_version"] = version
+    config["operations"]["search.retrieve_link_content"]["defaults"].pop("temperature")
+    config["providers"]["google"]["models"]["gemini-3.8-flash"]["defaults"]["temperature"] = 0.17
+    save()
+    requests_sent = []
+    clients = []
+
+    def send(client, request, **kwargs):
+        requests_sent.append(request)
+        return httpx.Response(200, request=request, json={
+            "candidates": [{"content": {"parts": [{"text": '{"name":"Synthetic"}'}]}}],
+        })
+
+    def client(**kwargs):
+        result = genai.Client(vertexai=False, **kwargs)
+        clients.append(result)
+        return result
+
+    monkeypatch.setattr(httpx.Client, "send", send)
+    monkeypatch.setattr(gemini, "_get_genai", lambda: (SimpleNamespace(Client=client), types, errors))
+    try:
+        result = gemini.GeminiURLContextClient(api_key="fake-key").retrieve(
+            "https://product.example/one", model_id=model, output_format="json",
+        )
+        assert result["error"] is None
+        assert result["extracted_content"] == {"name": "Synthetic"}
+        assert len(requests_sent) == 1
+        assert requests_sent[0].method == "POST"
+        assert str(requests_sent[0].url) == f"{base_url}/{version}/models/gemini-3.8-flash:generateContent"
+        assert json.loads(requests_sent[0].content)["generationConfig"]["temperature"] == 0.17
+    finally:
+        for client in clients:
+            client.close()
 
 
 def test_google_retrieval_rejects_unsupported_provider(configured_ai, monkeypatch):

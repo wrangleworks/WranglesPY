@@ -82,7 +82,8 @@ class GeminiURLContextClient:
             client = self.genai.Client(
                 api_key=self.api_key, 
                 http_options=self.types.HttpOptions(
-                    api_version="v1beta",
+                    base_url=policy.get("endpoints", {}).get("base_url"),
+                    api_version=policy.get("api_version", "v1beta"),
                     timeout=policy["request_timeout_seconds"] * 1000,
                     retry_options=self.types.HttpRetryOptions(
                         attempts=policy["retries"] + 1,

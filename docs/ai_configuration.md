@@ -11,6 +11,11 @@ an already-loaded file.
 Version 2 groups models under their providers. Model entries describe lifecycle,
 default roles, model-specific defaults, and known supported parameter values.
 Operation settings hold concurrency, timeouts, caching, and extraction prompts.
+Optional `application` metadata accepts a non-empty string or a list of them,
+such as `embeddings` or `[reasoning, agents]`. These labels help readers find
+models; `default_for` selects defaults. Application labels are not sent to APIs.
+Provider `documentation` links, including `model_cards`, are reference material
+and are kept separate from request `endpoints`.
 
 This is an excerpt; a replacement file should contain the complete catalog:
 
@@ -127,9 +132,33 @@ unless explicitly configured otherwise. Jina requires an explicit model or a
 Jina catalog model assigned the `embeddings` role; the package does not invent a
 Jina model default. Explicit Jina URLs retain their existing provider inference.
 
-Gemini URL retrieval retains its existing model and Google URL-context tools.
+The catalog records Jina v5's `task` enum on the model: `retrieval.query`,
+`retrieval.passage`, `text-matching`, `clustering`, and `classification`. Its
+default is `text-matching`, matching the provider's documented default. Use
+`retrieval.passage` for indexed documents and `retrieval.query` for search queries;
+explicit caller `task` overrides the model default. Validation uses the selected
+model's catalog enum. Uncataloged older Jina models retain their existing task
+validation, including v3's `separation` value. See the
+[Jina API schema](https://api.jina.ai/openapi.json) for model-specific values.
+
+Gemini URL retrieval uses the configured model and Google's URL-context tools.
 `search.ai_mode` delegates its underlying model to SerpAPI/Google and has no
 selectable LLM model in this API.
+
+For Google, `endpoints.base_url` is the SDK service root
+`https://generativelanguage.googleapis.com`. The retrieval operation sets
+`api_version: v1beta`; the SDK appends the model and method. With the configured
+`gemini-3.8-flash`, the complete request URL is
+`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent`.
+Both the base URL and version are configurable. See the
+[Google API reference](https://ai.google.dev/api/generate-content).
+Google model names with or without the SDK's `models/` prefix share the same
+catalog defaults. Declare only one spelling for each model in the catalog.
+
+OpenAI and Jina use complete request URLs in `endpoints`: OpenAI
+`/v1/responses`, `/v1/chat/completions`, and `/v1/embeddings` on `api.openai.com`,
+and Jina `/v1/embeddings` on `api.jina.ai`. Provider documentation links are not
+request endpoints.
 
 The low-level `openai.chatGPT` transport takes an explicit request settings
 dictionary. It preserves those settings and resolves omitted endpoint, timeout,
@@ -138,6 +167,11 @@ and retry values from the extraction operation's Chat Completions configuration.
 Generation remains unreleased. Its operation keeps `low` reasoning; extraction
 keeps `none` where supported. Its existing direct-Python and recipe strictness
 defaults are represented by `strict` and `recipe_strict`, respectively.
+
+The existing extraction `profile: extract_fast` field is descriptive metadata.
+There is no profile registry or caller-selectable preset behavior. Extraction
+uses the operation's `defaults` directly; changing the label does not change
+those settings. A named preset system is outside the current configuration work.
 
 ## Version-1 overrides
 

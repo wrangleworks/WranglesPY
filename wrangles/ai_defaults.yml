@@ -1,16 +1,20 @@
 version: 2
 
 # Status describes lifecycle; default_for lists the independent default roles.
-# The catalog records provider settings; it does not implement new adapters.
+# The catalog records provider settings; callers determine which models and settings to use.
 providers:
   openai:
     endpoints:
       responses: https://api.openai.com/v1/responses
       chat_completions: https://api.openai.com/v1/chat/completions
       embeddings: https://api.openai.com/v1/embeddings
+    documentation:
+      model_cards: https://developers.openai.com/api/docs/models
+
     models:
       gpt-6-luna:
         status: active
+        application: data_extraction
         default_for: [global, test, extract.ai, generate.ai]
         defaults:
           reasoning:
@@ -20,19 +24,40 @@ providers:
         supported_values:
           reasoning.effort: [none, low, medium, high, xhigh, max]
           text.verbosity: [low, medium, high]
-      gpt-5.4-mini:
+
+      gpt-6-sol:
         status: active
+        application: [reasoning, agents]
+        default_for: []
+        defaults:
+          reasoning:
+            effort: low
+          text:
+            verbosity: low
+        supported_values:
+          reasoning.effort: [none, low, medium, high, xhigh, max]
+          text.verbosity: [low, medium, high]
+
+      text-embedding-3-small:
+        application: embeddings
+        status: active
+        default_for: [embeddings]
+      text-embedding-3-large:
+        application: embeddings
+        status: active
+        default_for: []
+
+      # Older OpenAI models; status records each model's catalog lifecycle.
+      gpt-5.4-mini:
+        status: deprecated
         default_for: []
         defaults:
           reasoning:
             effort: none
           text:
             verbosity: low
-      text-embedding-3-small:
-        status: active
-        default_for: [embeddings]
       gpt-4o:
-        status: active
+        status: deprecated
         default_for: []
         protocol_defaults:
           chat_completions:
@@ -49,18 +74,37 @@ providers:
         supported_values:
           reasoning.effort: []
           text.verbosity: []
+
   google:
+    endpoints:
+      # The SDK adds /{api_version}/models/{model}:generateContent.
+      base_url: https://generativelanguage.googleapis.com
+    documentation:
+      model_cards: https://deepmind.google/models/model-cards/
     models:
-      models/gemini-3-flash-preview:
+      gemini-3.8-flash:
         status: active
+        application: url_retrieval
         default_for: [search.retrieve_link_content]
         defaults:
           temperature: 0.1
   jina:
     endpoints:
       embeddings: https://api.jina.ai/v1/embeddings
+    documentation:
+      model_cards: https://jina.ai/models
     # Existing Jina callers supply their model explicitly.
-    models: {}
+    models:
+      jina-embeddings-v5-omni-small:
+        status: active
+        application: embeddings
+        default_for: []
+        defaults:
+          # Jina's default for general similarity; retrieval callers override it.
+          task: text-matching
+        supported_values:
+          task: [retrieval.query, retrieval.passage, text-matching, clustering, classification]
+
   anthropic:
     # Reserved for a future adapter; no runtime support is implied.
     models: {}
@@ -70,7 +114,7 @@ operations:
     provider: openai
     protocol: responses
     defaults:
-      profile: extract_fast
+      profile: extract_fast # Descriptive label only; does not select a preset.
       default_concurrency: 32
       request_timeout_seconds: 12
       retries: 1
@@ -116,6 +160,7 @@ operations:
     provider: google
     protocol: generate_content
     defaults:
+      api_version: v1beta
       default_concurrency: 10
       request_timeout_seconds: 45
       retries: 1

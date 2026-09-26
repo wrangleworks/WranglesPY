@@ -89,6 +89,11 @@ def _validate_settings(settings: dict, location: str) -> None:
 def _model_entry(config: dict, provider: str, model: str) -> dict:
     models = config.get("providers", {}).get(provider, {}).get("models", {})
     name = model.strip().lower()
+    if provider == "google":
+        # The Gemini SDK accepts both spellings for the same model. Normalize
+        # catalog lookup only; preserve the caller's model in the request.
+        name = name.removeprefix("models/")
+        models = {key.removeprefix("models/"): value for key, value in models.items()}
     base = _re.sub(r"-\d{4}-\d{2}-\d{2}$", "", name)
     return _merge(models.get(base, {}), models.get(name, {}))
 
@@ -142,14 +147,30 @@ def _validate_v2(config: dict) -> None:
         endpoints = _object(policy.get("endpoints", {}), f"providers.{provider}.endpoints")
         for protocol, url in endpoints.items():
             _string(url, f"providers.{provider}.endpoints.{protocol}")
+        documentation = _object(policy.get("documentation", {}), f"providers.{provider}.documentation")
+        for name, url in documentation.items():
+            _string(url, f"providers.{provider}.documentation.{name}")
         models = _object(policy.get("models"), f"providers.{provider}.models")
+        google_model_names = set()
         for name, entry in models.items():
             location = f"providers.{provider}.models.{name}"
             _object(entry, location)
             if name != name.strip().lower():
                 raise ValueError(f"{location} model names must be lowercase without surrounding whitespace.")
+            if provider == "google":
+                google_name = name.removeprefix("models/")
+                if google_name in google_model_names:
+                    raise ValueError(f"Duplicate Google model aliases for {google_name!r}; configure only one spelling.")
+                google_model_names.add(google_name)
             if not isinstance(entry.get("status"), str) or entry["status"] not in _STATUSES:
                 raise ValueError(f"{location}.status must be active, deprecated, or retired.")
+            if "application" in entry:
+                applications = entry["application"]
+                if isinstance(applications, str):
+                    _string(applications, f"{location}.application")
+                elif (not isinstance(applications, list) or not applications
+                      or any(not isinstance(value, str) or not value.strip() for value in applications)):
+                    raise ValueError(f"{location}.application must be a non-empty string or list of non-empty strings.")
             roles = entry.get("default_for", [])
             if not isinstance(roles, list) or any(not isinstance(role, str) or not role.strip() for role in roles):
                 raise ValueError(f"{location}.default_for must be a list of non-empty roles.")
@@ -275,6 +296,18 @@ def model_defaults(model: str, provider: str = "openai", protocol: str = None) -
     if config["version"] == 1:
         config = _load_config_file(str(_PACKAGED_CONFIG.resolve()))
     return _model_policy(config, provider, model, protocol)
+
+
+def model_supported_values(model: str, provider: str = "openai") -> dict:
+    """Return declared model enums, including dated snapshots.
+
+    Missing keys mean that the catalog does not specify an enum. Version 1
+    files use the packaged model catalog, as they do for model defaults.
+    """
+    config = load()
+    if config["version"] == 1:
+        config = _load_config_file(str(_PACKAGED_CONFIG.resolve()))
+    return _model_entry(config, provider, model).get("supported_values", {})
 
 
 def _catalog_capabilities(config: dict, model: str) -> dict:
