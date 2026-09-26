@@ -43,54 +43,6 @@ def format_input_data(data: any) -> str:
     return str(data)
 
 
-def chatGPT(
-    data: any,
-    api_key: str,
-    settings: dict,
-    url: str = None,
-    timeout: int = None,
-    retries: int = None,
-):
-    """
-    Submit a request to openAI chatGPT.
-
-    :param data: Dict with the data for that row
-    :param api_key: OpenAI API Key
-    :param settings: Caller-supplied request settings. Omitted model and tuning use \
-          the extract.ai Chat Completions configuration; explicit settings win.
-    :param url: Endpoint override; defaults to the configured extract.ai Chat Completions endpoint.
-    :param timeout: Request timeout; defaults to the configured extract.ai timeout.
-    :param retries: Additional attempts; defaults to the extract.ai retry configuration.
-    """
-    policy = _ai_config.resolve(
-        "extract.ai", model=settings.get("model"), protocol="chat_completions"
-    )
-    provider = str(policy.get("provider", "openai")).strip().lower()
-    if provider != "openai":
-        raise ValueError("Chat Completions currently supports only the 'openai' provider.")
-    model = policy.get("model")
-    if not isinstance(model, str) or not model.strip():
-        raise ValueError("No model is configured for chatGPT protocol 'chat_completions'.")
-    defaults = _openai_responses.request_defaults({
-        **_ai_config.model_defaults(model, provider=provider, protocol="chat_completions"),
-        **policy,
-    }, protocol="chat_completions")
-    settings = {"model": model, **defaults, **settings}
-    if settings["model"] is None:
-        settings["model"] = model
-    if url is None:
-        url = policy.get("endpoints", {}).get("chat_completions")
-    if timeout is None:
-        timeout = policy.get("request_timeout_seconds")
-    if retries is None:
-        retries = policy.get("retries", 1)
-    if not url:
-        raise ValueError("No endpoint is configured for chatGPT protocol 'chat_completions'.")
-
-    _ai_config.warn_if_deprecated(model, provider)
-    return _chatGPT(data, api_key, settings, url, timeout, retries)
-
-
 def _chatGPT(data, api_key, settings, url, timeout, retries):
     """Send Chat Completions using transport settings resolved by the caller."""
     content = format_input_data(data)

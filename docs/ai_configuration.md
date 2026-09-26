@@ -178,11 +178,10 @@ use the configured HF Inference base plus the model ID, currently
 raw JSON results and retries transient failures only. See the
 [HF Inference reference](https://huggingface.co/docs/inference-providers/en/providers/hf-inference).
 
-The low-level `openai.chatGPT` transport takes an explicit request settings
-dictionary. Missing model and tuning values come from the extraction operation's
-Chat Completions configuration; explicit settings take precedence. Omitted
-endpoint, timeout, and retry values also come from that configuration. Extraction
-resolves once per operation and uses a private transport for its individual rows.
+The public `openai.chatGPT` wrapper has been removed. Legacy Chat Completions
+remains available through `extract.ai(protocol="chat_completions")`. Extraction
+resolves configuration once per operation and uses a private transport for its
+individual rows.
 
 Generation remains unreleased. Its operation keeps `low` reasoning; extraction
 keeps `none` where supported. Its existing direct-Python and recipe strictness

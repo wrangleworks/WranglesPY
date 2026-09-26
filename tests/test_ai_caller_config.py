@@ -79,125 +79,32 @@ def configured_ai(monkeypatch, tmp_path):
     ai_config.clear_cache()
 
 
-@pytest.mark.parametrize("configured", [False, True])
-def test_chat_transport_uses_config_defaults_without_changing_settings(
-    configured_ai, chat_transport, monkeypatch, configured,
-):
-    config, save = configured_ai
-    if configured:
-        config["operations"]["extract.ai"]["defaults"].update({
-            "request_timeout_seconds": 6.5, "retries": 2, "temperature": 0.2,
-        })
-        config["providers"]["openai"]["endpoints"]["chat_completions"] = "https://chat.example/completions"
-        save()
-    else:
-        monkeypatch.delenv("WRANGLES_AI_CONFIG", raising=False)
-        ai_config.clear_cache()
-    policy = ai_config.resolve("extract.ai", protocol="chat_completions")
-    settings = _chat_settings()
-    original = copy.deepcopy(settings)
-    assert openai.chatGPT("row input", "fake-key", settings) == {"value": "synthetic"}
-    assert settings == original
-    call = chat_transport[0]
-    assert call["url"] == policy["endpoints"]["chat_completions"]
-    assert call["timeout"] == policy["request_timeout_seconds"]
-    assert call["json"]["model"] == original["model"]
-    assert call["json"]["temperature"] == 0.7
-    assert call["json"]["messages"][:-1] == original["messages"]
-    assert call["json"]["tools"] == original["tools"]
-
-
-def test_private_chat_transport_skips_resolution(configured_ai, chat_transport, monkeypatch):
+def test_private_chat_transport_skips_resolution(chat_transport, monkeypatch):
     def unexpected_resolution(*args, **kwargs):
         raise AssertionError("Resolved options must not trigger another catalog lookup per row.")
 
     monkeypatch.setattr(ai_config, "resolve", unexpected_resolution)
     monkeypatch.setattr(ai_config, "model_defaults", unexpected_resolution)
     monkeypatch.setattr(ai_config, "warn_if_deprecated", unexpected_resolution)
+    settings = _chat_settings()
+    original = copy.deepcopy(settings)
     result = openai._chatGPT(
-        "row input", "fake-key", _chat_settings(),
+        "row input", "fake-key", settings,
         url="https://explicit.example/completions", timeout=8, retries=0,
     )
     assert result == {"value": "synthetic"}
+    assert settings == original
     assert chat_transport[0]["url"] == "https://explicit.example/completions"
     assert chat_transport[0]["timeout"] == 8
+    assert chat_transport[0]["json"]["model"] == original["model"]
+    assert chat_transport[0]["json"]["temperature"] == original["temperature"]
+    assert chat_transport[0]["json"]["messages"][:-1] == original["messages"]
 
 
-@pytest.mark.parametrize("explicit_transport", [False, True])
-def test_direct_chat_resolves_missing_model_and_tuning(configured_ai, chat_transport, explicit_transport):
-    config, save = configured_ai
-    model = ai_config.resolve("extract.ai")["model"]
-    config["providers"]["openai"]["models"][model].setdefault("protocol_defaults", {})["chat_completions"] = {
-        "temperature": 0.25, "top_p": 0.9, "max_completion_tokens": 128,
-    }
-    config["operations"]["extract.ai"]["defaults"]["top_p"] = 0.8
-    save()
-    settings = _chat_settings()
-    settings.pop("model")
-    settings.pop("temperature")
-    original = copy.deepcopy(settings)
-    transport = {"url": "https://explicit.example/completions", "timeout": 8, "retries": 0} if explicit_transport else {}
-    assert openai.chatGPT("row", "fake-key", settings, **transport) == {"value": "synthetic"}
-    body = chat_transport[0]["json"]
-    assert body["model"] == model
-    assert body["temperature"] == 0.25
-    assert body["top_p"] == 0.8
-    assert body["max_completion_tokens"] == 128
-    assert "request_timeout_seconds" not in body
-    assert "retries" not in body
-    assert "prompt" not in body
-    assert settings == original
-    if explicit_transport:
-        assert chat_transport[0]["url"] == transport["url"]
-        assert chat_transport[0]["timeout"] == transport["timeout"]
-
-
-def test_direct_chat_preserves_explicit_settings_over_configured_model(configured_ai, chat_transport):
-    config, save = configured_ai
-    config["providers"]["openai"]["models"]["private-chat-model"] = {
-        "status": "active", "defaults": {"temperature": 0.2, "top_p": 0.9},
-    }
-    save()
-    settings = _chat_settings()
-    settings["top_p"] = 0.3
-    original = copy.deepcopy(settings)
-    openai.chatGPT("row", "fake-key", settings, url="https://explicit.example/completions", timeout=8, retries=0)
-    body = chat_transport[0]["json"]
-    assert body["model"] == "private-chat-model"
-    assert body["temperature"] == 0.7
-    assert body["top_p"] == 0.3
-    assert settings == original
-
-
-def test_direct_chat_v1_preserves_legacy_model_temperature(configured_ai, chat_transport, monkeypatch):
-    monkeypatch.setattr(ai_config, "load", lambda: {"version": 1, "extract_ai": {"model": "gpt-4o"}})
-    settings = _chat_settings()
-    settings.pop("model")
-    settings.pop("temperature")
-    openai.chatGPT("row", "fake-key", settings, url="https://explicit.example/completions", timeout=8, retries=0)
-    assert chat_transport[0]["json"]["model"] == "gpt-4o"
-    assert chat_transport[0]["json"]["temperature"] == 0.2
-
-
-def test_direct_chat_rejects_unsupported_provider(configured_ai, chat_transport, monkeypatch):
-    monkeypatch.setattr(ai_config, "resolve", lambda *args, **kwargs: {"provider": "anthropic"})
-    with pytest.raises(ValueError, match="only the 'openai' provider"):
-        openai.chatGPT("row", "fake-key", _chat_settings(), url="https://explicit.example/completions", timeout=8, retries=0)
-    assert chat_transport == []
-
-
-@pytest.mark.parametrize("retries,expected_attempts", [(None, 2), (0, 1)])
-@pytest.mark.parametrize("legacy", [False, True])
-def test_chat_transport_default_one_retry_and_explicit_zero(monkeypatch, retries, expected_attempts, legacy):
-    monkeypatch.delenv("WRANGLES_AI_CONFIG", raising=False)
-    ai_config.clear_cache()
-    if legacy:
-        monkeypatch.setattr(ai_config, "load", lambda: {
-            "version": 1, "extract_ai": {"model": "private-chat-model", "endpoints": {
-                "chat_completions": "https://legacy.example/completions",
-            }},
-        })
+@pytest.mark.parametrize("retries,expected_attempts", [(0, 1), (1, 2), (2, 3)])
+def test_private_chat_transport_respects_http_retry_budget(monkeypatch, retries, expected_attempts):
     calls = []
+    sleeps = []
 
     def post(**kwargs):
         calls.append(kwargs)
@@ -207,29 +114,18 @@ def test_chat_transport_default_one_retry_and_explicit_zero(monkeypatch, retries
         return response
 
     monkeypatch.setattr(openai._requests, "post", post)
-    monkeypatch.setattr(openai._openai_responses, "_sleep_for_retry", lambda *args: None)
-    try:
-        result = openai.chatGPT("row input", "fake-key", _chat_settings(), retries=retries)
-        assert "value" in result
-        assert len(calls) == expected_attempts
-    finally:
-        ai_config.clear_cache()
-
-
-def test_chat_transport_v1_missing_options_and_missing_endpoint(monkeypatch, chat_transport):
-    legacy = {"version": 1, "extract_ai": {"model": "private-chat-model"}}
-    monkeypatch.setattr(ai_config, "load", lambda: copy.deepcopy(legacy))
-    with pytest.raises(ValueError, match="No endpoint is configured"):
-        openai.chatGPT("row input", "fake-key", _chat_settings())
-    assert chat_transport == []
-    assert openai.chatGPT(
-        "row input", "fake-key", _chat_settings(), url="https://explicit.example/completions",
-    ) == {"value": "synthetic"}
-    assert chat_transport[0]["timeout"] is None
+    monkeypatch.setattr(openai._openai_responses, "_sleep_for_retry", lambda context, delay: sleeps.append(delay))
+    result = openai._chatGPT(
+        "row input", "fake-key", _chat_settings(),
+        url="https://explicit.example/completions", timeout=3, retries=retries,
+    )
+    assert "value" in result
+    assert len(calls) == expected_attempts
+    assert sleeps == [1, 2][:retries]
 
 
 @pytest.mark.parametrize("error_type", [requests.exceptions.Timeout, requests.exceptions.ConnectionError])
-def test_chat_transport_retries_transient_failure_then_succeeds(configured_ai, chat_transport, monkeypatch, error_type):
+def test_chat_transport_retries_transient_failure_then_succeeds(chat_transport, monkeypatch, error_type):
     post = openai._requests.post
     attempts = []
     sleeps = []
@@ -242,7 +138,10 @@ def test_chat_transport_retries_transient_failure_then_succeeds(configured_ai, c
 
     monkeypatch.setattr(openai._requests, "post", fail_once)
     monkeypatch.setattr(openai._openai_responses, "_sleep_for_retry", lambda context, delay: sleeps.append(delay))
-    result = openai.chatGPT("row", "fake-key", _chat_settings(), retries=1, timeout=3)
+    result = openai._chatGPT(
+        "row", "fake-key", _chat_settings(),
+        url="https://explicit.example/completions", retries=1, timeout=3,
+    )
     assert result == {"value": "synthetic"}
     assert len(attempts) == 2
     assert [attempt["timeout"] for attempt in attempts] == [3, 3]
@@ -251,7 +150,7 @@ def test_chat_transport_retries_transient_failure_then_succeeds(configured_ai, c
 
 @pytest.mark.parametrize("error_type", [requests.exceptions.Timeout, requests.exceptions.ConnectionError])
 @pytest.mark.parametrize("retries", [0, 1, 2])
-def test_chat_transport_respects_retry_budget_on_transport_failure(configured_ai, monkeypatch, error_type, retries):
+def test_chat_transport_respects_retry_budget_on_transport_failure(monkeypatch, error_type, retries):
     calls = []
     sleeps = []
 
@@ -261,7 +160,10 @@ def test_chat_transport_respects_retry_budget_on_transport_failure(configured_ai
 
     monkeypatch.setattr(openai._requests, "post", post)
     monkeypatch.setattr(openai._openai_responses, "_sleep_for_retry", lambda context, delay: sleeps.append(delay))
-    result = openai.chatGPT("row", "fake-key", _chat_settings(), retries=retries)
+    result = openai._chatGPT(
+        "row", "fake-key", _chat_settings(),
+        url="https://explicit.example/completions", timeout=3, retries=retries,
+    )
     assert len(calls) == retries + 1
     assert sleeps == [1, 2][:retries]
     if error_type is requests.exceptions.Timeout:
@@ -270,7 +172,7 @@ def test_chat_transport_respects_retry_budget_on_transport_failure(configured_ai
         assert isinstance(result["value"], error_type)
 
 
-def test_chat_transport_does_not_retry_invalid_request(configured_ai, monkeypatch):
+def test_chat_transport_does_not_retry_invalid_request(monkeypatch):
     calls = []
 
     def post(**kwargs):
@@ -278,18 +180,12 @@ def test_chat_transport_does_not_retry_invalid_request(configured_ai, monkeypatc
         raise requests.exceptions.InvalidURL("synthetic invalid URL")
 
     monkeypatch.setattr(openai._requests, "post", post)
-    result = openai.chatGPT("row", "fake-key", _chat_settings(), retries=2)
+    result = openai._chatGPT(
+        "row", "fake-key", _chat_settings(),
+        url="https://explicit.example/completions", timeout=3, retries=2,
+    )
     assert len(calls) == 1
     assert isinstance(result["value"], requests.exceptions.InvalidURL)
-
-
-def test_direct_chat_warns_on_each_deprecated_model_invocation(configured_ai, chat_transport, caplog):
-    settings = _chat_settings()
-    settings["model"] = "gpt-4o"
-    for _ in range(2):
-        assert openai.chatGPT("row", "fake-key", settings) == {"value": "synthetic"}
-    warnings = [record for record in caplog.records if "deprecated status" in record.message]
-    assert len(warnings) == 2
 
 
 @pytest.fixture
