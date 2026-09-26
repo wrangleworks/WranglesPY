@@ -559,11 +559,11 @@ def _read_data(
     else:
         return results
 
-_NAMED_AI_WRANGLES = {"ai.choose", "ai.score", "ai.true_false", "ai.questions"}
+_NAMED_AI_WRANGLES = {"ai.choose", "ai.score", "ai.true_false", "ai.answers"}
 
 
 def _declared_output_columns(wrangle: str, params: dict):
-    """Return declared destinations, including outputs nested in AI questions.
+    """Return declared destinations, including named AI answer columns.
 
     None means the wrangle does not declare outputs. Keep ordinary wrangles'
     existing output interpretation while sharing AI discovery with concurrent.
@@ -571,7 +571,7 @@ def _declared_output_columns(wrangle: str, params: dict):
     if wrangle in _NAMED_AI_WRANGLES:
         kind = wrangle.split(".", 1)[1]
         return _recipe_wrangles.ai._output_columns(
-            params.get("questions"), kind=None if kind == "questions" else kind,
+            params.get("questions"), kind=None if kind == "answers" else kind,
         )
     if "output" not in params:
         return None

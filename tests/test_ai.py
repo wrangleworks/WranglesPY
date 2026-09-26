@@ -1,4 +1,4 @@
-"""Offline contracts for the shared AI questions runtime."""
+"""Offline contracts for the shared structured AI answers runtime."""
 import copy
 import os
 import traceback
@@ -70,7 +70,7 @@ def test_named_mixed_questions_share_one_request_and_preserve_native_values(tran
     }
     questions["severity"]["output"] = ["Result", "Certainty", "Distribution"]
     original = copy.deepcopy(questions)
-    result = ai.questions({"Description": "broken"}, questions, api_key="synthetic-key")
+    result = ai.answers({"Description": "broken"}, questions, api_key="synthetic-key")
     assert len(transport) == 1
     assert list(result) == ["severity", "team", "repeat"]
     assert result["severity"] == {
@@ -165,7 +165,7 @@ def test_generated_and_explicit_names_must_not_collide():
     ({"q": {"instructions": {"value": float("nan")}}}, "true_false"),
 ])
 def test_invalid_questions_fail_before_credentials_or_provider(transport, definitions, kind):
-    function = getattr(ai, kind or "questions")
+    function = getattr(ai, kind or "answers")
     with pytest.raises(ValueError):
         function("state", definitions)
     assert transport == []

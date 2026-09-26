@@ -130,14 +130,19 @@ returned dictionary does not alter cached configuration.
 
 | Operation | Callers | Configured settings |
 | --- | --- | --- |
-| `ai.choose`, `ai.score`, `ai.true_false`, `ai.questions` | Python and recipe named questions | Provider, model, endpoint, concurrency, timeout, retries, cache |
+| `ai.choose`, `ai.score`, `ai.true_false`, `ai.answers` | Python and recipe structured answers | Provider, model, endpoint, concurrency, timeout, retries, cache |
 | `extract.ai` | Python and recipe extraction | Model, endpoints, model tuning, concurrency, timeout, retries, strictness, storage, cache, prompt |
 | `embeddings` | `openai.embeddings` and recipe `create.embeddings` | Provider, model, endpoint, batch size, concurrency, timeout, retries, precision, dimensions, Jina task/normalization/truncation |
 | `search.retrieve_link_content` | Python, recipe, and Gemini URL-context client | Model, endpoint/API version, concurrency, timeout, retries, temperature/top-p/top-k/token limits/stop sequences |
 | `generate.ai` | Python and recipe generation | Model, endpoint, reasoning/text tuning, concurrency, timeout, retries, strictness |
 | `huggingface` | Generic recipe task wrangle | Explicit model, endpoint, timeout, retries, task parameters |
 
-The four named-question operations use Typesafe's `systemone` protocol at
+The four answer wrangles provide structured answers to common types of
+questions through [Typesafe](https://docs.typesafe.ai/introduction).
+`ai.choose` selects the best-fitting option, `ai.score` locates the input along
+ordered criteria, and `ai.true_false` returns the probability that a statement
+is true. `ai.answers` answers any combination of these question types together.
+They use Typesafe's `systemone` protocol at
 `https://api.typesafe.ai/v1/systemone`, with `jev-1.13.0` as their pinned default
 model. Each operation has its own default role; changing an extraction or global
 model does not change these operations. Explicit unlisted Typesafe model names
@@ -151,7 +156,7 @@ bounded in-memory cache with a one-hour TTL, at most 512 entries, and a maximum
 value size of 65,536 bytes. Duplicate in-flight requests share their result, and
 periodic cache logging is disabled. `WRANGLES_AI_CACHE_*` environment controls
 apply to these operations independently of the existing
-`WRANGLES_EXTRACT_AI_CACHE_*` controls. See [AI questions](ai_questions.md) for
+`WRANGLES_EXTRACT_AI_CACHE_*` controls. See [AI answers](ai_answers.md) for
 question schemas, examples, output columns, and cache overrides.
 
 Keep credentials outside the catalog. Supply `api_key` explicitly, use the local
@@ -232,7 +237,7 @@ their original replacement semantics. Existing `model_capabilities` flags
 remain accepted on that compatibility path and retain packaged capability
 inheritance. Generation still follows a version-1 extraction model override;
 other operations use packaged defaults because version 1 did not configure them.
-This includes all four Typesafe named-question operations.
+This includes all four Typesafe answer wrangles.
 
 A version-2 replacement remains authoritative: it must define any new operation
 you intend to use, its provider, and a default model role (unless you supply the

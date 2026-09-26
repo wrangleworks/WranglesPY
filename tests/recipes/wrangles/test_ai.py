@@ -1,4 +1,4 @@
-"""Offline recipe integration for named Typesafe questions."""
+"""Offline recipe integration for structured Typesafe answers."""
 
 import copy
 import inspect
@@ -62,8 +62,8 @@ def core_calls(monkeypatch):
             return results
         return execute
 
-    for name in ("choose", "score", "true_false", "questions"):
-        monkeypatch.setattr(wrangles.ai, name, operation(None if name == "questions" else name))
+    for name in ("choose", "score", "true_false", "answers"):
+        monkeypatch.setattr(wrangles.ai, name, operation(None if name == "answers" else name))
     return calls
 
 
@@ -108,7 +108,7 @@ def test_whole_blank_output_uses_default_columns(blank, core_calls):
 
 
 def test_mixed_questions_project_explicit_columns_and_native_values(core_calls):
-    result = run("questions", {
+    result = run("answers", {
         "Category": question("choose", type="choose", output=["Category Name", "Certainty", "Distribution"]),
         "Severity": question("score", type="score"),
         "Outdoor": question("true_false", type="true_false", output=["Outdoor Probability", "Criterion"]),
@@ -139,7 +139,7 @@ def test_structured_true_criteria_stays_structured(core_calls):
 
 def test_where_preserves_untouched_rows_and_overwrites_nested_destinations(core_calls):
     source = pd.DataFrame({"Description": ["first", "second"], "Category": ["old1", "old2"]}, index=[5, 9])
-    result = run("questions", {
+    result = run("answers", {
         "Category": question("choose", type="choose"),
         "Outdoor": question("true_false", type="true_false"),
     }, dataframe=source, where="Description = 'second'")
@@ -154,7 +154,7 @@ def test_where_preserves_untouched_rows_and_overwrites_nested_destinations(core_
 
 def test_where_no_rows_creates_all_nested_destinations_without_calling_core(core_calls):
     source = pd.DataFrame({"Description": ["first"], "Category": ["kept"]})
-    result = run("questions", {
+    result = run("answers", {
         "Category": question("choose", type="choose"),
         "Outdoor": question("true_false", type="true_false", output=["Probability", "Rule"]),
     }, dataframe=source, where="Description = 'missing'")
@@ -195,7 +195,7 @@ def test_concurrent_collects_nested_outputs_and_ordinary_wrangle_output(core_cal
     source = pd.DataFrame({"Description": ["first", "second"], "Severity": [99, 99]})
     result = wrangles.recipe.run({"wrangles": [{"concurrent": {"wrangles": [
         {"ai.choose": {"input": "Description", "questions": {"Category": question("choose")}}},
-        {"ai.questions": {"input": "Description", "questions": {
+        {"ai.answers": {"input": "Description", "questions": {
             "Severity": question("score", type="score"),
             "Outdoor": question("true_false", type="true_false"),
         }}},
@@ -214,9 +214,28 @@ def test_concurrent_collects_nested_outputs_and_ordinary_wrangle_output(core_cal
 
 def test_dataframe_accessor_uses_recipe_wrapper_without_mutating_source(core_calls):
     source = wrangles.DataFrame({"Description": ["first"]})
-    result = source.wrangles.ai.score(input="Description", questions={"Severity": question("score")})
+    result = source.wrangles.ai.answers(input="Description", questions={
+        "Severity": question("score", type="score"),
+        "Outdoor": question("true_false", type="true_false"),
+    })
     assert result["Severity"].tolist() == [1.42]
+    assert result["Outdoor"].tolist() == [0.75]
     assert source.columns.tolist() == ["Description"]
+
+
+def test_clean_answers_namespace_has_no_legacy_alias_or_schema_entry():
+    accessor = wrangles.DataFrame({"Description": []}).wrangles.ai
+    for namespace in (wrangles.ai, recipe_ai, accessor):
+        assert callable(namespace.answers)
+        assert not hasattr(namespace, "questions")
+
+    schemas = {
+        f"ai.{name}": yaml.safe_load(function.__doc__)
+        for name, function in inspect.getmembers(recipe_ai, inspect.isfunction)
+        if not name.startswith("_")
+    }
+    assert set(schemas) == {"ai.choose", "ai.score", "ai.true_false", "ai.answers"}
+    assert schemas["ai.answers"]["required"] == ["questions"]
 
 
 def test_wrapper_rejects_response_count_mismatch(monkeypatch):
@@ -225,14 +244,14 @@ def test_wrapper_rejects_response_count_mismatch(monkeypatch):
         run("choose", {"Category": question("choose")})
 
 
-@pytest.mark.parametrize("kind", ["choose", "score", "true_false", "questions"])
+@pytest.mark.parametrize("kind", ["choose", "score", "true_false", "answers"])
 def test_schema_exposes_public_parameters_and_accepts_named_questions(kind):
     function = getattr(recipe_ai, kind)
     schema = yaml.safe_load(function.__doc__)
     jsonschema.Draft202012Validator.check_schema(schema)
     assert set(inspect.signature(function).parameters) - {"df"} == set(schema["properties"])
-    definition = question("choose" if kind == "questions" else kind)
-    if kind == "questions":
+    definition = question("choose" if kind == "answers" else kind)
+    if kind == "answers":
         definition["type"] = "choose"
     jsonschema.validate({"questions": {"Question": definition}}, schema)
     definition["output"] = ["wrong length"]
@@ -314,7 +333,7 @@ def test_mixed_recipe_through_http_preserves_native_columns_and_provider_payload
         "Outdoor": {"type": "true_false", "instructions": "Can it be used outdoors?"},
     }
     source = pd.DataFrame({"Description": ["first", "second"], "Excluded": [1, 2]}, index=[12, 4])
-    result = run("questions", definitions, dataframe=source, cache=False, threads=1)
+    result = run("answers", definitions, dataframe=source, cache=False, threads=1)
 
     assert result.index.tolist() == [12, 4]
     assert result["Picked"].tolist() == ["bearing", "belt"]

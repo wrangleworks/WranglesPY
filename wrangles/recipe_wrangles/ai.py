@@ -1,4 +1,4 @@
-"""Dataframe adapters for named AI questions."""
+"""Dataframe adapters for structured AI answers to common question types."""
 
 import pandas as _pd
 import yaml as _yaml
@@ -24,7 +24,7 @@ def _run(df, questions, kind, input=None, **settings):
         return df
 
     source = df if input is None else df[input if isinstance(input, list) else [input]]
-    operation = getattr(_ai, kind or "questions")
+    operation = getattr(_ai, kind or "answers")
     results = operation(source.to_dict(orient="records"), questions=questions, **settings)
     if not isinstance(results, list) or len(results) != len(df):
         raise RuntimeError("AI response count does not match the input row count.")
@@ -58,9 +58,9 @@ def true_false(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
                 timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl)
 
 
-def questions(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
-              model=None, provider=None, protocol=None, threads=None, timeout=None,
-              retries=None, cache=None, cache_ttl=None) -> _pd.DataFrame:
+def answers(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
+            model=None, provider=None, protocol=None, threads=None, timeout=None,
+            retries=None, cache=None, cache_ttl=None) -> _pd.DataFrame:
     return _run(df, questions, None, input=input, api_key=api_key,
                 model=model, provider=provider, protocol=protocol, threads=threads,
                 timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl)
@@ -81,15 +81,15 @@ def _question_schema(kind):
     fields = _FIELDS[kind]
     properties = {
         "type": {"type": "string", "enum": [kind],
-                 "description": "Question type; optional for a wrangle with one question type."},
+                 "description": "Question type to answer; optional for a wrangle dedicated to one type."},
         "instructions": {**_description_schema(),
-                         "description": "Question or structured instructions applied to this row's input."},
+                         "description": "Question to answer about this row's input, as text or structured instructions."},
         "output": {
             "description": (
                 "Destination columns in order: " + ", ".join(fields) + ". "
                 "Omit, use null, or use a blank string for defaults. "
                 "Defaults are the question label followed by _confidence and _probabilities "
-                "for choose/score, or the question label and _true_criteria for true_false. "
+                "for `ai.choose`/`ai.score`, or the question label and _true_criteria for `ai.true_false`. "
                 "An explicit list must name every output column."
             ),
             "oneOf": [
@@ -107,7 +107,7 @@ def _question_schema(kind):
             "uniqueItems": True, "items": {"type": "string", "pattern": r"\S"},
             "description": (
                 "Distinct criterion descriptions used as probability keys. "
-                "For score, order defines the native zero-based score positions; no custom scale."
+                "For `ai.score`, order defines the native zero-based score positions; no custom scale."
             ),
         }
         required.append("criteria")
@@ -133,6 +133,24 @@ def _question_schema(kind):
 
 
 def _schema(kind):
+    descriptions = {
+        "choose": (
+            "Answers which option best fits the input, "
+            "with the choice, confidence, and complete probabilities. "
+        ),
+        "score": (
+            "Answers where the input falls along ordered criteria, "
+            "with the native score, confidence, and complete probabilities. "
+        ),
+        "true_false": (
+            "Answers how likely a statement is to be true for the input, "
+            "with probability_true and the supplied true_criteria. "
+        ),
+        None: (
+            "Answers any combination of `choose`, `score`, and `true_false` "
+            "questions about the input with structured results. "
+        ),
+    }
     if kind is None:
         question_schemas = []
         for question_type in _FIELDS:
@@ -145,10 +163,9 @@ def _schema(kind):
     return {
         "type": "object", "additionalProperties": False, "required": ["questions"],
         "description": (
-            "Ask named " + (kind.replace("_", "/") if kind else "mixed")
-            + " questions in one provider request per row. "
-            "Question labels determine default output names. Scores are native numeric scores; "
-            "true_false returns the probability of true, without thresholding or a Boolean."
+            descriptions[kind]
+            + "Accepts multiple named questions in one provider request per row. "
+            "Question labels determine default output names."
         ),
         "properties": {
             "input": {"type": ["string", "integer", "array"],
@@ -157,9 +174,9 @@ def _schema(kind):
             "questions": {"type": "object", "minProperties": 1,
                           "propertyNames": {"pattern": r"\S"},
                           "additionalProperties": question_definition,
-                          "description": "Questions keyed by their distinct labels."},
+                          "description": "Questions to answer for each input row, keyed by their distinct labels."},
             "api_key": {"type": "string", "description": "Typesafe API key; defaults to TYPESAFE_API_KEY."},
-            "model": {"type": "string", "description": "Model ID; defaults to this operation's AI catalog selection."},
+            "model": {"type": "string", "description": "Model ID; defaults to this wrangle's AI catalog selection."},
             "provider": {"type": "string", "enum": ["typesafe"],
                          "description": "Provider resolved through the AI catalog; currently typesafe."},
             "protocol": {"type": "string", "enum": ["systemone"],
@@ -178,5 +195,5 @@ def _schema(kind):
 
 
 for _name, _kind in (("choose", "choose"), ("score", "score"),
-                     ("true_false", "true_false"), ("questions", None)):
+                     ("true_false", "true_false"), ("answers", None)):
     globals()[_name].__doc__ = _yaml.safe_dump(_schema(_kind), sort_keys=False)

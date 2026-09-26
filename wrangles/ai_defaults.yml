@@ -114,7 +114,7 @@ providers:
       jev-1.13.0:
         status: active
         applications: [classification, scoring, true_false]
-        default_for: [ai.choose, ai.score, ai.true_false, ai.questions]
+        default_for: [ai.choose, ai.score, ai.true_false, ai.answers]
 
   huggingface:
     endpoints:
@@ -171,7 +171,7 @@ operations:
         max_value_bytes: 65536
         single_flight: true
         log_every: 0
-  ai.questions:
+  ai.answers:
     provider: typesafe
     protocol: systemone
     defaults:

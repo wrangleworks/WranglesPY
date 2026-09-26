@@ -91,7 +91,7 @@ class _wrangles:
 
     @property
     def ai(self):
-        """Ask named AI questions about each row."""
+        """Provide structured answers to common questions about each row."""
         return _wrangles_accessor(self._df, _recipe_wrangles.ai)
 
     @property

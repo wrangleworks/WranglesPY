@@ -1,8 +1,11 @@
-# AI questions
+# AI answers
 
-`ai.choose`, `ai.score`, `ai.true_false`, and `ai.questions` answer named questions
-about each input record through [Typesafe](https://docs.typesafe.ai/introduction).
-They use the existing [AI model catalog](ai_configuration.md), with
+`ai.choose`, `ai.score`, `ai.true_false`, and `ai.answers` provide structured
+answers to common types of questions about each input record, including
+probabilities and confidence where supported. They use
+[Typesafe](https://docs.typesafe.ai/introduction) to answer the questions.
+
+The existing [AI model catalog](ai_configuration.md) supplies
 `provider: typesafe`, `protocol: systemone`, and the pinned model `jev-1.13.0`
 as defaults. `extract.ai` keeps its current API and behavior.
 
@@ -18,7 +21,7 @@ Objects must have string keys, and all supplied values must be JSON-compatible.
 | `ai.choose` | A mapping of 1–255 nonblank option labels to descriptions. Descriptions can be nonempty strings, JSON objects, JSON arrays, or `null`. | `choice` → `<label>`; `confidence` → `<label>_confidence`; `probabilities` → `<label>_probabilities` |
 | `ai.score` | An ordered list of 2–10 unique nonblank strings describing the scoring levels. | `score` → `<label>`; `confidence` → `<label>_confidence`; `probabilities` → `<label>_probabilities` |
 | `ai.true_false` | Optional `"true"` and/or `"false"` descriptions, supplied as nonempty strings, JSON objects, or JSON arrays. Quote these keys in YAML. | `probability_true` → `<label>`; `true_criteria` → `<label>_true_criteria` |
-| `ai.questions` | Each question declares `type: choose`, `type: score`, or `type: true_false` and uses that type's criteria. | The columns for each question's type. |
+| `ai.answers` | Each question declares `type: choose`, `type: score`, or `type: true_false` and uses that type's criteria. | The columns for each question's type. |
 
 `input` selects the columns to send for each row: one column name, a zero-based
 column position, or a list of names/positions. Omit `input` to send all columns.
@@ -28,7 +31,9 @@ are evaluated together in one request per input row.
 
 `ai.choose`, `ai.score`, and `ai.true_false` each accept multiple questions of
 their own type. Their nested `type` field is optional; if supplied, it must
-match the wrangle. `ai.questions` requires a `type` for every question.
+match the wrangle. `ai.answers` accepts any combination of these question types
+and requires a `type` for every question, including when all questions share
+the same type.
 
 Each example below includes an input table, a recipe to run against that table,
 and an illustrative output. Outputs are shown as YAML records to make
@@ -41,9 +46,10 @@ locally or supply the managed secret as a recipe variable in a hosted recipe.
 
 ## `ai.choose`
 
-`ai.choose` selects an option for each question and returns its confidence and
-the full probability distribution. `ai.choose` probabilities use the option
-labels as keys, including options with zero probability. See Typesafe's
+`ai.choose` answers "Which option best fits?" for each question. It returns the
+selected option, its confidence, and the full probability distribution.
+`ai.choose` probabilities use the option labels as keys, including options
+with zero probability. See Typesafe's
 [Choice documentation](https://docs.typesafe.ai/primitives/choice).
 
 **Example input**
@@ -100,8 +106,8 @@ wrangles:
 
 ## `ai.score`
 
-`ai.score` rates the input against ordered descriptions. The order and number
-of criteria define positions `0` through `N-1`. The returned score is the
+`ai.score` answers "Where does this fall along ordered criteria?" The order and
+number of criteria define positions `0` through `N-1`. The returned score is the
 probability-weighted position and may fall between levels; it is not itself a
 probability. There is no `scale` parameter or automatic rescaling. See
 Typesafe's [Score documentation](https://docs.typesafe.ai/primitives/score).
@@ -155,9 +161,10 @@ complete probability distribution.
 
 ## `ai.true_false`
 
-`ai.true_false` returns `probability_true` in the column named by the question
-label. It also returns the supplied `"true"` criterion, or an empty string when
-that criterion is omitted. It does not generate a Boolean, `probability_false`,
+`ai.true_false` answers "How likely is this statement to be true?" It returns
+`probability_true` in the column named by the question label. It also returns
+the supplied `"true"` criterion, or an empty string when that criterion is
+omitted. It does not generate a Boolean, `probability_false`,
 or a confidence column. See Typesafe's
 [Noul documentation](https://docs.typesafe.ai/primitives/noul).
 
@@ -203,11 +210,12 @@ wrangles:
 `is_repeat_contact: 0.94` is the probability that the statement is true.
 The question label is the column name, not a separate value in the output.
 
-## `ai.questions`
+## `ai.answers`
 
-`ai.questions` combines `ai.choose`, `ai.score`, and `ai.true_false` question
-types in one wrangle. Each question uses the same input record and retains its
-type's output fields. See Typesafe's
+`ai.answers` answers any combination of `choose`, `score`, and `true_false`
+questions together in one call. Questions may share a type or use different
+types. Each question uses the same input record and retains its type's output
+fields. See Typesafe's
 [Primitives documentation](https://docs.typesafe.ai/primitives) for combining
 question types.
 
@@ -221,7 +229,7 @@ question types.
 
 ```yaml
 wrangles:
-  - ai.questions:
+  - ai.answers:
       input: [Message, Browser]  # Both columns form one record for every question.
       api_key: ${TYPESAFE_API_KEY}
       questions:

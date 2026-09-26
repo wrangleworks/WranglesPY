@@ -59,7 +59,7 @@ def test_catalog_metadata_is_separate_from_request_defaults():
     assert "documentation" not in policy
 
 
-@pytest.mark.parametrize("operation", ["ai.choose", "ai.score", "ai.true_false", "ai.questions"])
+@pytest.mark.parametrize("operation", ["ai.choose", "ai.score", "ai.true_false", "ai.answers"])
 def test_typesafe_operations_resolve_independent_packaged_defaults(operation):
     policy = ai_config.resolve(operation)
     assert policy["provider"] == "typesafe"
@@ -80,7 +80,7 @@ def test_typesafe_operations_resolve_independent_packaged_defaults(operation):
             ai_config.resolve(operation, role=role)
 
 
-@pytest.mark.parametrize("operation", ["ai.choose", "ai.score", "ai.true_false", "ai.questions"])
+@pytest.mark.parametrize("operation", ["ai.choose", "ai.score", "ai.true_false", "ai.answers"])
 def test_typesafe_explicit_unlisted_models_preserve_provider_settings(operation):
     policy = ai_config.resolve(operation, provider=" TYPESAFE ", model="jev-custom")
     assert policy["model"] == "jev-custom"
@@ -93,28 +93,38 @@ def test_typesafe_explicit_unlisted_models_preserve_provider_settings(operation)
         ai_config.resolve(operation, provider="openai")
 
 
-def test_typesafe_custom_model_defaults_are_provider_local(monkeypatch, tmp_path):
+@pytest.mark.parametrize("operation", ["ai.score", "ai.answers"])
+def test_typesafe_custom_model_defaults_are_provider_local(monkeypatch, tmp_path, operation):
     config = ai_config.load()
-    config["providers"]["typesafe"]["models"]["jev-1.13.0"]["default_for"].remove("ai.score")
-    config["providers"]["typesafe"]["models"]["jev-custom-score"] = {
-        "status": "active", "default_for": ["ai.score"],
+    config["providers"]["typesafe"]["models"]["jev-1.13.0"]["default_for"].remove(operation)
+    config["providers"]["typesafe"]["models"]["jev-custom-task"] = {
+        "status": "active", "default_for": [operation],
     }
     config["providers"]["typesafe"]["endpoints"]["systemone"] = "https://custom.example/systemone"
     use_config(config, monkeypatch, tmp_path)
-    assert ai_config.resolve("ai.score")["model"] == "jev-custom-score"
+    assert ai_config.resolve(operation)["model"] == "jev-custom-task"
     assert ai_config.resolve("ai.choose")["model"] == "jev-1.13.0"
     assert ai_config.resolve("extract.ai")["model"] == "gpt-6-luna"
-    assert ai_config.resolve("ai.score")["endpoints"]["systemone"] == "https://custom.example/systemone"
+    assert ai_config.resolve(operation)["endpoints"]["systemone"] == "https://custom.example/systemone"
 
 
-@pytest.mark.parametrize("operation", ["ai.choose", "ai.score", "ai.true_false", "ai.questions"])
+def test_catalog_has_no_legacy_questions_operation_or_model_role():
+    config = ai_config.load()
+    assert "ai.questions" not in config["operations"]
+    for model in config["providers"]["typesafe"]["models"].values():
+        assert "ai.questions" not in model.get("default_for", [])
+    with pytest.raises(ValueError, match="No AI operation"):
+        ai_config.resolve("ai.questions")
+
+
+@pytest.mark.parametrize("operation", ["ai.choose", "ai.score", "ai.true_false", "ai.answers"])
 def test_version_1_overrides_keep_packaged_typesafe_operations(monkeypatch, tmp_path, operation):
     packaged = ai_config.resolve(operation)
     use_config({"version": 1, "extract_ai": {"model": "legacy-custom"}}, monkeypatch, tmp_path)
     assert ai_config.resolve(operation) == packaged
 
 
-@pytest.mark.parametrize("operation", ["ai.choose", "ai.score", "ai.true_false", "ai.questions"])
+@pytest.mark.parametrize("operation", ["ai.choose", "ai.score", "ai.true_false", "ai.answers"])
 def test_version_2_does_not_merge_missing_typesafe_operations(monkeypatch, tmp_path, operation):
     config = ai_config.load()
     del config["operations"][operation]

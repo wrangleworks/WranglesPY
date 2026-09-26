@@ -1,6 +1,7 @@
-"""Named AI questions over text or structured records.
+"""Structured answers to common questions about text or records.
 
-The individual operations imply a question type; ``questions`` mixes types.
+``choose``, ``score``, and ``true_false`` answer one question type at a time;
+``answers`` supports any combination of these types.
 Each input record is evaluated in one request. Python results are dictionaries
 of named answers; recipe wrappers project their fields into columns.
 """
@@ -178,10 +179,10 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
     if not rows:
         return []
 
-    operation = f"ai.{kind or 'questions'}"
+    operation = f"ai.{kind or 'answers'}"
     settings = _config.resolve(operation, model=model, provider=provider, protocol=protocol)
     if settings["provider"] != "typesafe" or settings["protocol"] != "systemone":
-        raise ValueError("AI question wrangles currently require provider typesafe and protocol systemone.")
+        raise ValueError("AI answer wrangles currently require provider typesafe and protocol systemone.")
     workers = threads if threads is not None else settings.get("default_concurrency")
     if type(workers) is not int or workers < 1:
         raise ValueError("threads/default_concurrency must be a positive integer.")
@@ -202,7 +203,7 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
 
     secret = api_key if api_key is not None else _os.getenv("TYPESAFE_API_KEY")
     if not isinstance(secret, str) or not secret.strip():
-        raise ValueError("Set api_key or TYPESAFE_API_KEY for AI question wrangles.")
+        raise ValueError("Set api_key or TYPESAFE_API_KEY for AI answer wrangles.")
     secret = secret.strip()
     if any(ord(char) < 33 or ord(char) > 126 for char in secret):
         raise ValueError("The Typesafe API key must contain only printable ASCII without whitespace.")
@@ -232,7 +233,7 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
 
 def choose(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
            threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
-    """Answer named choice questions; return choice, confidence, and probabilities.
+    """Answer which option best fits; return choice, confidence, and probabilities.
 
     ``data`` is text/a record, or a list of input records. Each question supplies
     instructions and a mapping of option labels to descriptions (or None).
@@ -246,7 +247,7 @@ def choose(data, questions, api_key=None, *, model=None, provider=None, protocol
 
 def score(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
           threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
-    """Answer named score questions using ordered, unique criterion descriptions.
+    """Answer where the input falls along ordered, unique criterion descriptions.
 
     Scores retain the provider's native 0..N-1 scale. Confidence and complete
     probabilities keyed by description accompany each score. Input/output batch
@@ -259,8 +260,9 @@ def score(data, questions, api_key=None, *, model=None, provider=None, protocol=
 
 def true_false(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
                threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
-    """Return probability_true and the supplied true_criteria for named questions.
+    """Answer how likely statements are to be true for the supplied input.
 
+    Each named answer includes probability_true and the supplied true_criteria.
     Optional criteria use string keys "true" and "false". No Boolean conversion
     is performed. Input/output batch shape and configuration follow :func:`choose`.
     """
@@ -269,12 +271,13 @@ def true_false(data, questions, api_key=None, *, model=None, provider=None, prot
                 cache=cache, cache_ttl=cache_ttl)
 
 
-def questions(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
-              threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
-    """Evaluate mixed named questions in one request per input record.
+def answers(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
+            threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
+    """Provide structured answers to common question types about each input.
 
-    Each definition declares type choose, score, or true_false along with its
-    instructions and criteria. Other behavior follows the individual operations.
+    Each question declares type choose, score, or true_false with its instructions
+    and criteria. Any combination of these types is answered in one request per
+    input record. Outputs follow the corresponding individual wrangles.
     """
     return _run(data, questions, None, api_key=api_key, model=model, provider=provider,
                 protocol=protocol, threads=threads, timeout=timeout, retries=retries,
