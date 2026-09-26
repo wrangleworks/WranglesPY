@@ -22,6 +22,7 @@ from .pandas import *
 from . import convert
 from . import create
 from . import extract
+from . import ai
 from . import format
 from . import merge
 from . import select

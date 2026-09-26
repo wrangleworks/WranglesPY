@@ -1,0 +1,367 @@
+"""Offline recipe integration for named Typesafe questions."""
+
+import copy
+import inspect
+import os
+
+import jsonschema
+import pandas as pd
+import pytest
+import yaml
+
+import wrangles
+from wrangles.recipe_wrangles import ai as recipe_ai
+from wrangles.clients import typesafe
+
+
+@pytest.fixture(autouse=True)
+def no_live_auth(monkeypatch):
+    monkeypatch.setattr(wrangles.recipe._auth, "get_applied_permission_group", lambda: None)
+
+
+def question(kind, **overrides):
+    result = {"instructions": "Evaluate the supplied product."}
+    if kind == "choose":
+        result["criteria"] = {"bearing": "A bearing", "belt": "A belt"}
+    elif kind == "score":
+        result["criteria"] = ["Low", "Medium", "High"]
+    else:
+        result["criteria"] = {"true": "Suitable outdoors", "false": "Indoor use only"}
+    return {**result, **overrides}
+
+
+@pytest.fixture
+def core_calls(monkeypatch):
+    """Mock only the network-facing core entry points, retaining real validation."""
+    calls = []
+
+    def operation(kind):
+        def execute(data, questions, **settings):
+            calls.append({"kind": kind, "data": data, "questions": questions, "settings": settings})
+            prepared = wrangles.ai._prepare_questions(questions, kind=kind)
+            results = []
+            for row in data:
+                response = {}
+                for label, definition in prepared.items():
+                    if definition["type"] == "choose":
+                        response[label] = {
+                            "choice": "bearing", "confidence": 0.8,
+                            "probabilities": {"bearing": 0.8, "belt": 0.2},
+                        }
+                    elif definition["type"] == "score":
+                        response[label] = {
+                            "score": 1.42, "confidence": 0.7,
+                            "probabilities": {"Low": 0.0, "Medium": 0.58, "High": 0.42},
+                        }
+                    else:
+                        response[label] = {
+                            "probability_true": 0.75,
+                            "true_criteria": definition.get("criteria", {}).get("true", ""),
+                        }
+                results.append(response)
+            return results
+        return execute
+
+    for name in ("choose", "score", "true_false", "questions"):
+        monkeypatch.setattr(wrangles.ai, name, operation(None if name == "questions" else name))
+    return calls
+
+
+def run(kind, definitions, dataframe=None, **options):
+    if dataframe is None:
+        dataframe = pd.DataFrame({"Description": ["first", "second"], "Ignore": [1, 2]})
+    return wrangles.recipe.run(
+        {"wrangles": [{f"ai.{kind}": {"input": "Description", "questions": definitions, **options}}]},
+        dataframe=dataframe,
+    )
+
+
+@pytest.mark.parametrize("kind", ["choose", "score", "true_false"])
+def test_homogeneous_named_questions_share_row_records_and_defaults(kind, core_calls):
+    source = pd.DataFrame({"Description": ["first", "second"], "Ignore": [1, 2]}, index=[8, 3])
+    result = run(kind, {"First": question(kind), "Second": question(kind)}, dataframe=source,
+                 api_key="test-key", threads=3, cache=False)
+
+    assert result.index.tolist() == [8, 3]
+    assert len(core_calls) == 1
+    assert core_calls[0]["data"] == [{"Description": "first"}, {"Description": "second"}]
+    assert core_calls[0]["settings"]["threads"] == 3
+    assert core_calls[0]["settings"]["cache"] is False
+    if kind == "true_false":
+        assert result.columns.tolist() == ["Description", "Ignore", "First", "First_true_criteria",
+                                           "Second", "Second_true_criteria"]
+        assert result["First"].tolist() == [0.75, 0.75]
+        assert result["First_true_criteria"].tolist() == ["Suitable outdoors"] * 2
+    else:
+        assert result.columns.tolist() == ["Description", "Ignore", "First", "First_confidence",
+                                           "First_probabilities", "Second", "Second_confidence",
+                                           "Second_probabilities"]
+        assert result["First"].tolist() == (["bearing"] * 2 if kind == "choose" else [1.42] * 2)
+        assert isinstance(result["First_probabilities"].iloc[0], dict)
+
+
+@pytest.mark.parametrize("blank", [None, "", "  "])
+def test_whole_blank_output_uses_default_columns(blank, core_calls):
+    result = run("choose", {"Category": question("choose", output=blank)})
+    assert result["Category"].tolist() == ["bearing", "bearing"]
+    assert "Category_probabilities" in result
+
+
+def test_mixed_questions_project_explicit_columns_and_native_values(core_calls):
+    result = run("questions", {
+        "Category": question("choose", type="choose", output=["Category Name", "Certainty", "Distribution"]),
+        "Severity": question("score", type="score"),
+        "Outdoor": question("true_false", type="true_false", output=["Outdoor Probability", "Criterion"]),
+    })
+
+    assert core_calls[0]["kind"] is None
+    assert list(core_calls[0]["questions"]) == ["Category", "Severity", "Outdoor"]
+    assert result["Category Name"].tolist() == ["bearing"] * 2
+    assert result["Certainty"].tolist() == [0.8] * 2
+    assert result["Severity"].tolist() == [1.42] * 2
+    assert result["Severity_probabilities"].iloc[0] == {"Low": 0.0, "Medium": 0.58, "High": 0.42}
+    assert result["Outdoor Probability"].tolist() == [0.75] * 2
+    assert result["Criterion"].tolist() == ["Suitable outdoors"] * 2
+    assert "Outdoor" not in result
+
+
+def test_true_false_without_criteria_has_blank_criteria_output(core_calls):
+    result = run("true_false", {"Outdoor": {"instructions": "Can it be used outdoors?"}})
+    assert result["Outdoor"].tolist() == [0.75, 0.75]
+    assert result["Outdoor_true_criteria"].tolist() == ["", ""]
+
+
+def test_structured_true_criteria_stays_structured(core_calls):
+    criteria = {"requirements": ["water resistant", "UV resistant"]}
+    result = run("true_false", {"Outdoor": question("true_false", criteria={"true": criteria})})
+    assert result["Outdoor_true_criteria"].tolist() == [criteria, criteria]
+
+
+def test_where_preserves_untouched_rows_and_overwrites_nested_destinations(core_calls):
+    source = pd.DataFrame({"Description": ["first", "second"], "Category": ["old1", "old2"]}, index=[5, 9])
+    result = run("questions", {
+        "Category": question("choose", type="choose"),
+        "Outdoor": question("true_false", type="true_false"),
+    }, dataframe=source, where="Description = 'second'")
+
+    assert core_calls[0]["data"] == [{"Description": "second"}]
+    assert result.index.tolist() == [5, 9]
+    assert result["Category"].tolist() == ["old1", "bearing"]
+    assert result["Category_confidence"].tolist() == ["", 0.8]
+    assert result["Outdoor"].tolist() == ["", 0.75]
+    assert result["Outdoor_true_criteria"].tolist() == ["", "Suitable outdoors"]
+
+
+def test_where_no_rows_creates_all_nested_destinations_without_calling_core(core_calls):
+    source = pd.DataFrame({"Description": ["first"], "Category": ["kept"]})
+    result = run("questions", {
+        "Category": question("choose", type="choose"),
+        "Outdoor": question("true_false", type="true_false", output=["Probability", "Rule"]),
+    }, dataframe=source, where="Description = 'missing'")
+
+    assert core_calls == []
+    assert result.columns.tolist() == ["Description", "Category", "Category_confidence",
+                                       "Category_probabilities", "Probability", "Rule"]
+    assert result["Category"].tolist() == ["kept"]
+    assert result["Probability"].tolist() == [""]
+
+
+def test_empty_dataframe_has_declared_schema_without_calling_core(core_calls):
+    result = run("score", {"Severity": question("score")}, dataframe=pd.DataFrame({"Description": []}))
+    assert core_calls == []
+    assert result.empty
+    assert result.columns.tolist() == ["Description", "Severity", "Severity_confidence", "Severity_probabilities"]
+
+
+@pytest.mark.parametrize("where", ["Description = 'second'", "Description = 'missing'"])
+def test_nested_output_names_are_literal_even_when_they_contain_wildcards(where, core_calls):
+    source = pd.DataFrame({"Description": ["first", "second"], "OutdoorElse": ["kept1", "kept2"]})
+    result = run("true_false", {"Outdoor*": question("true_false")}, dataframe=source, where=where)
+    assert "Outdoor*" in result
+    assert "Outdoor*_true_criteria" in result
+    assert result["Outdoor*"].tolist() == (["", 0.75] if core_calls else ["", ""])
+    assert result["OutdoorElse"].tolist() == ["kept1", "kept2"]
+
+
+def test_duplicate_destinations_rejected_even_when_where_matches_no_rows(core_calls):
+    with pytest.raises(ValueError, match="(?i)(duplicate|unique|collision|already)"):
+        run("choose", {"First": question("choose", output=["Same", "Certainty1", "Probs1"]),
+                       "Second": question("choose", output=["Same", "Certainty2", "Probs2"])},
+            where="Description = 'missing'")
+    assert core_calls == []
+
+
+def test_concurrent_collects_nested_outputs_and_ordinary_wrangle_output(core_calls):
+    source = pd.DataFrame({"Description": ["first", "second"], "Severity": [99, 99]})
+    result = wrangles.recipe.run({"wrangles": [{"concurrent": {"wrangles": [
+        {"ai.choose": {"input": "Description", "questions": {"Category": question("choose")}}},
+        {"ai.questions": {"input": "Description", "questions": {
+            "Severity": question("score", type="score"),
+            "Outdoor": question("true_false", type="true_false"),
+        }}},
+        {"copy": {"input": "Description", "output": "Copied"}},
+    ]}}]}, dataframe=source)
+
+    assert len(core_calls) == 2
+    assert result["Category"].tolist() == ["bearing"] * 2
+    assert result["Severity"].tolist() == [1.42] * 2
+    assert result["Outdoor"].tolist() == [0.75] * 2
+    assert result["Copied"].tolist() == ["first", "second"]
+    assert set(result) == {"Description", "Severity", "Category", "Category_confidence",
+                           "Category_probabilities", "Severity_confidence", "Severity_probabilities",
+                           "Outdoor", "Outdoor_true_criteria", "Copied"}
+
+
+def test_dataframe_accessor_uses_recipe_wrapper_without_mutating_source(core_calls):
+    source = wrangles.DataFrame({"Description": ["first"]})
+    result = source.wrangles.ai.score(input="Description", questions={"Severity": question("score")})
+    assert result["Severity"].tolist() == [1.42]
+    assert source.columns.tolist() == ["Description"]
+
+
+def test_wrapper_rejects_response_count_mismatch(monkeypatch):
+    monkeypatch.setattr(wrangles.ai, "choose", lambda *args, **kwargs: [])
+    with pytest.raises(RuntimeError, match="response count"):
+        run("choose", {"Category": question("choose")})
+
+
+@pytest.mark.parametrize("kind", ["choose", "score", "true_false", "questions"])
+def test_schema_exposes_public_parameters_and_accepts_named_questions(kind):
+    function = getattr(recipe_ai, kind)
+    schema = yaml.safe_load(function.__doc__)
+    jsonschema.Draft202012Validator.check_schema(schema)
+    assert set(inspect.signature(function).parameters) - {"df"} == set(schema["properties"])
+    definition = question("choose" if kind == "questions" else kind)
+    if kind == "questions":
+        definition["type"] = "choose"
+    jsonschema.validate({"questions": {"Question": definition}}, schema)
+    definition["output"] = ["wrong length"]
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({"questions": {"Question": definition}}, schema)
+
+
+def test_declared_output_helper_preserves_ordinary_wrangle_shapes():
+    helper = wrangles.recipe._declared_output_columns
+    assert helper("copy", {"output": "Copied"}) == ["Copied"]
+    assert helper("split.dictionary", {"output": [{"choice": "Category"}, "confidence"]}) == ["Category", "confidence"]
+    assert helper("extract.ai", {"output": {"Field": {"type": "string"}}}) == ["Field"]
+    assert helper("custom.dynamic", {}) is None
+
+
+@pytest.fixture
+def http_transport(monkeypatch):
+    """Exercise the complete runtime, intercepting only the provider HTTP call."""
+    for name in list(os.environ):
+        if name.startswith(("WRANGLES_AI_CACHE_", "WRANGLES_EXTRACT_AI_CACHE_")):
+            monkeypatch.delenv(name)
+    monkeypatch.delenv("WRANGLES_AI_CONFIG", raising=False)
+    monkeypatch.setenv("TYPESAFE_API_KEY", "synthetic-recipe-integration-key")
+    wrangles.ai_config.clear_cache()
+    wrangles.ai_cache.clear()
+    calls = []
+
+    class Response:
+        status_code = 200
+        headers = {}
+
+        def __init__(self, payload):
+            self.payload = payload
+
+        def json(self):
+            return self.payload
+
+        def close(self):
+            pass
+
+    def post(url, **kwargs):
+        calls.append({"url": url, **copy.deepcopy(kwargs)})
+        request = kwargs["json"]
+        first_row = request["state"]["Description"] == "first"
+        answers = {}
+        for label, definition in reversed(list(request["questions"].items())):
+            kind = definition["type"]
+            if kind == "choice":
+                answers[label] = {
+                    "type": "choice", "choice": "bearing" if first_row else "belt",
+                    "confidence": 0.8 if first_row else 0.9,
+                    "probabilities": {"belt": 0.2 if first_row else 0.85,
+                                      "bearing": 0.8 if first_row else 0.15},
+                }
+            elif kind == "score":
+                answers[label] = {
+                    "type": "score", "score": 1.42 if first_row else 0.2,
+                    "confidence": 0.7,
+                    "legend": {"2": "High", "0": "Low", "1": "Medium"},
+                    "probabilities": {"2": 0.42 if first_row else 0.0,
+                                      "0": 0.0 if first_row else 0.8,
+                                      "1": 0.58 if first_row else 0.2},
+                }
+            else:
+                answers[label] = {"type": "noul", "noul": 0.0 if first_row else 0.6}
+        return Response({"model": request["model"], "answers": answers,
+                         "usage": {"input_tokens": 24, "output_tokens": 12}})
+
+    monkeypatch.setattr(typesafe._requests, "post", post)
+    yield calls
+    wrangles.ai_config.clear_cache()
+    wrangles.ai_cache.clear()
+
+
+def test_mixed_recipe_through_http_preserves_native_columns_and_provider_payload(http_transport):
+    definitions = {
+        "Category": question("choose", type="choose", output=["Picked", "Certainty", "Distribution"]),
+        "Severity": question("score", type="score"),
+        "Outdoor": {"type": "true_false", "instructions": "Can it be used outdoors?"},
+    }
+    source = pd.DataFrame({"Description": ["first", "second"], "Excluded": [1, 2]}, index=[12, 4])
+    result = run("questions", definitions, dataframe=source, cache=False, threads=1)
+
+    assert result.index.tolist() == [12, 4]
+    assert result["Picked"].tolist() == ["bearing", "belt"]
+    assert result["Certainty"].tolist() == [0.8, 0.9]
+    assert result["Distribution"].tolist() == [{"bearing": 0.8, "belt": 0.2},
+                                               {"bearing": 0.15, "belt": 0.85}]
+    assert result["Severity"].tolist() == [1.42, 0.2]
+    assert result["Severity_probabilities"].tolist() == [
+        {"Low": 0.0, "Medium": 0.58, "High": 0.42},
+        {"Low": 0.8, "Medium": 0.2, "High": 0.0},
+    ]
+    assert result["Outdoor"].tolist() == [0.0, 0.6]
+    assert result["Outdoor_true_criteria"].tolist() == ["", ""]
+    assert len(http_transport) == 2
+    assert [call["json"]["state"] for call in http_transport] == [
+        {"Description": "first"}, {"Description": "second"},
+    ]
+    for call in http_transport:
+        assert call["url"] == "https://api.typesafe.ai/v1/systemone"
+        assert call["headers"]["Authorization"] == "Bearer synthetic-recipe-integration-key"
+        assert set(call["json"]) == {"state", "model", "questions"}
+        assert call["json"]["questions"] == {
+            "Category": {"type": "choice", "instructions": definitions["Category"]["instructions"],
+                         "criteria": {"bearing": "A bearing", "belt": "A belt"}},
+            "Severity": {"type": "score", "instructions": definitions["Severity"]["instructions"],
+                         "criteria": ["Low", "Medium", "High"]},
+            "Outdoor": {"type": "noul", "instructions": "Can it be used outdoors?"},
+        }
+
+
+def test_homogeneous_recipe_through_http_batches_both_named_questions_per_row(http_transport):
+    definitions = {
+        "Category": question("choose"),
+        "Alternate": question("choose", output=["Alternative", "Alternative Confidence", "Alternative Probabilities"]),
+    }
+    result = run("choose", definitions, cache=False, threads=1)
+
+    assert len(http_transport) == 2
+    assert result["Category"].tolist() == ["bearing", "belt"]
+    assert result["Alternative"].tolist() == ["bearing", "belt"]
+    assert result["Category_probabilities"].tolist() == result["Alternative Probabilities"].tolist()
+    assert result["Category_confidence"].tolist() == [0.8, 0.9]
+    for call in http_transport:
+        assert set(call["json"]) == {"state", "model", "questions"}
+        assert set(call["json"]["questions"]) == {"Category", "Alternate"}
+        for definition in call["json"]["questions"].values():
+            assert definition == {
+                "type": "choice", "instructions": "Evaluate the supplied product.",
+                "criteria": {"bearing": "A bearing", "belt": "A belt"},
+            }

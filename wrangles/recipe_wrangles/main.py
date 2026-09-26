@@ -488,10 +488,13 @@ def concurrent(
         futures = []
         futures_output_map = {}
         for wrangle_definition in wrangles:
-            if (
-                not isinstance(wrangle_definition, dict) or
-                "output" not in list(wrangle_definition.values())[0]
-            ):
+            if not isinstance(wrangle_definition, dict) or len(wrangle_definition) != 1:
+                raise ValueError('Using concurrent requires that each wrangle specify output column(s).')
+            wrangle_name, wrangle_params = next(iter(wrangle_definition.items()))
+            output_columns = _wrangles.recipe._declared_output_columns(
+                wrangle_name, wrangle_params or {},
+            )
+            if output_columns is None:
                 raise ValueError('Using concurrent requires that each wrangle specify output column(s).')
 
             if use_multiprocessing:
@@ -514,7 +517,7 @@ def concurrent(
             futures.append(future)
 
             # Add output columns to reference on completion
-            futures_output_map[future] = list(wrangle_definition.values())[0]["output"]
+            futures_output_map[future] = output_columns
         
         # Wait for all futures to complete
         for future in _futures.as_completed(futures):

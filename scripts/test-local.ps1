@@ -25,6 +25,7 @@ foreach ($name in @(
     "HUGGINGFACE_TOKEN",
     "OPENAI_API_KEY",
     "SERPAPI_API_KEY",
+    "TYPESAFE_API_KEY",
     "WRANGLES_PASSWORD",
     "WRANGLES_USER",
     "WRANGLES_AI_CONFIG"
