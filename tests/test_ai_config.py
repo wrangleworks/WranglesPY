@@ -41,21 +41,30 @@ def test_packaged_operation_defaults_and_model_lifecycle():
     assert ai_config.resolve("embeddings")["model"] == "text-embedding-3-small"
     assert ai_config.resolve("search.retrieve_link_content")["model"] == "gemini-3.8-flash"
     for operation in config["operations"]:
-        assert ai_config.resolve(operation)["retries"] == 1
+        explicit_model = "org/task-model" if config["operations"][operation].get("requires_model") else None
+        assert ai_config.resolve(operation, model=explicit_model)["retries"] == 1
     assert config["providers"]["anthropic"]["models"] == {}
 
 
 def test_catalog_metadata_is_separate_from_request_defaults():
     config = ai_config.load()
     provider = config["providers"]["openai"]
-    assert provider["models"]["gpt-6-luna"]["application"] == "data_extraction"
-    assert provider["models"]["gpt-6-sol"]["application"] == ["reasoning", "agents"]
+    assert provider["models"]["gpt-6-luna"]["applications"] == ["data_extraction", "description_writing"]
+    assert provider["models"]["gpt-6-sol"]["applications"] == ["reasoning", "agents"]
     assert provider["models"]["text-embedding-3-large"]["default_for"] == []
     assert provider["documentation"]["model_cards"].startswith("https://")
     policy = ai_config.resolve("extract.ai")
     assert "model_cards" not in policy["endpoints"]
-    assert "application" not in policy
+    assert "applications" not in policy
     assert "documentation" not in policy
+
+
+def test_generic_task_operation_requires_explicit_model():
+    with pytest.raises(ValueError, match="requires an explicit model"):
+        ai_config.resolve("huggingface")
+    policy = ai_config.resolve("huggingface", model="Org/task-model")
+    assert policy["model"] == "Org/task-model"
+    assert policy["endpoints"]["hf_inference"] == "https://router.huggingface.co/hf-inference/models"
 
 
 @pytest.mark.parametrize("catalog_prefix", ["", "models/"])
@@ -88,13 +97,80 @@ def test_google_duplicate_catalog_spellings_are_rejected(monkeypatch, tmp_path):
         ai_config.load()
 
 
-@pytest.mark.parametrize("application", ["", False, [], ["embeddings", ""], ["embeddings", 3]])
-def test_invalid_application_metadata_is_rejected(monkeypatch, tmp_path, application):
+@pytest.mark.parametrize("applications", ["embeddings", False, None, ["embeddings", ""], ["embeddings", 3]])
+def test_invalid_applications_metadata_is_rejected(monkeypatch, tmp_path, applications):
     config = ai_config.load()
-    config["providers"]["jina"]["models"]["jina-embeddings-v5-omni-small"]["application"] = application
+    config["providers"]["jina"]["models"]["jina-embeddings-v5-omni-small"]["applications"] = applications
     use_config(config, monkeypatch, tmp_path)
-    with pytest.raises(ValueError, match="application"):
+    with pytest.raises(ValueError, match="applications"):
         ai_config.load()
+
+
+def test_singular_application_metadata_has_migration_error(monkeypatch, tmp_path):
+    config = ai_config.load()
+    config["providers"]["openai"]["models"]["gpt-6-luna"]["application"] = "extraction"
+    use_config(config, monkeypatch, tmp_path)
+    with pytest.raises(ValueError, match="renamed to applications"):
+        ai_config.load()
+
+
+@pytest.mark.parametrize("applications", [[], ["data_extraction", "description writing"]])
+def test_applications_accepts_lists_including_spaces(monkeypatch, tmp_path, applications):
+    config = ai_config.load()
+    config["providers"]["openai"]["models"]["gpt-6-luna"]["applications"] = applications
+    use_config(config, monkeypatch, tmp_path)
+    assert ai_config.load()["providers"]["openai"]["models"]["gpt-6-luna"]["applications"] == applications
+
+
+@pytest.mark.parametrize("provider,model", [
+    ("openai", "gpt-4o"),
+    ("openai", "gpt-4o-2024-08-06"),
+    ("google", "models/deprecated-gemini"),
+])
+def test_deprecated_catalog_models_warn_only_when_called(monkeypatch, tmp_path, caplog, provider, model):
+    config = ai_config.load()
+    config["providers"]["google"]["models"]["deprecated-gemini"] = {"status": "deprecated"}
+    use_config(config, monkeypatch, tmp_path)
+    operation = "extract.ai" if provider == "openai" else "search.retrieve_link_content"
+    assert ai_config.resolve(operation, model=model)["model"] == model
+    assert not caplog.records
+    ai_config.warn_if_deprecated(model, provider)
+    assert len(caplog.records) == 1
+    assert caplog.records[0].levelname == "WARNING"
+    assert "deprecated" in caplog.text
+    assert provider in caplog.text and model in caplog.text
+
+
+def test_active_snapshot_override_and_unlisted_models_do_not_warn(monkeypatch, tmp_path, caplog):
+    config = ai_config.load()
+    config["providers"]["openai"]["models"]["gpt-4o-2024-08-06"] = {"status": "active"}
+    use_config(config, monkeypatch, tmp_path)
+    for model in ("gpt-6-luna", "gpt-4o-2024-08-06", "unlisted-model"):
+        ai_config.warn_if_deprecated(model)
+    assert not caplog.records
+
+
+def test_legacy_configuration_uses_packaged_deprecation_status(monkeypatch, tmp_path, caplog):
+    use_config({"version": 1, "extract_ai": {"model": "gpt-4o"}}, monkeypatch, tmp_path)
+    ai_config.warn_if_deprecated("gpt-4o")
+    assert "deprecated" in caplog.text
+
+
+def test_custom_catalog_is_authoritative_for_deprecation(monkeypatch, tmp_path, caplog):
+    config = ai_config.load()
+    del config["providers"]["openai"]["models"]["gpt-4o"]
+    use_config(config, monkeypatch, tmp_path)
+    ai_config.warn_if_deprecated("gpt-4o")
+    assert not caplog.records
+
+
+def test_deprecated_default_roles_remain_usable(monkeypatch, tmp_path, caplog):
+    config = ai_config.load()
+    config["providers"]["openai"]["models"]["gpt-6-luna"]["status"] = "deprecated"
+    use_config(config, monkeypatch, tmp_path)
+    for operation, role in (("extract.ai", None), ("generate.ai", None), ("extract.ai", "test")):
+        assert ai_config.resolve(operation, role=role)["model"] == "gpt-6-luna"
+    assert not caplog.records  # Only execution emits the warning.
 
 
 @pytest.mark.parametrize("documentation", [[], {"model_cards": ""}, {"model_cards": False}])
@@ -245,7 +321,7 @@ def test_inherited_snapshot_defaults_are_validated(monkeypatch, tmp_path):
     (lambda c: c["providers"]["openai"].update(models=[]), "models must be an object"),
     (lambda c: c["providers"].update(OpenAI={"models": {}}), "Provider names must be lowercase"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"].update(status=[]), "status must"),
-    (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"].update(status="deprecated"), "cannot hold default roles"),
+    (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"].update(status="retired"), "cannot hold default roles"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-4o-mini"].update(default_for=["global"]), "Duplicate default role"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-4o"].update(default_for="global"), "list of non-empty roles"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-4o-mini"].update(default_for=["extrcat.ai"]), "unknown default role"),

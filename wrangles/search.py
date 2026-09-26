@@ -2,6 +2,7 @@ import concurrent.futures as _futures
 
 # Import our client factory
 from .clients import get_client as _get_client
+from .clients.gemini import GeminiURLContextClient as _GeminiURLContextClient
 from . import _ai_mode
 from . import ai_config as _ai_config
 
@@ -83,6 +84,7 @@ def retrieve_link_content(
     if policy["protocol"] != "generate_content":
         raise ValueError("Google URL content retrieval requires the 'generate_content' protocol.")
     model_id = policy["model"]
+    _ai_config.warn_if_deprecated(model_id, policy["provider"])
     threads = policy["default_concurrency"] if threads is None else threads
     if client_config is None: client_config = {}
         
@@ -93,16 +95,13 @@ def retrieve_link_content(
         is_scalar = True
         urls = [urls]
 
+    def retrieve(url):
+        if isinstance(retriever, _GeminiURLContextClient):
+            return retriever._retrieve(url, prompt, output_format, policy)
+        return retriever.retrieve(url=url, prompt=prompt, model_id=model_id, output_format=output_format)
+
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
-        results = list(executor.map(
-            lambda u: retriever.retrieve(
-                url=u, 
-                prompt=prompt, 
-                model_id=model_id,
-                output_format=output_format
-            ),
-            urls
-        ))
+        results = list(executor.map(retrieve, urls))
 
     if is_scalar:
         return results[0]

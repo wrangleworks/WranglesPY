@@ -673,7 +673,7 @@ def test_extract_ai_keeps_chat_completions_override(monkeypatch):
         calls.append((data, api_key, settings, url, timeout, retries))
         return {"length": "25mm"}
 
-    monkeypatch.setattr(extract._openai, "chatGPT", chatgpt)
+    monkeypatch.setattr(extract._openai, "_chatGPT", chatgpt)
 
     result = extract.ai(
         "wrench 25mm",
@@ -978,6 +978,227 @@ def test_extract_uses_selected_catalog_model_defaults(
         ai_config.clear_cache()
 
 
+@pytest.fixture
+def extraction_config(monkeypatch, tmp_path):
+    config = ai_config.load()
+    override = tmp_path / "ai-caller.yml"
+
+    def save():
+        override.write_text(json.dumps(config), encoding="utf-8")
+        monkeypatch.setenv("WRANGLES_AI_CONFIG", str(override))
+        ai_config.clear_cache()
+
+    yield config, save
+    ai_config.clear_cache()
+
+
+@pytest.mark.parametrize("reasoning,verbosity,expected_reasoning,expected_verbosity", [
+    (None, None, {"effort": "none"}, "medium"),
+    ({"effort": "low"}, "high", {"effort": "low"}, "high"),
+    ({"effort": "high"}, "medium", None, "medium"),
+    (None, "low", {"effort": "none"}, None),
+])
+def test_extract_checks_each_requested_enum_value(
+    extraction_config, monkeypatch, reasoning, verbosity, expected_reasoning, expected_verbosity,
+):
+    config, save = extraction_config
+    model = config["providers"]["openai"]["models"]["gpt-6-luna"]
+    model["supported_values"] = {
+        "reasoning.effort": ["none", "low"], "text.verbosity": ["medium", "high"],
+    }
+    model["defaults"]["text"]["verbosity"] = "medium"
+    save()
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(),
+    )
+    assert extract.ai(
+        "wrench 25mm", "key", output={"length": {"type": "string"}},
+        reasoning=reasoning, verbosity=verbosity, cache=False,
+    ) == {"length": "25mm"}
+    payload = calls[0]["json"]
+    assert payload.get("reasoning") == expected_reasoning
+    assert payload["text"].get("verbosity") == expected_verbosity
+
+
+@pytest.mark.parametrize("verbosity,expected", [(None, "high"), ("medium", "medium")])
+def test_extract_text_options_preserve_schema_and_named_verbosity_precedence(
+    extraction_config, monkeypatch, verbosity, expected,
+):
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(),
+    )
+    assert extract.ai(
+        "wrench 25mm", "key", output={"length": {"type": "string"}},
+        text={"verbosity": "high"}, verbosity=verbosity, cache=False,
+    ) == {"length": "25mm"}
+    text = calls[0]["json"]["text"]
+    assert text["verbosity"] == expected
+    assert text["format"]["type"] == "json_schema"
+    assert "length" in text["format"]["schema"]["properties"]
+
+
+@pytest.mark.parametrize("text", ["low", {"format": {"type": "text"}}])
+def test_extract_rejects_invalid_text_and_schema_override(extraction_config, monkeypatch, text):
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(),
+    )
+    with pytest.raises(ValueError, match="extract.ai (text must|controls text.format)"):
+        extract.ai("wrench 25mm", "key", output={"length": {"type": "string"}}, text=text)
+    assert calls == []
+
+
+def test_extract_recipe_schema_accepts_max_reasoning():
+    import jsonschema
+    import yaml
+
+    schema = yaml.safe_load(recipe._recipe_wrangles.extract.ai.__doc__)
+    jsonschema.validate({"effort": "max"}, schema["properties"]["reasoning"])
+    assert extract._openai_responses.supports_reasoning_effort("gpt-6-luna", "max")
+
+
+@pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
+@pytest.mark.parametrize("explicit", [False, True])
+def test_extract_saved_model_resolves_runtime_defaults_and_warns_once(
+    extraction_config, monkeypatch, caplog, protocol, explicit,
+):
+    config, save = extraction_config
+    operation = config["operations"]["extract.ai"]["defaults"]
+    for key in ("default_concurrency", "request_timeout_seconds", "retries", "strict", "store", "cache"):
+        operation.pop(key)
+    config["providers"]["openai"]["models"]["saved-runtime-model"] = {
+        "status": "deprecated", "default_for": [],
+        "defaults": {
+            "default_concurrency": 3, "request_timeout_seconds": 7,
+            "retries": 0, "strict": False, "store": False,
+            "cache": {"enabled": False}, "service_tier": "flex",
+        },
+    }
+    save()
+    monkeypatch.setattr(extract._data, "model_content", lambda model_id: {
+        "Settings": {"GPTModel": "saved-runtime-model"},
+        "Columns": ["Find", "Type"], "Data": [["length", "string"]],
+    })
+    requests = []
+    batches = []
+    transports = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: requests.append(kwargs) or _successful_extraction_response(protocol),
+    )
+    original_batch = extract._ai_cache.execute_batch
+
+    def batch(*args, **kwargs):
+        batches.append(kwargs)
+        return original_batch(*args, **kwargs)
+
+    monkeypatch.setattr(extract._ai_cache, "execute_batch", batch)
+    transport_module = extract._openai_responses if protocol == "responses" else extract._openai
+    transport_name = "call_structured" if protocol == "responses" else "_chatGPT"
+    original_transport = getattr(transport_module, transport_name)
+
+    def transport(*args, **kwargs):
+        transports.append(args)
+        return original_transport(*args, **kwargs)
+
+    monkeypatch.setattr(transport_module, transport_name, transport)
+    options = {
+        "threads": 2, "timeout": 9, "retries": 2, "strict": True,
+        "store": True, "cache": True, "service_tier": "auto",
+    } if explicit else {}
+    with caplog.at_level(logging.WARNING):
+        result = extract.ai(
+            ["wrench 25mm", "wrench 25mm"], "key", model_id="saved-definition",
+            model="gpt-6-luna", protocol=protocol, **options,
+        )
+    assert result == [{"length": "25mm"}, {"length": "25mm"}]
+    assert batches[0]["max_workers"] == (2 if explicit else 3)
+    assert batches[0]["policy"].enabled is explicit
+    assert len(requests) == (1 if explicit else 2)
+    assert transports[0][4:6] == ((9, 2) if explicit else (7, 0))
+    payload = requests[0]["json"]
+    assert payload["model"] == "saved-runtime-model"
+    assert payload["service_tier"] == ("auto" if explicit else "flex")
+    if protocol == "responses":
+        assert payload["store"] is explicit
+        assert payload["text"]["format"]["strict"] is explicit
+    else:
+        assert payload["tools"][0]["function"]["strict"] is explicit
+    warnings = [record.message for record in caplog.records if "deprecated status" in record.message]
+    assert len(warnings) == 1
+    assert "saved-runtime-model" in warnings[0]
+    assert "openai" in warnings[0]
+
+
+def test_extract_runs_deprecated_default_model_and_warns_once(extraction_config, monkeypatch, caplog):
+    config, save = extraction_config
+    default_model = ai_config.resolve("extract.ai")["model"]
+    model = config["providers"]["openai"]["models"][default_model]
+    assert "extract.ai" in model["default_for"]
+    model["status"] = "deprecated"
+    save()
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(),
+    )
+    with caplog.at_level(logging.WARNING):
+        result = extract.ai(
+            ["wrench 25mm", "bolt 25mm"], "key",
+            output={"length": {"type": "string"}}, threads=1, cache=False,
+        )
+    assert result == [{"length": "25mm"}, {"length": "25mm"}]
+    assert len(calls) == 2
+    assert all(call["json"]["model"] == default_model for call in calls)
+    warnings = [record.message for record in caplog.records if "deprecated status" in record.message]
+    assert len(warnings) == 1
+    assert default_model in warnings[0]
+    assert "openai" in warnings[0]
+
+
+def test_extract_chat_uses_configured_base_prompt(extraction_config, monkeypatch):
+    config, save = extraction_config
+    config["operations"]["extract.ai"]["defaults"]["prompt"]["instructions"] = "Use the configured source policy."
+    save()
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response("chat_completions"),
+    )
+    extract.ai(
+        "wrench 25mm", "key", output={"length": {"type": "string"}},
+        protocol="chat_completions", instructions="Keep caller guidance.", cache=False,
+    )
+    messages = calls[0]["json"]["messages"]
+    assert messages[0]["content"] == "Use the configured source policy."
+    assert any("Use the function parse_output" in message["content"] for message in messages)
+    assert any(message["content"] == "Keep caller guidance." for message in messages)
+
+
+@pytest.mark.parametrize("configured,explicit", [
+    ({"max_tokens": 256}, {"max_output_tokens": 128}),
+    ({"max_output_tokens": 256}, {"max_tokens": 128}),
+])
+def test_extract_token_alias_overrides_use_caller_precedence(
+    extraction_config, monkeypatch, configured, explicit,
+):
+    config, save = extraction_config
+    config["providers"]["openai"]["models"]["gpt-6-luna"]["defaults"].update(configured)
+    save()
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(),
+    )
+    extract.ai("wrench 25mm", "key", output={"length": {"type": "string"}}, cache=False, **explicit)
+    assert calls[0]["json"]["max_output_tokens"] == 128
+
+
 @pytest.mark.parametrize("temperature", [None, 0])
 def test_extract_chat_uses_configured_model_temperature(monkeypatch, tmp_path, temperature):
     config = ai_config.load()
@@ -1023,7 +1244,7 @@ def test_extract_resolves_protocol_runtime_defaults_before_request(monkeypatch, 
         calls.append((settings, timeout, retries))
         return {"length": "25mm"}
 
-    monkeypatch.setattr(extract._openai, "chatGPT", chatgpt)
+    monkeypatch.setattr(extract._openai, "_chatGPT", chatgpt)
     selection = (
         {"url": "https://api.openai.com/v1/chat/completions"}
         if infer_protocol else {"protocol": "chat_completions"}
@@ -1059,7 +1280,7 @@ def test_v1_chat_preserves_temperature_and_resolves_retries(monkeypatch, tmp_pat
         calls.append((settings, retries))
         return {"length": "25mm"}
 
-    monkeypatch.setattr(extract._openai, "chatGPT", chatgpt)
+    monkeypatch.setattr(extract._openai, "_chatGPT", chatgpt)
     try:
         assert extract.ai(
             "wrench 25mm", "key", output={"length": {"type": "string"}},

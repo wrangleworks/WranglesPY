@@ -107,18 +107,83 @@ def test_chat_transport_uses_config_defaults_without_changing_settings(
     assert call["json"]["tools"] == original["tools"]
 
 
-def test_chat_transport_explicit_options_skip_resolution(configured_ai, chat_transport, monkeypatch):
+def test_private_chat_transport_skips_resolution(configured_ai, chat_transport, monkeypatch):
     def unexpected_resolution(*args, **kwargs):
         raise AssertionError("Resolved options must not trigger another catalog lookup per row.")
 
     monkeypatch.setattr(ai_config, "resolve", unexpected_resolution)
-    result = openai.chatGPT(
+    monkeypatch.setattr(ai_config, "model_defaults", unexpected_resolution)
+    monkeypatch.setattr(ai_config, "warn_if_deprecated", unexpected_resolution)
+    result = openai._chatGPT(
         "row input", "fake-key", _chat_settings(),
         url="https://explicit.example/completions", timeout=8, retries=0,
     )
     assert result == {"value": "synthetic"}
     assert chat_transport[0]["url"] == "https://explicit.example/completions"
     assert chat_transport[0]["timeout"] == 8
+
+
+@pytest.mark.parametrize("explicit_transport", [False, True])
+def test_direct_chat_resolves_missing_model_and_tuning(configured_ai, chat_transport, explicit_transport):
+    config, save = configured_ai
+    model = ai_config.resolve("extract.ai")["model"]
+    config["providers"]["openai"]["models"][model].setdefault("protocol_defaults", {})["chat_completions"] = {
+        "temperature": 0.25, "top_p": 0.9, "max_completion_tokens": 128,
+    }
+    config["operations"]["extract.ai"]["defaults"]["top_p"] = 0.8
+    save()
+    settings = _chat_settings()
+    settings.pop("model")
+    settings.pop("temperature")
+    original = copy.deepcopy(settings)
+    transport = {"url": "https://explicit.example/completions", "timeout": 8, "retries": 0} if explicit_transport else {}
+    assert openai.chatGPT("row", "fake-key", settings, **transport) == {"value": "synthetic"}
+    body = chat_transport[0]["json"]
+    assert body["model"] == model
+    assert body["temperature"] == 0.25
+    assert body["top_p"] == 0.8
+    assert body["max_completion_tokens"] == 128
+    assert "request_timeout_seconds" not in body
+    assert "retries" not in body
+    assert "prompt" not in body
+    assert settings == original
+    if explicit_transport:
+        assert chat_transport[0]["url"] == transport["url"]
+        assert chat_transport[0]["timeout"] == transport["timeout"]
+
+
+def test_direct_chat_preserves_explicit_settings_over_configured_model(configured_ai, chat_transport):
+    config, save = configured_ai
+    config["providers"]["openai"]["models"]["private-chat-model"] = {
+        "status": "active", "defaults": {"temperature": 0.2, "top_p": 0.9},
+    }
+    save()
+    settings = _chat_settings()
+    settings["top_p"] = 0.3
+    original = copy.deepcopy(settings)
+    openai.chatGPT("row", "fake-key", settings, url="https://explicit.example/completions", timeout=8, retries=0)
+    body = chat_transport[0]["json"]
+    assert body["model"] == "private-chat-model"
+    assert body["temperature"] == 0.7
+    assert body["top_p"] == 0.3
+    assert settings == original
+
+
+def test_direct_chat_v1_preserves_legacy_model_temperature(configured_ai, chat_transport, monkeypatch):
+    monkeypatch.setattr(ai_config, "load", lambda: {"version": 1, "extract_ai": {"model": "gpt-4o"}})
+    settings = _chat_settings()
+    settings.pop("model")
+    settings.pop("temperature")
+    openai.chatGPT("row", "fake-key", settings, url="https://explicit.example/completions", timeout=8, retries=0)
+    assert chat_transport[0]["json"]["model"] == "gpt-4o"
+    assert chat_transport[0]["json"]["temperature"] == 0.2
+
+
+def test_direct_chat_rejects_unsupported_provider(configured_ai, chat_transport, monkeypatch):
+    monkeypatch.setattr(ai_config, "resolve", lambda *args, **kwargs: {"provider": "anthropic"})
+    with pytest.raises(ValueError, match="only the 'openai' provider"):
+        openai.chatGPT("row", "fake-key", _chat_settings(), url="https://explicit.example/completions", timeout=8, retries=0)
+    assert chat_transport == []
 
 
 @pytest.mark.parametrize("retries,expected_attempts", [(None, 2), (0, 1)])
@@ -161,6 +226,70 @@ def test_chat_transport_v1_missing_options_and_missing_endpoint(monkeypatch, cha
         "row input", "fake-key", _chat_settings(), url="https://explicit.example/completions",
     ) == {"value": "synthetic"}
     assert chat_transport[0]["timeout"] is None
+
+
+@pytest.mark.parametrize("error_type", [requests.exceptions.Timeout, requests.exceptions.ConnectionError])
+def test_chat_transport_retries_transient_failure_then_succeeds(configured_ai, chat_transport, monkeypatch, error_type):
+    post = openai._requests.post
+    attempts = []
+    sleeps = []
+
+    def fail_once(**kwargs):
+        attempts.append(kwargs)
+        if len(attempts) == 1:
+            raise error_type("synthetic temporary failure")
+        return post(**kwargs)
+
+    monkeypatch.setattr(openai._requests, "post", fail_once)
+    monkeypatch.setattr(openai._openai_responses, "_sleep_for_retry", lambda context, delay: sleeps.append(delay))
+    result = openai.chatGPT("row", "fake-key", _chat_settings(), retries=1, timeout=3)
+    assert result == {"value": "synthetic"}
+    assert len(attempts) == 2
+    assert [attempt["timeout"] for attempt in attempts] == [3, 3]
+    assert sleeps == [1]
+
+
+@pytest.mark.parametrize("error_type", [requests.exceptions.Timeout, requests.exceptions.ConnectionError])
+@pytest.mark.parametrize("retries", [0, 1, 2])
+def test_chat_transport_respects_retry_budget_on_transport_failure(configured_ai, monkeypatch, error_type, retries):
+    calls = []
+    sleeps = []
+
+    def post(**kwargs):
+        calls.append(kwargs)
+        raise error_type("synthetic temporary failure")
+
+    monkeypatch.setattr(openai._requests, "post", post)
+    monkeypatch.setattr(openai._openai_responses, "_sleep_for_retry", lambda context, delay: sleeps.append(delay))
+    result = openai.chatGPT("row", "fake-key", _chat_settings(), retries=retries)
+    assert len(calls) == retries + 1
+    assert sleeps == [1, 2][:retries]
+    if error_type is requests.exceptions.Timeout:
+        assert result == {"value": "Timed Out"}
+    else:
+        assert isinstance(result["value"], error_type)
+
+
+def test_chat_transport_does_not_retry_invalid_request(configured_ai, monkeypatch):
+    calls = []
+
+    def post(**kwargs):
+        calls.append(kwargs)
+        raise requests.exceptions.InvalidURL("synthetic invalid URL")
+
+    monkeypatch.setattr(openai._requests, "post", post)
+    result = openai.chatGPT("row", "fake-key", _chat_settings(), retries=2)
+    assert len(calls) == 1
+    assert isinstance(result["value"], requests.exceptions.InvalidURL)
+
+
+def test_direct_chat_warns_on_each_deprecated_model_invocation(configured_ai, chat_transport, caplog):
+    settings = _chat_settings()
+    settings["model"] = "gpt-4o"
+    for _ in range(2):
+        assert openai.chatGPT("row", "fake-key", settings) == {"value": "synthetic"}
+    warnings = [record for record in caplog.records if "deprecated status" in record.message]
+    assert len(warnings) == 2
 
 
 @pytest.fixture
@@ -357,6 +486,37 @@ def test_embeddings_task_still_warns_for_non_jina(configured_ai, embedding_trans
     assert "task" not in embedding_transport[0]["json"]
 
 
+@pytest.mark.parametrize("provider,defaults,overrides", [
+    ("openai", {"dimensions": 3, "user": "configured-user"}, {"user": "explicit-user"}),
+    ("jina", {"normalized": False, "truncate": True, "late_chunking": True}, {"truncate": False}),
+])
+def test_embeddings_forward_supported_request_defaults(configured_ai, embedding_transport, provider, defaults, overrides):
+    config, save = configured_ai
+    model = "text-embedding-3-small" if provider == "openai" else "jina-embeddings-v5-omni-small"
+    config["providers"][provider]["models"][model].setdefault("defaults", {}).update(defaults)
+    save()
+    openai.embeddings("hello", "fake-key", provider=provider, model=model, **overrides)
+    body = embedding_transport[0]["json"]
+    for key, value in {**defaults, **overrides}.items():
+        assert body[key] == value
+    assert "default_concurrency" not in body
+    assert "request_timeout_seconds" not in body
+    assert "retries" not in body
+
+
+def test_embeddings_warns_once_per_operation_not_per_batch(configured_ai, embedding_transport, caplog):
+    config, save = configured_ai
+    config["providers"]["openai"]["models"]["old-embedding-model"] = {
+        "status": "deprecated", "default_for": [],
+    }
+    save()
+    for _ in range(2):
+        openai.embeddings(["one", "two", "three"], "fake-key", model="old-embedding-model")
+    assert len(embedding_transport) == 6
+    warnings = [record for record in caplog.records if "deprecated status" in record.message]
+    assert len(warnings) == 2
+
+
 def test_embeddings_explicit_zero_retries_remains_zero(configured_ai, monkeypatch):
     calls = []
 
@@ -389,7 +549,7 @@ def test_embeddings_rejects_unsupported_configured_provider(configured_ai, monke
 
 @pytest.fixture
 def google_transport(monkeypatch):
-    calls = {"clients": [], "requests": []}
+    calls = {"clients": [], "requests": [], "closed": []}
 
     def generate_content(**kwargs):
         calls["requests"].append(kwargs)
@@ -400,7 +560,10 @@ def google_transport(monkeypatch):
 
     def client(**kwargs):
         calls["clients"].append(kwargs)
-        return SimpleNamespace(models=SimpleNamespace(generate_content=generate_content))
+        return SimpleNamespace(
+            models=SimpleNamespace(generate_content=generate_content),
+            close=lambda: calls["closed"].append(True),
+        )
 
     types = SimpleNamespace(
         HttpOptions=lambda **kwargs: kwargs,
@@ -445,6 +608,7 @@ def test_google_retrieval_uses_config_at_sdk_boundary(configured_ai, google_tran
     assert request["config"]["system_instruction"].startswith(options["prompt"])
     assert request["config"]["tools"] == [{"url_context": {}}]
     assert request["config"]["response_mime_type"] == "application/json"
+    assert len(google_transport["closed"]) == 1
 
 
 def test_google_direct_client_reads_changed_config_each_call(configured_ai, google_transport):
@@ -464,6 +628,72 @@ def test_google_direct_client_reads_changed_config_each_call(configured_ai, goog
         "https://google.example/gemini", "https://alternate.example/gemini",
     ]
     assert [client["http_options"]["api_version"] for client in google_transport["clients"]] == ["v1beta", "v1"]
+
+
+def test_google_forwards_model_tuning_defaults(configured_ai, google_transport):
+    config, save = configured_ai
+    model = ai_config.resolve("search.retrieve_link_content")["model"]
+    tuning = {"top_p": 0.8, "top_k": 20, "max_output_tokens": 512, "stop_sequences": ["END"]}
+    config["providers"]["google"]["models"][model]["defaults"].update(tuning)
+    save()
+    gemini.GeminiURLContextClient(api_key="fake-key").retrieve("https://product.example/one")
+    request = google_transport["requests"][0]["config"]
+    for key, value in tuning.items():
+        assert request[key] == value
+    assert "retries" not in request
+    assert "api_version" not in request
+
+
+def test_google_closes_client_when_request_fails(configured_ai, monkeypatch):
+    closed = []
+
+    def generate_content(**kwargs):
+        raise RuntimeError("synthetic request failure")
+
+    client = SimpleNamespace(
+        models=SimpleNamespace(generate_content=generate_content),
+        close=lambda: closed.append(True),
+    )
+    types = SimpleNamespace(
+        HttpOptions=lambda **kwargs: kwargs, HttpRetryOptions=lambda **kwargs: kwargs,
+        GenerateContentConfig=lambda **kwargs: kwargs, Tool=lambda **kwargs: kwargs, UrlContext=lambda: {},
+    )
+    monkeypatch.setattr(gemini, "_get_genai", lambda: (
+        SimpleNamespace(Client=lambda **kwargs: client), types,
+        SimpleNamespace(ClientError=type("ClientError", (Exception,), {})),
+    ))
+    result = gemini.GeminiURLContextClient(api_key="fake-key").retrieve("https://product.example/one")
+    assert result["status"] == "Failure"
+    assert "synthetic request failure" in result["error"]
+    assert closed == [True]
+
+
+@pytest.mark.parametrize("direct_client", [False, True])
+def test_google_deprecated_warning_per_operation(configured_ai, google_transport, caplog, direct_client):
+    config, save = configured_ai
+    config["providers"]["google"]["models"]["old-google-model"] = {"status": "deprecated", "default_for": []}
+    save()
+    urls = ["https://product.example/one", "https://product.example/two"]
+    if direct_client:
+        client = gemini.GeminiURLContextClient(api_key="fake-key")
+        for url in urls:
+            client.retrieve(url, model_id="old-google-model")
+    else:
+        search.retrieve_link_content(urls, model_id="old-google-model", client_config={"api_key": "fake-key"})
+    warnings = [record for record in caplog.records if "deprecated status" in record.message]
+    assert len(warnings) == (2 if direct_client else 1)
+    assert len(google_transport["requests"]) == len(google_transport["closed"]) == 2
+
+
+def test_retrieval_preserves_generic_client_interface(configured_ai, monkeypatch):
+    calls = []
+    client = SimpleNamespace(retrieve=lambda **kwargs: calls.append(kwargs) or {"url": kwargs["url"]})
+    monkeypatch.setattr(search, "_get_client", lambda *args: client)
+    result = search.retrieve_link_content("https://product.example/one", model_id="custom-model", prompt="custom-prompt")
+    assert result == {"url": "https://product.example/one"}
+    assert calls == [{
+        "url": "https://product.example/one", "model_id": "custom-model", "prompt": "custom-prompt", "output_format": "json",
+    }]
 
 
 @pytest.mark.parametrize("caller", ["client", "python", "recipe"])
@@ -492,7 +722,7 @@ def test_google_explicit_unlisted_model_does_not_require_model_defaults(google_t
         assert result["extracted_content"] == {"name": "Synthetic"}
         request = google_transport["requests"][0]
         assert request["model"] == model
-        assert request["config"]["temperature"] is None
+        assert request["config"].get("temperature") is None
     finally:
         ai_config.clear_cache()
 

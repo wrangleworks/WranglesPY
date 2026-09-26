@@ -53,6 +53,14 @@ class GeminiURLContextClient:
         Retrieves context from a web URL using the Gemini API.
         Includes thread-safe initialization, strict timeouts, and optional JSON parsing.
         """
+        policy = None
+        if url and str(url).strip():
+            policy = _ai_config.resolve("search.retrieve_link_content", model=model_id)
+            _ai_config.warn_if_deprecated(policy["model"], policy["provider"])
+        return self._retrieve(url, prompt, output_format, policy)
+
+    def _retrieve(self, url, prompt, output_format, policy):
+        """Retrieve one URL using the operation's already resolved policy."""
         result = {
             "retrieved_url": url, 
             "status": "Failure",
@@ -68,7 +76,6 @@ class GeminiURLContextClient:
             url = f"https://{url}"
             result["retrieved_url"] = url
 
-        policy = _ai_config.resolve("search.retrieve_link_content", model=model_id)
         if policy["provider"] != "google":
             raise ValueError("URL content retrieval currently supports only the 'google' provider.")
         if policy["protocol"] != "generate_content":
@@ -76,6 +83,16 @@ class GeminiURLContextClient:
         model_id = policy["model"]
             
         user_content = f"Please retrieve content from this explicitly bounded URL: <{url}>"
+
+        base_prompt = prompt if prompt else self.DEFAULT_SYSTEM_PROMPT
+
+        # Format-specific prompting
+        if output_format.lower() == "json":
+            system_instruction = base_prompt + "\n\nCRITICAL FORMAT RULE:\n- You must return the requested sections as a strictly valid JSON object where the section names are the keys."
+            mime_type = "application/json"
+        else:
+            system_instruction = base_prompt + "\n\nCRITICAL FORMAT RULE:\n- Strictly use Markdown.\n- Use the section names exactly as listed, with empty lines between each section."
+            mime_type = "text/plain"
 
         try:
             # The SDK expects milliseconds; configuration stores seconds.
@@ -95,16 +112,6 @@ class GeminiURLContextClient:
             result["error"] = f"Failed to initialize thread Client: {e}"
             return result
 
-        base_prompt = prompt if prompt else self.DEFAULT_SYSTEM_PROMPT
-        
-        # Format-specific prompting
-        if output_format.lower() == "json":
-            system_instruction = base_prompt + "\n\nCRITICAL FORMAT RULE:\n- You must return the requested sections as a strictly valid JSON object where the section names are the keys."
-            mime_type = "application/json"
-        else:
-            system_instruction = base_prompt + "\n\nCRITICAL FORMAT RULE:\n- Strictly use Markdown.\n- Use the section names exactly as listed, with empty lines between each section."
-            mime_type = "text/plain"
-
         try:
             response = client.models.generate_content(
                 model=model_id,
@@ -114,7 +121,9 @@ class GeminiURLContextClient:
                     tools=[self.types.Tool(url_context=self.types.UrlContext())],
                     response_modalities=["TEXT"],
                     response_mime_type=mime_type,
-                    temperature=policy.get("temperature"),
+                    **{key: policy[key] for key in (
+                        "temperature", "top_p", "top_k", "max_output_tokens", "stop_sequences",
+                    ) if key in policy},
                 )
             )
 
@@ -182,5 +191,7 @@ class GeminiURLContextClient:
                 result["error"] = "Bad Gateway: Google's server encountered a temporary error trying to reach the site."
             else:
                 result["error"] = f"Unexpected Error: {error_str}"
+        finally:
+            client.close()
 
         return result

@@ -7,7 +7,6 @@ from itertools import chain as _chain
 import logging as _logging
 import requests as _requests
 import numpy as _np
-import time as _time
 import warnings as _warnings
 from . import openai_responses as _openai_responses
 from . import ai_config as _ai_config
@@ -22,7 +21,7 @@ DEFAULT_EMBEDDING_URLS = {
     "openai": "https://api.openai.com/v1/embeddings",
     "jina":   "https://api.jina.ai/v1/embeddings",
 }
-_RETRYABLE_EMBEDDING_TRANSPORT_ERRORS = (
+_RETRYABLE_TRANSPORT_ERRORS = (
     _requests.exceptions.Timeout,
     _requests.exceptions.ConnectionError,
     _requests.exceptions.ChunkedEncodingError,
@@ -57,25 +56,43 @@ def chatGPT(
 
     :param data: Dict with the data for that row
     :param api_key: OpenAI API Key
-    :param settings: Complete caller-supplied request settings. Model and tuning are not changed.
+    :param settings: Caller-supplied request settings. Omitted model and tuning use \
+          the extract.ai Chat Completions configuration; explicit settings win.
     :param url: Endpoint override; defaults to the configured extract.ai Chat Completions endpoint.
     :param timeout: Request timeout; defaults to the configured extract.ai timeout.
     :param retries: Additional attempts; defaults to the extract.ai retry configuration.
     """
-    # extract.ai already passes resolved transport options for every row.
-    if url is None or timeout is None or retries is None:
-        policy = _ai_config.resolve(
-            "extract.ai", model=settings.get("model"), protocol="chat_completions"
-        )
-        if url is None:
-            url = policy.get("endpoints", {}).get("chat_completions")
-        if timeout is None:
-            timeout = policy.get("request_timeout_seconds")
-        if retries is None:
-            retries = policy.get("retries", 1)
+    policy = _ai_config.resolve(
+        "extract.ai", model=settings.get("model"), protocol="chat_completions"
+    )
+    provider = str(policy.get("provider", "openai")).strip().lower()
+    if provider != "openai":
+        raise ValueError("Chat Completions currently supports only the 'openai' provider.")
+    model = policy.get("model")
+    if not isinstance(model, str) or not model.strip():
+        raise ValueError("No model is configured for chatGPT protocol 'chat_completions'.")
+    defaults = _openai_responses.request_defaults({
+        **_ai_config.model_defaults(model, provider=provider, protocol="chat_completions"),
+        **policy,
+    }, protocol="chat_completions")
+    settings = {"model": model, **defaults, **settings}
+    if settings["model"] is None:
+        settings["model"] = model
+    if url is None:
+        url = policy.get("endpoints", {}).get("chat_completions")
+    if timeout is None:
+        timeout = policy.get("request_timeout_seconds")
+    if retries is None:
+        retries = policy.get("retries", 1)
     if not url:
         raise ValueError("No endpoint is configured for chatGPT protocol 'chat_completions'.")
 
+    _ai_config.warn_if_deprecated(model, provider)
+    return _chatGPT(data, api_key, settings, url, timeout, retries)
+
+
+def _chatGPT(data, api_key, settings, url, timeout, retries):
+    """Send Chat Completions using transport settings resolved by the caller."""
     content = format_input_data(data)
 
     settings_local = _copy.deepcopy(settings)
@@ -86,14 +103,13 @@ def chatGPT(
         }
     )
 
-    if not isinstance(retries, int) or retries < 0:
+    if not isinstance(retries, int) or isinstance(retries, bool) or retries < 0:
         raise ValueError("Retries must be a non-negative integer")
 
     _logging.debug(f": Calling OpenAI ChatGPT :: timeout :: {timeout}, retries :: {retries}")
     response = None
     backoff_time = 1
-    retry_count = 0
-    while (retries + 1):
+    for attempt in range(retries + 1):
         response = None
         try:
             response = _requests.post(
@@ -104,26 +120,17 @@ def chatGPT(
                 json = settings_local,
                 timeout=timeout
             )
-        except _requests.exceptions.Timeout:
-            if retries == 0:
-                if settings_local.get("tools", []):
-                    return {
-                        param: "Timed Out"
-                        for param in 
-                        settings_local.get("tools", [])[0]["function"]["parameters"]["required"]
-                    }
-                else:
-                    return "Timed Out"
         except Exception as e:
-            if retries == 0:
+            if attempt == retries or not isinstance(e, _RETRYABLE_TRANSPORT_ERRORS):
+                error = "Timed Out" if isinstance(e, _requests.exceptions.Timeout) else e
                 if settings_local.get("tools", []):
                     return {
-                        param: e
+                        param: error
                         for param in 
                         settings_local.get("tools", [])[0]["function"]["parameters"]["required"]
                     }
                 else:
-                    return e
+                    return error
 
         if response is not None and response.ok:
             break
@@ -145,17 +152,15 @@ def chatGPT(
                 model=settings_local.get("model"),
             ) if response is not None else {}
             _openai_responses._raise_for_fatal_error(context)
-            if retries == 0 or not _openai_responses._should_retry(context):
+            if attempt == retries or (response is not None and not _openai_responses._should_retry(context)):
                 if response is not None:
                     _openai_responses._log_api_error(context, final=True)
                 break
             if response is not None:
                 _openai_responses._log_api_error(context, final=False)
  
-        retries -= 1
-        retry_count += 1
-        if retries >= 0:
-            _logging.warning(f": Retrying OpenAI request :: attempt :: {retry_count}")
+        if attempt < retries:
+            _logging.warning(f": Retrying OpenAI request :: attempt :: {attempt + 1}")
             if response is not None and not response.ok:
                 _openai_responses._sleep_for_retry(
                     context,
@@ -211,11 +216,11 @@ def _embedding_thread(
     api_key: str,
     model: str,
     url: str,
-    retries: int = 0,
-    request_params: dict = None,
-    precision: str = "float32",
-    provider: str = "openai",
-    timeout: float = 30,
+    retries: int,
+    request_params: dict,
+    precision: str,
+    provider: str,
+    timeout: float,
 ):
     """
     Get embeddings
@@ -226,13 +231,10 @@ def _embedding_thread(
     :param url: The endpoint to send requests to. The expected request/response format is determined by provider.
     :param retries: Number of times to retry. This will exponentially backoff.
     :param request_params: Additional request parameters to pass to the backend.
-    :param precision: The precision of the embeddings. Default is float32.
-    :param provider: The embedding provider to use. Default is openai.
-    :param timeout: Per-attempt request timeout in seconds. Default is 30.
+    :param precision: The resolved precision of the embeddings.
+    :param provider: The resolved embedding provider.
+    :param timeout: Resolved per-attempt request timeout in seconds.
     """
-    if request_params is None:
-        request_params = {}
-
     input_values = [str(val) if val != "" else " " for val in input_list]
 
     _OPENAI_ONLY_PARAMS = {"encoding_format"}
@@ -283,7 +285,7 @@ def _embedding_thread(
             _openai_responses._raise_for_fatal_error(context)
 
         retryable = (
-            isinstance(transport_error, _RETRYABLE_EMBEDDING_TRANSPORT_ERRORS)
+            isinstance(transport_error, _RETRYABLE_TRANSPORT_ERRORS)
             or _openai_responses._should_retry(context)
         )
         final = attempt == retries or not retryable
@@ -381,14 +383,18 @@ def embeddings(
     if policy["protocol"] != "embeddings":
         raise ValueError("Embedding requests require the 'embeddings' protocol.")
     model = policy["model"]
+    _ai_config.warn_if_deprecated(model, provider)
     batch_size = policy["batch_size"] if batch_size is None else batch_size
     threads = policy["default_concurrency"] if threads is None else threads
     retries = policy["retries"] if retries is None else retries
     precision = policy["precision"] if precision is None else precision
     timeout = policy["request_timeout_seconds"] if timeout is None else timeout
     task = policy.get("task") if task is None else task
-    if "dimensions" in policy:
-        kwargs = {"dimensions": policy["dimensions"], **kwargs}
+    request_keys = (
+        ("dimensions", "normalized", "truncate", "late_chunking")
+        if provider == "jina" else ("dimensions", "user")
+    )
+    kwargs = {**{key: policy[key] for key in request_keys if key in policy}, **kwargs}
     if url is None or (url == DEFAULT_EMBEDDING_URLS["openai"] and provider != "openai"):
         url = policy.get("endpoints", {}).get("embeddings")
     if not url:

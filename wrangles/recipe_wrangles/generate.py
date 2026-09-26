@@ -52,7 +52,7 @@ def ai(
         description: Responses model name. Defaults to the generate.ai role in the AI configuration.
       threads:
         type: integer
-        description: Maximum concurrent requests (default 20).
+        description: Maximum concurrent requests; defaults to the AI configuration.
       timeout:
         type: integer
         description: Per-request timeout in seconds.
@@ -61,7 +61,7 @@ def ai(
         description: Number of retry attempts on failure.
       messages:
         type: array
-        description: Optional extra messages forwarded to the inner generate helper.
+        description: The first message's content overrides the generation instructions.
       url:
         type: string
         description: Override for the OpenAI-compatible endpoint.
@@ -73,7 +73,10 @@ def ai(
         description: Enable DuckDuckGo context lookup per row.
       reasoning:
         type: object
-        description: Responses API reasoning options (forwarded verbatim).
+        description: Responses API reasoning options, checked against configured model capabilities.
+      examples:
+        type: array
+        description: Few-shot examples with input, output, and optional notes.
       previous_response:
         type: boolean
         description: Chain responses by reusing previous_response_id for field-by-field calls.
@@ -112,8 +115,12 @@ def ai(
 
 
     recipe_examples = None
+    example_alias = None
     for key in ("Example", "Examples", "example", "examples"):
-        if recipe_examples is None and key in kwargs:
+        if key in kwargs:
+            if example_alias is not None:
+                raise ValueError("generate.ai accepts one examples argument; use the canonical 'examples' name.")
+            example_alias = key
             recipe_examples = kwargs.pop(key)
 
     results = _generate.ai(

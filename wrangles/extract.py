@@ -272,26 +272,21 @@ def ai(
     model = model or policy.get("model")
     if not isinstance(model, str) or not model.strip():
         raise ValueError("model must be a non-empty string.")
-    threads = threads if threads is not None else policy.get("default_concurrency", 32)
-    timeout = timeout if timeout is not None else policy.get("request_timeout_seconds", 12)
-    retries = retries if retries is not None else policy.get("retries", 1)
-    strict = strict if strict is not None else policy.get("strict", True)
-    store = store if store is not None else policy.get("store", True)
-    cache_policy = _ai_cache.resolve_policy(
-        policy.get("cache", {}),
-        enabled=cache,
-        ttl_seconds=cache_ttl,
-    )
-
-    if not isinstance(strict, bool):
+    if strict is not None and not isinstance(strict, bool):
         raise ValueError("strict must be true or false.")
-    if not isinstance(store, bool):
+    if store is not None and not isinstance(store, bool):
         raise ValueError("store must be true or false.")
     if verbosity is not None and verbosity not in {"low", "medium", "high"}:
         raise ValueError("verbosity must be 'low', 'medium', or 'high'.")
     if reasoning is not None and not isinstance(reasoning, dict):
         raise ValueError("reasoning must be an object such as {'effort': 'none'}.")
-    _validate_ai_runtime_settings(threads, timeout, retries)
+    # Reject invalid explicit options before any saved-definition lookup.
+    # Omitted values are resolved after the effective model is known.
+    _validate_ai_runtime_settings(
+        threads if threads is not None else 1,
+        timeout if timeout is not None else 1,
+        retries if retries is not None else 0,
+    )
     metadata = _ai_request_metadata(metadata)
 
     if instructions not in (None, "") and messages not in (None, ""):
@@ -319,29 +314,50 @@ def ai(
         model=model,
         messages=instructions,
         examples=record_examples,
-        strict=strict,
+        # Dynamic paths are detected independently of strict mode. Finalize
+        # strictness below, using the model selected by this saved definition.
+        strict=False,
         saved_model_content=saved_model_content,
         source=f"saved model {model_id}" if model_id else "recipe/Python output",
     )
     output = compiled.output
     model = compiled.model
-    # Saved definitions can select a different model. Resolve its tuning defaults
+    # Saved definitions can select a different model. Resolve all defaults
     # after compilation, preserving the existing saved-model precedence.
     policy = _ai_config.resolve(
         "extract.ai", model=model, provider=provider, protocol=protocol
     )
-    request_defaults = {
-        key: value for key, value in {
+    _ai_config.warn_if_deprecated(model, provider=provider)
+    threads = threads if threads is not None else policy.get("default_concurrency", 32)
+    timeout = timeout if timeout is not None else policy.get("request_timeout_seconds", 12)
+    retries = retries if retries is not None else policy.get("retries", 1)
+    strict = strict if strict is not None else policy.get("strict", True)
+    store = store if store is not None else policy.get("store", True)
+    if not isinstance(strict, bool):
+        raise ValueError("strict must be true or false.")
+    if not isinstance(store, bool):
+        raise ValueError("store must be true or false.")
+    _validate_ai_runtime_settings(threads, timeout, retries)
+    cache_policy = _ai_cache.resolve_policy(
+        policy.get("cache", {}), enabled=cache, ttl_seconds=cache_ttl,
+    )
+    if strict and compiled.dynamic_paths:
+        _LOG.warning(
+            "extract.ai strict mode was disabled because dynamic dictionaries were found at %s. "
+            "Fixed portions of the schema remain constrained.",
+            ", ".join(compiled.dynamic_paths),
+        )
+    strict = strict and not compiled.dynamic_paths
+    request_defaults = _openai_responses.request_defaults(
+        {
             **_ai_config.model_defaults(model, provider=provider, protocol=protocol),
             **policy,
-        }.items()
-        if key in {
-            "temperature", "top_p", "max_tokens", "max_completion_tokens",
-            "max_output_tokens",
-        }
-    }
+        },
+        protocol=protocol,
+    )
+    # The named store argument has its own explicit-over-configuration policy.
+    request_defaults.pop("store", None)
     saved_reasoning = compiled.reasoning
-    strict = compiled.strict
     output_generic_key = compiled.output_generic_key
     _key_to_original = compiled.key_to_original
     _needs_remap = compiled.needs_remap
@@ -388,10 +404,25 @@ def ai(
                 "Use web search only when it helps answer the requested fields, and return null when neither DATA nor web evidence supports a field.",
             ])
 
+        request_options = {
+            **_openai_responses.sanitize_request_params(request_defaults),
+            **_openai_responses.sanitize_request_params(kwargs),
+        }
+        explicit_text = request_options.pop("text", {})
+        if not isinstance(explicit_text, dict):
+            raise ValueError("extract.ai text must be an object containing Responses text options.")
+        if "format" in explicit_text:
+            raise ValueError("extract.ai controls text.format; define the structured schema with output.")
+        text_options = {**policy.get("text", {}), **explicit_text}
+        configured_verbosity = text_options.pop("verbosity", "low")
+        if verbosity is not None:
+            configured_verbosity = verbosity
+
         payload = {
             "model": model,
             "instructions": instructions,
             "text": {
+                **text_options,
                 "format": {
                     "type": "json_schema",
                     "name": "extract_ai_response",
@@ -400,7 +431,7 @@ def ai(
                 },
             },
             "store": store,
-            **_openai_responses.sanitize_request_params({**request_defaults, **kwargs}),
+            **request_options,
         }
         if web_search:
             _enable_responses_web_search(payload)
@@ -425,16 +456,13 @@ def ai(
                 "Ignoring 'reasoning' parameter: not supported by model '%s'",
                 model,
             )
-        if verbosity is not None:
-            if _openai_responses.supports_low_verbosity(model):
-                payload["text"]["verbosity"] = verbosity
-            else:
-                _LOG.warning(
-                    "Ignoring 'verbosity' parameter: not supported by model '%s'",
-                    model,
-                )
-        elif _openai_responses.supports_low_verbosity(model):
-            payload["text"]["verbosity"] = policy.get("text", {}).get("verbosity", "low")
+        if _openai_responses.supports_verbosity(model, configured_verbosity):
+            payload["text"]["verbosity"] = configured_verbosity
+        elif verbosity is not None or "verbosity" in explicit_text:
+            _LOG.warning(
+                "Ignoring 'verbosity' parameter: not supported by model '%s'",
+                model,
+            )
 
         payload["prompt_cache_key"] = _openai_responses.prompt_cache_key(
             "extract.ai",
@@ -495,7 +523,7 @@ def ai(
     stable_messages = [
         {
             "role": "system",
-            "content": " ".join([
+            "content": policy.get("prompt", {}).get("instructions") or " ".join([
                 "You are an expert data analyst.",
                 "Your job is to extract and standardize information as provided by the user.",
                 "The data may be provided as a single value or as YAML syntax with keys and values.",
@@ -557,7 +585,7 @@ def ai(
             static_request=static_request,
             data=_openai.format_input_data(row),
         ),
-        compute=lambda row: _openai.chatGPT(
+        compute=lambda row: _openai._chatGPT(
             row,
             api_key,
             settings,

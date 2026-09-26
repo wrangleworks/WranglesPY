@@ -7,6 +7,7 @@ files retain their original extraction policy and capability-override behavior.
 """
 import copy as _copy
 import functools as _functools
+import logging as _logging
 import math as _math
 import os as _os
 import re as _re
@@ -60,7 +61,7 @@ def _validate_defaults(defaults: dict, supported: dict, location: str) -> None:
 def _validate_settings(settings: dict, location: str) -> None:
     """Check shared runtime setting types without restricting provider options."""
     _object(settings, location)
-    for key in ("reasoning", "text", "cache", "prompt"):
+    for key in ("reasoning", "text", "cache", "prompt", "parameters"):
         if key in settings:
             _object(settings[key], f"{location}.{key}")
     for key in ("strict", "recipe_strict", "store"):
@@ -115,6 +116,8 @@ def _resolve_v2(config: dict, operation: str, model=None, provider=None, protoco
     protocol = protocol if protocol is not None else operation_policy["protocol"]
     _string(protocol, "protocol")
     if model is None:
+        if operation_policy.get("requires_model", False):
+            raise ValueError(f"AI operation {operation!r} requires an explicit model.")
         wanted = role if role is not None else operation
         _string(wanted, "role")
         if wanted in {"global", "test"} and operation not in {"extract.ai", "generate.ai"}:
@@ -165,17 +168,16 @@ def _validate_v2(config: dict) -> None:
             if not isinstance(entry.get("status"), str) or entry["status"] not in _STATUSES:
                 raise ValueError(f"{location}.status must be active, deprecated, or retired.")
             if "application" in entry:
-                applications = entry["application"]
-                if isinstance(applications, str):
-                    _string(applications, f"{location}.application")
-                elif (not isinstance(applications, list) or not applications
-                      or any(not isinstance(value, str) or not value.strip() for value in applications)):
-                    raise ValueError(f"{location}.application must be a non-empty string or list of non-empty strings.")
+                raise ValueError(f"{location}.application has been renamed to applications; use a list of strings.")
+            applications = entry.get("applications", [])
+            if (not isinstance(applications, list)
+                    or any(not isinstance(value, str) or not value.strip() for value in applications)):
+                raise ValueError(f"{location}.applications must be a list of non-empty strings.")
             roles = entry.get("default_for", [])
             if not isinstance(roles, list) or any(not isinstance(role, str) or not role.strip() for role in roles):
                 raise ValueError(f"{location}.default_for must be a list of non-empty roles.")
-            if roles and entry["status"] != "active":
-                raise ValueError(f"{location}: deprecated or retired models cannot hold default roles.")
+            if roles and entry["status"] == "retired":
+                raise ValueError(f"{location}: retired models cannot hold default roles.")
             for role in roles:
                 if role not in {"global", "test"} and role not in operations:
                     raise ValueError(f"{location}: unknown default role {role!r}.")
@@ -212,12 +214,19 @@ def _validate_v2(config: dict) -> None:
         _object(policy, location)
         provider = _string(policy.get("provider"), location + ".provider")
         _string(policy.get("protocol"), location + ".protocol")
+        if "requires_model" in policy and not isinstance(policy["requires_model"], bool):
+            raise ValueError(f"{location}.requires_model must be true or false.")
         _validate_settings(policy.get("defaults", {}), location + ".defaults")
         if provider not in providers:
             raise ValueError(f"{location}.provider references an unconfigured provider {provider!r}.")
-        resolved = _resolve_v2(config, operation)
-        supported = _model_entry(config, provider, resolved["model"]).get("supported_values", {})
-        _validate_defaults(resolved, supported, location + ".defaults")
+        # Generic task adapters can require a caller-supplied model because a
+        # single default cannot serve their different tasks. Validate any
+        # cataloged models without inventing a default selection for them.
+        models = providers[provider]["models"] if policy.get("requires_model", False) else [None]
+        for model in models:
+            resolved = _resolve_v2(config, operation, model=model)
+            supported = _model_entry(config, provider, resolved["model"]).get("supported_values", {})
+            _validate_defaults(resolved, supported, location + ".defaults")
 
 
 @_functools.lru_cache(maxsize=4)
@@ -308,6 +317,24 @@ def model_supported_values(model: str, provider: str = "openai") -> dict:
     if config["version"] == 1:
         config = _load_config_file(str(_PACKAGED_CONFIG.resolve()))
     return _model_entry(config, provider, model).get("supported_values", {})
+
+
+def warn_if_deprecated(model: str, provider: str = "openai") -> None:
+    """Log catalog deprecation at a caller boundary without blocking execution.
+
+    Call once after selecting the effective model, outside row/batch/retry loops.
+    Reading or resolving configuration itself must not produce this warning.
+    Version 1 files use the packaged catalog for lifecycle information.
+    """
+    config = load()
+    if config["version"] == 1:
+        config = _load_config_file(str(_PACKAGED_CONFIG.resolve()))
+    provider = provider.strip().lower()
+    if _model_entry(config, provider, model).get("status") == "deprecated":
+        _logging.warning(
+            "AI model has deprecated status in the configured catalog; continuing execution :: provider :: %s, model :: %s",
+            provider, model,
+        )
 
 
 def _catalog_capabilities(config: dict, model: str) -> dict:
