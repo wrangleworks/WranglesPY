@@ -49,6 +49,15 @@ jobs:
           repositories: Lambda-Recipes
           permission-actions: write
 
+      - name: Verify catalog publishing app access
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEPLOY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
+          owner: wrangleworks
+          repositories: wrangleworks.github.io
+          permission-contents: write
+
       - name: Checkout Repository
         uses: actions/checkout@v5
 
@@ -204,6 +213,17 @@ jobs:
 
       - name: Generate and Test Schema
         run: cd schema && python generate_recipe_schema.py
+
+      - name: Generate packaged AI model catalog
+        env:
+          PACKAGE_VERSION: ${{ needs.validate.outputs.version }}
+        run: python schema/generate_ai_catalog.py --package-version "$PACKAGE_VERSION"
+
+      - name: Save AI model catalog as artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ai-model-catalog
+          path: schema/ai-models-v1.json
 
       - name: Save Schema as Artifact
         uses: actions/upload-artifact@v6
@@ -486,3 +506,15 @@ jobs:
           propagate_failure: true
           trigger_workflow: true
           wait_workflow: true
+
+  publish-ai-catalog:
+    name: Publish PROD AI model catalog
+    needs: [trigger-deploy-prod]
+    if: ${{ !cancelled() && needs.trigger-deploy-prod.result == 'success' }}
+    uses: ./.github/workflows/publish-ai-catalog.yml
+    permissions:
+      contents: read
+    with:
+      channel: prod
+    secrets:
+      DEPLOY_APP_PRIVATE_KEY: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}

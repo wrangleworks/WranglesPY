@@ -3,6 +3,7 @@ Functions to extract information from unstructured text.
 """
 import re as _re
 import logging as _logging
+import math as _math
 from typing import Union as _Union
 from . import config as _config
 from . import data as _data
@@ -42,8 +43,9 @@ def _validate_ai_runtime_settings(
         raise ValueError("threads must be a positive integer.")
     if not isinstance(retries, int) or isinstance(retries, bool) or retries < 0:
         raise ValueError("retries must be a non-negative integer.")
-    if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or timeout <= 0:
-        raise ValueError("timeout must be a positive number of seconds.")
+    if (not isinstance(timeout, (int, float)) or isinstance(timeout, bool)
+            or not _math.isfinite(timeout) or timeout <= 0):
+        raise ValueError("timeout must be a positive finite number of seconds.")
 
 
 def _cacheable_ai_result(result) -> bool:
@@ -215,25 +217,37 @@ def ai(
     :param url: (Optional) Override the configured endpoint.
     :param strict: (Optional) Enable structured output strict mode. Dynamic object schemas \
         automatically use non-strict mode and are validated locally.
-    :param reasoning: (Optional) Responses API reasoning options. Defaults to {"effort": "none"} \
-        for models that support disabling reasoning; otherwise omitted so the provider default applies.
-    :param verbosity: (Optional) Responses API text verbosity. Defaults to "low" \
-        for models that support low verbosity.
+    :param reasoning: (Optional) Reasoning options for either supported protocol. Explicit values \
+        override saved reasoning, then the selected model and operation configuration.
+    :param verbosity: (Optional) Text verbosity for either supported protocol. Inherits the selected \
+        model and operation configuration; omitted settings use the provider default.
     :param provider: (Optional) AI provider. Currently only "openai" is supported.
     :param protocol: (Optional) API protocol: "responses" or legacy "chat_completions".
-    :param store: (Optional) Whether OpenAI may store Responses. Defaults to True.
+    :param store: (Optional) Whether OpenAI may store Responses. Inherits the selected configuration.
     :param metadata: (Optional) OpenAI log labels, such as recipe_name and wrangles_user.
         Up to 16 string pairs, with keys up to 64 and values up to 512 characters.
         Available recipe name and Wrangles user are added automatically. Explicit
         labels override those defaults; an empty dict disables automatic labels.
         Labels are separate from model instructions and do not enable tracing.
-    :param cache: (Optional) Use the bounded warm-instance result cache. Defaults to True.
+    :param cache: (Optional) Use the bounded warm-instance result cache. Inherits the selected configuration.
     :param cache_ttl: (Optional) Override the result-cache TTL in seconds for this call.
     :param web_search: (Optional) Enable native Responses web search. Each result then includes a
         web_search_sources list containing source titles and URLs. Defaults to False.
     :return: Extracted information. When web_search is true, returns a dictionary (or list of
         dictionaries) containing web_search_sources, including for single-field output.
     """
+    # The recipe adapter supplies this internal hint for multi-column saved
+    # output. Validate against the compiled schema without a second lookup,
+    # and consume the hint here so it can never become a provider parameter.
+    expected_output_count = kwargs.pop("_expected_output_count", None)
+    if expected_output_count is not None and (
+        not isinstance(expected_output_count, int)
+        or isinstance(expected_output_count, bool)
+        or expected_output_count < 1
+    ):
+        raise ValueError("_expected_output_count must be a positive integer.")
+
+    legacy_config = _ai_config.load()["version"] == 1
     policy = _ai_config.extract_ai()
     provider = str(provider or policy.get("provider", "openai")).strip().lower()
     if provider != "openai":
@@ -320,6 +334,11 @@ def ai(
         saved_model_content=saved_model_content,
         source=f"saved model {model_id}" if model_id else "recipe/Python output",
     )
+    if expected_output_count is not None and expected_output_count != len(compiled.output):
+        raise ValueError(
+            f"The number of columns does not match the number defined in model_id {model_id}. ",
+            f"Expected {len(compiled.output)}",
+        )
     output = compiled.output
     model = compiled.model
     # Saved definitions can select a different model. Resolve all defaults
@@ -414,7 +433,7 @@ def ai(
         if "format" in explicit_text:
             raise ValueError("extract.ai controls text.format; define the structured schema with output.")
         text_options = {**policy.get("text", {}), **explicit_text}
-        configured_verbosity = text_options.pop("verbosity", "low")
+        configured_verbosity = text_options.pop("verbosity", "low" if legacy_config else None)
         if verbosity is not None:
             configured_verbosity = verbosity
 
@@ -438,9 +457,9 @@ def ai(
         configured_reasoning = (
             reasoning
             if reasoning is not None
-            else saved_reasoning or policy.get("reasoning", {"effort": "none"})
+            else saved_reasoning or policy.get("reasoning", {"effort": "none"} if legacy_config else None)
         )
-        if _openai_responses.supports_reasoning(model):
+        if configured_reasoning is not None and _openai_responses.supports_reasoning(model):
             effort = configured_reasoning.get("effort")
             if _openai_responses.supports_reasoning_effort(model, effort):
                 payload["reasoning"] = configured_reasoning
@@ -456,7 +475,8 @@ def ai(
                 "Ignoring 'reasoning' parameter: not supported by model '%s'",
                 model,
             )
-        if _openai_responses.supports_verbosity(model, configured_verbosity):
+        if (configured_verbosity is not None
+                and _openai_responses.supports_verbosity(model, configured_verbosity)):
             payload["text"]["verbosity"] = configured_verbosity
         elif verbosity is not None or "verbosity" in explicit_text:
             _LOG.warning(

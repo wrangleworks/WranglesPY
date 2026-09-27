@@ -165,6 +165,45 @@ def test_saved_and_recipe_definitions_compile_to_the_same_schema(caplog):
     assert "model_id.settings.additionalmessages mapped to GeneralInstructions" in caplog.text
 
 
+@pytest.mark.parametrize("setting_key", ["GPTModelName", "gpt_model_name", "GPT Model Name"])
+def test_saved_legacy_model_name_selects_model(setting_key, caplog):
+    saved = _saved_model(
+        ["Voltage"], settings={setting_key: "legacy-model"}, columns=["Find"],
+    )
+
+    with caplog.at_level(logging.WARNING, logger="wrangles.ai_definition"):
+        compiled = ai_definition.compile_definition(
+            None, model="fallback", saved_model_content=saved,
+        )
+
+    assert compiled.model == "legacy-model"
+    assert "model_id.settings.gptmodelname mapped to model" in caplog.text
+    assert "gptmodelname is not used" not in caplog.text
+
+
+@pytest.mark.parametrize("settings,expected", [
+    ({"GPTModel": "current", "AIModel": "ai", "model": "canonical",
+      "GPTModelName": "legacy"}, "current"),
+    ({"GPTModel": "", "AIModel": "ai", "model": "canonical",
+      "GPTModelName": "legacy"}, "ai"),
+    ({"GPTModel": None, "AIModel": "", "model": "canonical",
+      "GPTModelName": "legacy"}, "canonical"),
+    ({"GPTModel": "", "AIModel": None, "model": "",
+      "GPTModelName": "legacy"}, "legacy"),
+    ({"GPTModelName": ""}, "fallback"),
+    ({"GPTModelName": None}, "fallback"),
+])
+def test_saved_legacy_model_name_preserves_precedence_and_blank_fallback(settings, expected):
+    saved = _saved_model(["Voltage"], settings=settings, columns=["Find"])
+
+    compiled = ai_definition.compile_definition(
+        None, model="fallback", saved_model_content=saved,
+    )
+
+    assert compiled.model == expected
+    assert not any("gptmodelname is not used" in item for item in compiled.diagnostics)
+
+
 @pytest.mark.parametrize("settings,expected", [
     ({}, []),
     ({"AdditionalMessages": "Legacy guidance."}, ["Legacy guidance."]),
@@ -203,13 +242,51 @@ def test_saved_model_rejects_unknown_populated_columns():
         )
 
 
-def test_saved_model_rejects_unsupported_reasoning_effort():
+@pytest.mark.parametrize("effort,expected", [
+    ("none", "none"),
+    ("minimal", "minimal"),
+    ("low", "low"),
+    ("medium", "medium"),
+    ("high", "high"),
+    ("xhigh", "xhigh"),
+    ("max", "max"),
+    ("  HIGH\t", "high"),
+    ("Provider-Specific", "provider-specific"),
+])
+def test_saved_reasoning_effort_normalizes_scalar_for_model_validation(effort, expected):
     saved = _saved_model(
-        ["Voltage", "Voltage", "number", "", "", "", "", ""],
-        settings={"ReasoningEffort": "medium"},
+        ["Voltage"], settings={"ReasoningEffort": effort}, columns=["Find"],
     )
 
-    with pytest.raises(ValueError, match="ReasoningEffort.*none.*low"):
+    compiled = ai_definition.compile_definition(
+        None, model="provider-model", saved_model_content=saved,
+    )
+
+    assert compiled.reasoning == {"effort": expected}
+    assert saved["Settings"]["ReasoningEffort"] == effort
+
+
+@pytest.mark.parametrize("settings", [
+    {}, {"ReasoningEffort": None}, {"ReasoningEffort": ""}, {"ReasoningEffort": " \t\n"},
+])
+def test_saved_reasoning_effort_omitted_or_blank_uses_runtime_defaults(settings):
+    saved = _saved_model(["Voltage"], settings=settings, columns=["Find"])
+
+    compiled = ai_definition.compile_definition(
+        None, model="provider-model", saved_model_content=saved,
+    )
+
+    assert compiled.reasoning is None
+
+
+@pytest.mark.parametrize("effort", [True, False, 0, 1, 0.5, {}, {"effort": "low"}, [], ["low"]])
+def test_saved_model_rejects_non_string_reasoning_effort(effort):
+    saved = _saved_model(
+        ["Voltage", "Voltage", "number", "", "", "", "", ""],
+        settings={"ReasoningEffort": effort},
+    )
+
+    with pytest.raises(ValueError, match="ReasoningEffort.*must be a string"):
         ai_definition.compile_definition(
             None,
             model="gpt-5.4-mini",

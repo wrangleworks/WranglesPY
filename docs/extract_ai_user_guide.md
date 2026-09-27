@@ -1,7 +1,7 @@
 # Defining an `extract.ai`
 
 Use `extract.ai` when each input row should produce one or more consistently
-named attributes. You can define the attributes in an Excel saved model or
+named attributes. You can define the attributes in a WranglesXL saved model or
 directly in a recipe. Both routes compile to the same output contract.
 
 ## Model defaults and capabilities
@@ -11,16 +11,25 @@ The `extract.ai` default role selects `gpt-6-luna`. Omit `model` in ordinary
 recipes to follow the configured default. Saved extraction model selection
 retains its existing precedence; saved model names are not automatically migrated.
 
-Version 2 groups models by provider, separates lifecycle status from default
+The configuration groups models by provider, separates lifecycle status from default
 roles, and records model defaults and supported enum values together. Extraction
 settings such as concurrency, cache, and the base prompt belong to the operation.
 See [AI model configuration](ai_configuration.md) for the schema, caller coverage,
-override precedence, test-role selection, and version-1 compatibility.
+caller definitions, setting selection rules, and test-role selection.
 
 The public parameters remain `reasoning: {effort: ...}` and
 `verbosity: low | medium | high`. Supported values in the catalog describe the
-model; they are separate from the value requested by a recipe. Existing saved
-model validation and legacy model-family compatibility behavior are preserved.
+model; they are separate from the value requested by a recipe. Saved models use
+the scalar setting `ReasoningEffort` for the same purpose. Omitted tuning follows
+the selected model and operation configuration; if neither sets it, the provider
+default applies. Unsupported tuning values are logged and omitted.
+
+The WranglesXL saved-model editor gets its model list, status, and reasoning choices
+from a versioned export of this packaged catalog. Choose **Use configured
+default** to inherit settings instead of pinning them in the saved model. Existing
+explicit selections stay intact, including unlisted and deprecated models.
+Deprecated models produce a warning but remain runnable. The displayed catalog
+does not reflect a deployment-specific replacement configuration.
 
 For each model upgrade, verify capabilities against
 [OpenAI's model documentation](https://developers.openai.com/api/docs/models)
@@ -42,9 +51,9 @@ Use `null` for information that is absent or unsupported. Do not use a default
 to disguise missing evidence: `Default` is a schema annotation, not a guaranteed
 runtime substitution.
 
-## Excel saved models
+## WranglesXL saved models
 
-A newly created Excel model has these columns:
+A newly created WranglesXL model has these columns:
 
 | Column | What to enter |
 | --- | --- |
@@ -64,12 +73,12 @@ A newly created Excel model has these columns:
 | `Example - Output` | Expected value for the paired input |
 
 Legacy saved models with fewer columns remain valid. Columns may be reordered,
-and newer columns that this version of Excel does not recognize are preserved.
+and newer columns that this version of WranglesXL does not recognize are preserved.
 `Find` is the only required worksheet column.
 
 ### Easy cell formats
 
-Excel values do not need to be strict JSON. Use the simplest unambiguous form:
+WranglesXL cell values do not need to be strict JSON. Use the simplest unambiguous form:
 
 | Need | Recommended entry | Also accepted |
 | --- | --- | --- |
@@ -78,7 +87,7 @@ Excel values do not need to be strict JSON. Use the simplest unambiguous form:
 | Object properties | `value: number | uom: string` | `value | uom` or a complete JSON/YAML schema |
 | Array of strings | `string` in `Items` | `{type: string}` |
 | Array of objects | `value: number | uom: string | material: string` in `Items` | A complete item schema |
-| Boolean | An Excel `TRUE` or `FALSE` value | The text `true` or `false` in Boolean/schema cells |
+| Boolean | A WranglesXL worksheet `TRUE` or `FALSE` value | The text `true` or `false` in Boolean/schema cells |
 
 Prefer `|` for human-entered lists. Commas remain supported for compatibility,
 but a comma may also be part of a value. Quote or bracket a value containing a
@@ -163,14 +172,16 @@ With `model_id`, `output` is the destination dataframe column or columns. The
 saved model supplies the attribute schema, model, general instructions, and
 reasoning effort.
 
-The Excel settings panel currently offers reasoning effort `none` (default) and
-`low`. It stores this as `ReasoningEffort` and the runtime maps it to the
-Responses API reasoning setting.
+The WranglesXL settings panel offers `none` and `low`, filtered by the selected
+model's declared support. Extended reasoning is excluded because of WranglesXL's
+current batch processing window. It stores an explicit choice as `ReasoningEffort`;
+the runtime maps that value to the selected protocol's reasoning setting.
+Leaving the selection at **Use model default** omits the saved override.
 
 ## Saving AI definitions from Python or recipes
 
 The `train.extract` write connector accepts the same optional schema columns as
-Excel. Use `variant: ai` when creating an AI model by name:
+WranglesXL. Use `variant: ai` when creating an AI model by name:
 
 ```python
 import pandas as pd
@@ -187,11 +198,14 @@ wrangles.connectors.train.extract.write(
     name="Voltage schema",
     variant="ai",
     settings={
-        "GPTModel": wrangles.ai_config.extract_ai()["model"],
-        "ReasoningEffort": "none",
+        "GeneralInstructions": "Use only explicit product specifications.",
     },
 )
 ```
+
+This definition inherits the configured model and reasoning when it runs.
+Include `GPTModel` or `ReasoningEffort` only when the saved definition should
+pin an explicit choice.
 
 Only `Find` is universally required. Existing seven-column models, models with
 paired examples instead of `Examples`, reordered columns, and smaller valid
@@ -284,7 +298,7 @@ retain `variant="extract-ai"` to use the same settings-preservation behavior.
 The existing seven-value list input and HTTP-response return type remain
 supported. All service operations continue to use the normal Wrangles credentials.
 
-### General Instructions across Excel, saved models, and recipes
+### General Instructions across WranglesXL, saved models, and recipes
 
 The display label is **General Instructions**. In a saved model's `Settings`
 object, use `GeneralInstructions` (a string or list of strings). For an
@@ -300,34 +314,39 @@ settings document the precedence is `GeneralInstructions`, `AdditionalMessages`,
 empty list clears that setting, even when another alias contains stale text.
 An explicit update through any alias overrides the existing saved value.
 
-Updated Excel and Python save paths write `GeneralInstructions` and an identical
+WranglesXL and Python save paths write `GeneralInstructions` and an identical
 `AdditionalMessages` compatibility copy, removing other instruction aliases.
 Omitting instructions preserves the existing value. This also normalizes legacy
 instructions when a model is next saved; no bulk model migration is required.
 Both names in storage represent one setting and are applied only once.
 
-### Rolling out the naming change
+### Rolling out General Instructions naming
 
-Release the updated Excel authoring paths first. Their compatibility copy lets
-older Python runtimes continue reading `AdditionalMessages`. Verify creating,
-editing, clearing, saving, and reopening a disposable model, then run an
-extraction using the currently deployed runtime. Reload existing Excel task
-panes so authors use the updated editor before releasing the new Python reader.
+For deployments still adopting this naming change, release the updated
+WranglesXL authoring paths first. Their compatibility copy lets older Python
+runtimes continue reading `AdditionalMessages`. Verify creating, editing,
+clearing, saving, and reopening a disposable model, then run an extraction
+using the currently deployed runtime. Reload existing WranglesXL task panes
+so authors use the updated editor before releasing the new Python reader.
 An older editor can change only `AdditionalMessages` and leave a conflicting
 `GeneralInstructions` value; the new reader will prefer `GeneralInstructions`.
 
 Release Python next, and separately promote that package in the Lambda-Recipes
-runtime used by Excel. Confirm extraction through both Excel and recipes, with
-saved and call-specific instructions. A merged PR or published Python package
-alone does not verify the deployed runtime. Keep the compatibility copy until
-all supported readers and writers have migrated, including direct API clients.
-If an old writer or a rollback creates conflicting keys, reconcile the intended
-value through an updated save path before executing with the new reader.
+runtime used by WranglesXL. Confirm extraction through both WranglesXL and
+recipes, with saved and call-specific instructions. A merged PR or published
+Python package alone does not verify the deployed runtime. Keep the compatibility
+copy until all supported readers and writers have migrated, including direct API
+clients. If an old writer or a rollback creates conflicting keys, reconcile the
+intended value through an updated save path before executing with the new reader.
+
+The catalog-based model selector has its own deployment dependency: publish the
+matching Python package and catalog before its WranglesXL editor update, as
+described in [AI model configuration](ai_configuration.md#published-catalog-for-wranglesxl).
 
 ## Defining the schema in a recipe
 
 For a recipe-owned definition, put the schema under `output`. Recipe YAML is
-already structured, so use normal nested YAML rather than Excel shorthand.
+already structured, so use normal nested YAML rather than WranglesXL cell shorthand.
 
 ```yaml
 wrangles:

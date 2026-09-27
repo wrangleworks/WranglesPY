@@ -1,14 +1,14 @@
 # `extract.ai` configuration
 
-For a task-oriented introduction to defining attributes in Excel or directly
+For a task-oriented introduction to defining attributes in WranglesXL or directly
 in recipe YAML, see [`extract_ai_user_guide.md`](extract_ai_user_guide.md).
 
 The packaged defaults and base prompt live in
 `wrangles/ai_defaults.yml`. Set `WRANGLES_AI_CONFIG` to the path of a
 versioned replacement YAML file to override the complete configuration.
-Version 2 separates the provider/model catalog from operation settings. See
+The configuration separates the provider/model catalog from operation settings. See
 [AI model configuration](ai_configuration.md) for structure, model-default roles,
-and compatibility with existing version-1 override files.
+caller definitions, and setting selection rules.
 
 ## Runtime defaults
 
@@ -21,18 +21,17 @@ and compatibility with existing version-1 override files.
 - Reasoning effort: `none`
 - Response storage: enabled
 
-Recipes and Python calls can override these settings individually. Saved XL
+Recipes and Python calls can override these settings individually. Saved WranglesXL
 models and recipe outputs are compiled through the same definition compiler.
 
-When `threads` is omitted, the call uses
-`operations.extract.ai.defaults.default_concurrency` in version 2.
+When `threads` is omitted, the call inherits `default_concurrency` from the
+resolved model and operation configuration.
 An explicit `threads` value can raise or lower concurrency for that call.
-Version-1 files continue to use `extract_ai.default_concurrency`.
 
 Each retry receives the full configured timeout. Queued rows and retry delays
 do not consume that timeout, so a complete batch can take much longer than one
 request. Long-running Python and GitHub jobs can process rows in successive
-waves; WranglesXL batches must still fit within XL's approximately 20-second
+waves; WranglesXL batches must still fit within WranglesXL's approximately 20-second
 request window. See [`extract_ai/README.md`](extract_ai/README.md) for timing
 and batch-size guidance.
 
@@ -60,9 +59,8 @@ wrangles:
 
 Direct Python calls can likewise pass `store=False`. A per-call value overrides
 the configuration. A replacement `WRANGLES_AI_CONFIG` file should set
-`operations.extract.ai.defaults.store` explicitly (`extract_ai.store` in version
-1); if it omits that key, the runtime's fallback
-is `true`.
+`operations.extract.ai.defaults.store` explicitly; if it omits that key, the
+runtime's fallback is `true`.
 
 Response storage is separate from the local result cache. Cache hits do not
 send another OpenAI request or create another stored response. Changing
@@ -82,11 +80,11 @@ request's `metadata`:
 | Label | Automatic source |
 | --- | --- |
 | `recipe_name` | Saved recipe title, local recipe file basename, or the caller's `recipe_name` run variable |
-| `wrangles_user` | `WRANGLES_USER` from run variables or the environment, then XL's `user_email`, then the configured Wrangles login |
+| `wrangles_user` | `WRANGLES_USER` from run variables or the environment, then WranglesXL's `user_email`, then the configured Wrangles login |
 
 Once the companion WranglesXL and WranglesPY updates are both deployed,
 WranglesXL supplies the Recipe editor's displayed name and its existing user
-email automatically. Existing recipes need no edits. With an older XL client,
+email automatically. Existing recipes need no edits. With an older WranglesXL client,
 provide `recipe_name` as a run variable or set `metadata.recipe_name` on the
 step. Python callers can likewise pass
 `variables={"recipe_name": "Product classification"}` to `recipe.run` for an
@@ -114,7 +112,7 @@ wrangles:
           type: string
 ```
 
-For an explicit user override in XL, `${user_email}` is also available.
+For an explicit user override in WranglesXL, `${user_email}` is also available.
 `metadata: {}` disables all automatic labels for that step. Otherwise,
 explicit values take precedence and available automatic labels fill the
 remaining slots. OpenAI permits up to 16 string pairs, with keys up to 64
@@ -160,7 +158,7 @@ nested properties are non-null by default. Python
 represents that value as `None`; presentation layers such as WranglesXL may
 convert it to an empty cell or empty string at their serialization boundary.
 
-Nullable enums automatically include JSON `null`. In an Excel Enum cell, an
+Nullable enums automatically include JSON `null`. In a WranglesXL Enum cell, an
 unquoted `null` token means JSON `null`; combining it with `Nullable: FALSE` is
 rejected. Use an explicit JSON string list such as `["null"]` only when the
 literal word is an intended enum value. A future or existing saved-model

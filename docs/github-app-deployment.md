@@ -47,10 +47,11 @@ installed repositories. Each workflow requests a narrower installation token:
 | Operation | Token repository | Token permission |
 | --- | --- | --- |
 | Publish `schema/recipes/schema_dev.json` | `wrangleworks.github.io` | Contents: write |
+| Publish DEV/PROD `schema/ai/models-v1*.json` | `wrangleworks.github.io` | Contents: write |
 | Dispatch and wait for DEV or PROD deployment | `Lambda-Recipes` | Actions: write |
 
-The first DEV job validates both repository scopes; the first PROD job validates
-the Lambda scope. Missing configuration, invalid app credentials, or insufficient
+The first DEV and PROD jobs validate both repository scopes.
+Missing configuration, invalid app credentials, or insufficient
 installation permissions stop the workflow before tests and package publishing.
 These validation steps create tokens but do not write to either repository or
 start a deployment. Repository branch rules can still reject a later schema push.
@@ -64,6 +65,18 @@ revocation. Tokens are not passed between jobs or retained as secrets.
 Schema commits use `github-actions[bot]` as the author. This is commit attribution;
 the app installation token supplies the actual authorization. Deployment payloads
 continue to record the original initiating user through `github.actor`.
+
+AI model catalog publication uses the same app and Contents permission. CI
+generates the browser-safe catalog from packaged YAML. DEV and PROD publish
+their run's catalog artifact only after the matching Lambda-Recipes deployment
+has completed successfully. Catalog publication is a separate job so it can be
+retried without repeating package publication or deployment. Before retrying,
+confirm that the run's package version is still deployed; if it has been
+superseded, publish the newer deployment's artifact instead. No additional app
+permission or runtime catalog endpoint is needed.
+The catalog jobs share a [queued concurrency group](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)
+so DEV and PROD publications wait for each other rather than replacing a pending
+publication.
 
 ## Validate the migration in DEV
 

@@ -6,6 +6,7 @@ tests/temp/*
 
 # Local/generated output files
 .data/
+schema/ai-models-v1.json
 output_files/*
 !output_files/.gitkeep
 
