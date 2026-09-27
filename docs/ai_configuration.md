@@ -13,9 +13,8 @@ runs it. A saved extraction model is a reusable definition, not another caller.
 | --- | --- | --- |
 | Python caller | Calls a function such as `wrangles.extract.ai(...)` or `wrangles.openai.embeddings(...)` | Python function arguments |
 | Recipe caller | Runs a wrangle such as `extract.ai` or `create.embeddings` through WranglesPY, locally or on a hosted worker | Parameters on that recipe step |
-| WranglesXL saved-model editor | Authors and saves extraction fields and model settings | Saved model `Settings`, including `GPTModel` and `ReasoningEffort` |
-| WranglesXL extraction execution | Runs a saved extraction model through the shared WranglesPY recipe runtime | The saved definition plus arguments in the generated recipe call |
-| WranglesXL semantic lookup | Builds and runs a saved semantic lookup through the lookup service | The saved lookup and its service-side embedding configuration |
+| WranglesXL — save (`extract.ai` and `lookup.semantic`) | Authors and saves a reusable extraction or semantic-lookup definition | The saved definition: extraction fields or lookup columns, plus model settings |
+| WranglesXL — run (`extract.ai` and `lookup.semantic`) | Applies a saved extraction or semantic lookup to selected worksheet data | The saved definition plus call arguments; the execution service supplies runtime defaults |
 
 A recipe can use an inline extraction schema or refer to a saved extraction
 model with `model_id`. Either way, the shared extraction runtime prepares the
@@ -23,18 +22,23 @@ provider request. WranglesXL's saved-model editor does not itself call OpenAI.
 
 ## Names for settings and defaults
 
-| Term used in this guide | Meaning |
-| --- | --- |
-| Packaged configuration | The `ai_defaults.yml` shipped with a WranglesPY release |
-| Runtime configuration | The configuration loaded by the executing WranglesPY process: the packaged file, or the complete replacement selected by `WRANGLES_AI_CONFIG` |
-| Model defaults | Settings under `providers.<provider>.models.<model>.defaults` |
-| Protocol defaults | Settings under that model's `protocol_defaults.<protocol>`, used only for the selected request protocol |
-| Operation defaults | Settings under `operations.<operation>.defaults`, such as `operations.extract.ai.defaults.retries` |
-| Resolved configuration | Model defaults, then protocol-specific defaults, then operation defaults combined for the selected model; later values override earlier ones |
-| Saved settings | Values stored with a saved extraction definition, such as `Settings.GPTModel` and `Settings.ReasoningEffort` |
-| Call arguments | Values supplied for this invocation: Python arguments or recipe-step parameters, such as `reasoning: {effort: none}` |
-| Provider default | The behavior chosen by the AI provider when the request omits a setting |
-| Published catalog | A versioned JSON export of the packaged configuration for clients such as WranglesXL; it does not read a worker's replacement configuration |
+The terms below move from configuration and saved definitions to defaults,
+then to the arguments supplied for one call. The diagram and selection table
+below show how these sources combine for extraction.
+
+| Group | Term used in this guide | Meaning |
+| --- | --- | --- |
+| Configuration and saved definitions | Packaged configuration | The `ai_defaults.yml` shipped with a WranglesPY release |
+| | Runtime configuration | The configuration loaded by the executing WranglesPY process: the packaged file, or the complete replacement selected by `WRANGLES_AI_CONFIG` |
+| | Resolved configuration | Model defaults, then protocol defaults, then operation defaults combined for the selected model; later values override earlier ones |
+| | Published catalog | A versioned JSON export of the packaged configuration for clients such as WranglesXL; it does not read a worker's replacement configuration |
+| | Saved settings | Values stored with a saved definition; for extraction, these include `Settings.GPTModel` and `Settings.ReasoningEffort` |
+| Defaults | Provider default | The behavior chosen by the AI provider when the request omits a setting |
+| | Default-model role | A named purpose in a model's `default_for` list, such as `extract.ai` or `embeddings`, that selects that model when none is supplied |
+| | Model defaults | Settings under `providers.<provider>.models.<model>.defaults` |
+| | Protocol defaults | Settings under that model's `protocol_defaults.<protocol>`, used only for the selected request protocol |
+| | Operation defaults | Settings under `operations.<operation>.defaults`, such as `operations.extract.ai.defaults.retries` |
+| Individual call | Call arguments | Values supplied for this invocation: Python arguments or recipe-step parameters, such as `reasoning: {effort: none}` |
 
 Set `WRANGLES_AI_CONFIG` to a replacement YAML file when a process needs its own
 runtime configuration. Start from a complete copy of the packaged file. A
@@ -53,8 +57,9 @@ supported parameter values. Operation entries select a provider and protocol
 and hold runtime defaults such as concurrency, caching, and extraction prompts.
 
 Optional `applications` metadata is a list of labels, such as `[embeddings]` or
-`[data_extraction, description_writing]`. `default_for` assigns model-selection
-roles. Neither field is sent to the provider. Provider `documentation` links
+`[data_extraction, description_writing]`. `default_for` assigns default-model
+roles: labels that say which purpose should use a model by default. Neither
+field is sent to the provider. Provider `documentation` links
 are reference material; `endpoints` are request destinations.
 
 This is an excerpt; a replacement file should contain the complete catalog:
@@ -88,7 +93,13 @@ operations:
       retries: 1
 ```
 
-### Model status and default roles
+### Model status and default-model roles
+
+A **role** is a default-model assignment for a named purpose. For example,
+`default_for: [extract.ai]` means "choose this model for extraction when no
+saved or call-supplied model is selected." `default_for: [embeddings]` makes
+the equivalent assignment for embedding requests. A role selects the model;
+that model's defaults supply its settings.
 
 `status` is `active`, `deprecated`, or `retired`. It describes catalog lifecycle,
 not a live provider availability check. A model can hold several `default_for`
@@ -113,22 +124,40 @@ member. Missing metadata means unknown support; an empty list means that setting
 is unsupported. The catalog is maintained explicitly, without automatic provider
 model discovery. Adding a provider entry does not implement its runtime adapter.
 
-Use `protocol_defaults` for settings specific to a request protocol:
-
-```yaml
-gpt-4o-mini:
-  status: active
-  default_for: []
-  protocol_defaults:
-    chat_completions:
-      temperature: 0.2
-```
+Use `protocol_defaults` for settings that apply only to a particular request
+protocol. They override the model's general defaults before operation defaults
+are applied.
 
 The loader rejects malformed declarations, conflicting default roles, and model
 defaults outside declared enums. It does not contact providers or validate keys.
 Live extraction checks remain necessary when adopting a new model.
 
 ## How extraction selects settings
+
+### How the layers fit together
+
+The published catalog supplies the WranglesXL editor's choices and displayed
+defaults. Execution uses the runtime configuration loaded by the worker. The
+two share the packaged source, but a worker can use a replacement configuration.
+
+```mermaid
+flowchart TD
+    packaged["Packaged configuration"] -->|export| catalog["Published catalog"]
+    catalog --> editor["WranglesXL editor"]
+    editor --> saved["Saved settings"]
+    packaged -->|unless replaced| runtime["Runtime configuration"]
+    replacement["WRANGLES_AI_CONFIG replacement"] -->|complete replacement| runtime
+    runtime --> select["1. Select model: first available<br/>Saved model, then call model,<br/>then default-model role"]
+    saved --> select
+    arguments["Call arguments"] --> select
+    select --> defaults["2. Resolve configuration: later values override<br/>Model defaults, then protocol defaults,<br/>then operation defaults"]
+    defaults --> settings["3. Apply setting-specific precedence<br/>Reasoning: call, then saved, then resolved configuration<br/>See the table below for other settings"]
+    saved --> settings
+    arguments --> settings
+    settings --> request["Provider request<br/>Omitted settings use provider defaults"]
+```
+
+### Selection order
 
 The runtime first selects the model, then resolves configuration for that model,
 then applies saved settings and call arguments where applicable. The selection
@@ -193,7 +222,7 @@ assert ai_config.extract_ai() == extraction
 `extract_ai()` return copies of resolved settings. Modifying these returned
 dictionaries does not change the cached configuration.
 
-## Configured operations
+## Configured AI Wrangles
 
 | Operation | WranglesPY callers | Configured settings |
 | --- | --- | --- |
@@ -203,6 +232,45 @@ dictionaries does not change the cached configuration.
 | `search.retrieve_link_content` | Python, recipe, and Gemini URL-context client | Model, endpoint/API version, concurrency, timeout, retries, temperature/top-p/top-k/token limits/stop sequences |
 | `generate.ai` | Python and recipe generation; unreleased | Model, endpoint, reasoning/text tuning, concurrency, timeout, retries, strictness |
 | `huggingface` | Generic recipe task wrangle | Explicit model, endpoint, timeout, retries, task parameters |
+
+### Saved extraction in WranglesXL (`extract.ai`)
+
+Saving stores the extraction definition and settings. Running that saved model
+directly from WranglesXL builds a one-step `extract.ai` recipe containing its
+`model_id` and sends it through `/recipe/run`. The user does not need to author
+that recipe. The shared WranglesPY runtime loads the saved definition, resolves
+settings, and makes the provider request. A user-authored recipe that refers to
+the same saved model uses that runtime too.
+
+**Use configured default** leaves the saved model selection absent, and
+**Use model default** leaves saved reasoning absent. Execution then follows the
+selection rules above. Choosing a particular model or reasoning effort stores
+that choice in the saved settings.
+
+WranglesXL offers only `none|low` reasoning values, filtered by the selected
+model's declared support. Existing saved selections remain visible even when
+unlisted or when the catalog cannot load. An explicit deprecated status produces
+a warning without blocking execution. Catalog load failures offer a retry and
+do not rewrite settings. A saved or inherited extended reasoning value is
+flagged because of WranglesXL's batch processing window.
+
+The editor displays packaged defaults. A worker's replacement runtime
+configuration can differ, and that runtime configuration controls execution.
+Publish the Python changes and catalog before releasing the corresponding
+WranglesXL editor update.
+
+### Saved semantic lookups in WranglesXL (`lookup.semantic`)
+
+WranglesXL creates and updates semantic lookup definitions through
+`/model/content` and runs them through `/wrangles/lookup`. Its current calls
+identify the saved lookup, matching columns, returned columns, and result count;
+they do not directly select a provider embedding model or dimensions.
+
+The published catalog now includes embedding metadata for those consumers.
+Adding that metadata does not change the lookup service's model selection or
+rebuild existing indexes. Training and query embeddings must continue to use
+compatible provider, model, and dimension settings; a changed catalog default
+must not silently change the model used to query an existing index.
 
 ## Provider settings
 
@@ -348,35 +416,3 @@ file identifies its snapshot with `package_version`. If publication fails, the
 previous catalog remains available and the workflow fails. Before retrying,
 confirm that the run's version is still deployed; otherwise publish the newer
 deployment's artifact instead of replacing it with an old snapshot.
-
-### Saved extraction editor behavior
-
-**Use configured default** leaves the saved model selection absent, and
-**Use model default** leaves saved reasoning absent. Execution then follows the
-selection rules above. Choosing a particular model or reasoning effort stores
-that choice in the saved settings.
-
-WranglesXL offers only `none|low` reasoning values, filtered by the selected
-model's declared support. Existing saved selections remain visible even when
-unlisted or when the catalog cannot load. An explicit deprecated status produces
-a warning without blocking execution. Catalog load failures offer a retry and
-do not rewrite settings. A saved or inherited extended reasoning value is
-flagged because of WranglesXL's batch processing window.
-
-The editor displays packaged defaults. A worker's replacement runtime
-configuration can differ, and that runtime configuration controls execution.
-Publish the Python changes and catalog before releasing the corresponding
-WranglesXL editor update.
-
-### Semantic lookup coverage
-
-WranglesXL creates and updates semantic lookup definitions through
-`/model/content` and runs them through `/wrangles/lookup`. Its current calls
-identify the saved lookup, matching columns, returned columns, and result count;
-they do not directly select a provider embedding model or dimensions.
-
-The published catalog now includes embedding metadata for those consumers.
-Adding that metadata does not change the lookup service's model selection or
-rebuild existing indexes. Training and query embeddings must continue to use
-compatible provider, model, and dimension settings; a changed catalog default
-must not silently change the model used to query an existing index.
