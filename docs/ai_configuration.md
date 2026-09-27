@@ -1,21 +1,61 @@
 # AI model configuration
 
-`wrangles/ai_defaults.yml` is the packaged catalog for AI model selection and
-defaults. Set `WRANGLES_AI_CONFIG` to a versioned replacement YAML file to use
-your own catalog. Start from a copy of the packaged file. Configuration is
-loaded locally and cached; call `wrangles.ai_config.clear_cache()` after changing
-an already-loaded file.
+`wrangles/ai_defaults.yml` is the packaged source of AI model choices and
+defaults. It groups models by provider and keeps model settings separate from
+operation settings such as retries, concurrency, and timeouts.
+
+## Callers and surfaces
+
+A **caller** starts an AI operation. A **surface** is where a user authors or
+runs it. A saved extraction model is a reusable definition, not another caller.
+
+| Caller or surface | What it does | Where settings are supplied |
+| --- | --- | --- |
+| Python caller | Calls a function such as `wrangles.extract.ai(...)` or `wrangles.openai.embeddings(...)` | Python function arguments |
+| Recipe caller | Runs a wrangle such as `extract.ai` or `create.embeddings` through WranglesPY, locally or on a hosted worker | Parameters on that recipe step |
+| WranglesXL saved-model editor | Authors and saves extraction fields and model settings | Saved model `Settings`, including `GPTModel` and `ReasoningEffort` |
+| WranglesXL extraction execution | Runs a saved extraction model through the shared WranglesPY recipe runtime | The saved definition plus arguments in the generated recipe call |
+| WranglesXL semantic lookup | Builds and runs a saved semantic lookup through the lookup service | The saved lookup and its service-side embedding configuration |
+
+A recipe can use an inline extraction schema or refer to a saved extraction
+model with `model_id`. Either way, the shared extraction runtime prepares the
+provider request. WranglesXL's saved-model editor does not itself call OpenAI.
+
+## Names for settings and defaults
+
+| Term used in this guide | Meaning |
+| --- | --- |
+| Packaged configuration | The `ai_defaults.yml` shipped with a WranglesPY release |
+| Runtime configuration | The configuration loaded by the executing WranglesPY process: the packaged file, or the complete replacement selected by `WRANGLES_AI_CONFIG` |
+| Model defaults | Settings under `providers.<provider>.models.<model>.defaults` |
+| Protocol defaults | Settings under that model's `protocol_defaults.<protocol>`, used only for the selected request protocol |
+| Operation defaults | Settings under `operations.<operation>.defaults`, such as `operations.extract.ai.defaults.retries` |
+| Resolved configuration | Model defaults, then protocol-specific defaults, then operation defaults combined for the selected model; later values override earlier ones |
+| Saved settings | Values stored with a saved extraction definition, such as `Settings.GPTModel` and `Settings.ReasoningEffort` |
+| Call arguments | Values supplied for this invocation: Python arguments or recipe-step parameters, such as `reasoning: {effort: none}` |
+| Provider default | The behavior chosen by the AI provider when the request omits a setting |
+| Published catalog | A versioned JSON export of the packaged configuration for clients such as WranglesXL; it does not read a worker's replacement configuration |
+
+Set `WRANGLES_AI_CONFIG` to a replacement YAML file when a process needs its own
+runtime configuration. Start from a complete copy of the packaged file. A
+replacement must define each operation and provider it uses, plus the required
+default model roles unless callers supply models explicitly. It does not inherit
+missing operations from the packaged file.
+
+Configuration is read locally and cached. Call
+`wrangles.ai_config.clear_cache()` after changing a file already loaded by the
+process. Keep credentials outside configuration and the published catalog.
 
 ## Providers, models, and operations
 
-Version 2 groups models under their providers. Model entries describe lifecycle,
-default roles, model-specific defaults, and known supported parameter values.
-Operation settings hold concurrency, timeouts, caching, and extraction prompts.
-Optional `applications` metadata is a list of non-empty strings,
-such as `[embeddings]` or `[data_extraction, description_writing]`. These labels help readers find
-models; `default_for` selects defaults. Application labels are not sent to APIs.
-Provider `documentation` links, including `model_cards`, are reference material
-and are kept separate from request `endpoints`.
+Model entries describe lifecycle, default roles, model defaults, and declared
+supported parameter values. Operation entries select a provider and protocol
+and hold runtime defaults such as concurrency, caching, and extraction prompts.
+
+Optional `applications` metadata is a list of labels, such as `[embeddings]` or
+`[data_extraction, description_writing]`. `default_for` assigns model-selection
+roles. Neither field is sent to the provider. Provider `documentation` links
+are reference material; `endpoints` are request destinations.
 
 This is an excerpt; a replacement file should contain the complete catalog:
 
@@ -48,30 +88,32 @@ operations:
       retries: 1
 ```
 
-`status` is `active`, `deprecated`, or `retired`. It describes the model's status
-in this catalog, not a live availability check against the provider. A model
-can serve several roles through `default_for`; each role has one default within
-a provider. Retired entries cannot hold default roles. Deprecated entries remain
-usable, including through default roles. Explicit model selection remains available
-for compatibility, including unlisted custom
-models and dated snapshots. Provider errors still determine actual availability.
+### Model status and default roles
+
+`status` is `active`, `deprecated`, or `retired`. It describes catalog lifecycle,
+not a live provider availability check. A model can hold several `default_for`
+roles; each role has one default within a provider. Retired models cannot hold
+default roles. Deprecated models remain usable, including as defaults.
+
 Selecting a deprecated model logs a warning naming its provider and model, then
-continues normally. This also applies to configured defaults, saved definitions,
-and tests. The warning is issued once per operation, outside row and retry loops;
-reading or resolving the catalog does not emit warnings.
+continues normally. This applies to call arguments, configured defaults, saved
+definitions, and tests. The warning occurs once per operation, outside row and
+retry loops. Reading the catalog does not emit warnings.
 
 The `global` role is a fallback for text extraction and generation. Embeddings
-and URL retrieval use their own roles and never inherit a text model. The `test`
-role is selected explicitly by a test or trial runner; importing pytest does
-not change production model selection.
+and URL retrieval use their own roles. The `test` role is selected explicitly by
+a test or trial runner; running pytest does not change normal model selection.
+Callers may select unlisted models and dated snapshots explicitly. Provider
+errors determine whether those models are actually available.
 
-`supported_values` contains lists of enum values, not flags for individual enum
-members. It records capabilities for the models we configure; it is not an
-automatically discovered inventory of every provider model. A provider entry
-does not implement a new adapter. For example, the reserved Anthropic section
-does not enable Anthropic extraction.
+### Supported settings and protocol defaults
 
-Use `protocol_defaults` for tuning that applies only to a specific protocol:
+`supported_values` contains enum lists, not a separate boolean for each enum
+member. Missing metadata means unknown support; an empty list means that setting
+is unsupported. The catalog is maintained explicitly, without automatic provider
+model discovery. Adding a provider entry does not implement its runtime adapter.
+
+Use `protocol_defaults` for settings specific to a request protocol:
 
 ```yaml
 gpt-4o-mini:
@@ -82,48 +124,60 @@ gpt-4o-mini:
       temperature: 0.2
 ```
 
-## Resolution and overrides
+The loader rejects malformed declarations, conflicting default roles, and model
+defaults outside declared enums. It does not contact providers or validate keys.
+Live extraction checks remain necessary when adopting a new model.
 
-An operation selects its configured provider and protocol, then its model by
-default role. Model defaults and protocol-specific defaults are combined with
-operation defaults; operation defaults take precedence. Explicit caller
-arguments take precedence over resolved defaults, including `False` and `0`.
-Endpoint overrides remain available in APIs that already expose them.
+## How extraction selects settings
 
-All packaged operations default to one additional retry after the first attempt.
-Set `retries: 0` to disable retries. Temperature is model-specific: modern OpenAI
-models leave it unset, legacy GPT-4o Chat Completions keeps `0.2`, and the configured
-Gemini URL-retrieval model keeps `0.1`. Unset temperature uses the provider's default.
+The runtime first selects the model, then resolves configuration for that model,
+then applies saved settings and call arguments where applicable. The selection
+order is different for the model name and for reasoning:
 
-For extraction, a saved definition's model retains its existing precedence over
-the caller's `model`. Both tuning and runtime defaults are resolved for that
-selected model before applying explicit caller overrides.
-Explicit reasoning takes precedence over saved reasoning, which takes precedence
-over configured reasoning. Declared reasoning and verbosity enums are checked
-against the requested value; unsupported values are warned about and omitted.
-In version 2, omitted reasoning and verbosity defaults stay omitted from the
-request, allowing the provider's defaults to apply. This is the same for inline
-recipes, saved definitions, and both supported extraction protocols. The packaged
-default model explicitly configures `none` reasoning and `low` verbosity; those
-values are not silently applied to an explicit model without tuning defaults.
-Version-1 replacement files retain their existing compatibility fallbacks.
-Saved `ReasoningEffort` is a scalar string, such as `none`, `medium`, or `max`.
-It uses the selected model's supported values, just as recipe reasoning does.
-The runtime accepts broader values, but the Excel editor deliberately limits new
-reasoning choices to `none|low` to fit its current batch processing window.
+| Setting | Selection order, first available value wins |
+| --- | --- |
+| Model | Saved settings (`GPTModel` and recognized aliases) -> call argument `model` -> runtime configuration's `extract.ai` default role, with `global` as fallback |
+| Reasoning | Call argument `reasoning` -> saved setting `ReasoningEffort` -> resolved configuration's `reasoning` -> provider default |
+| Text verbosity | Call argument `verbosity` -> resolved configuration's `text.verbosity` -> provider default |
+| Retries, timeout, concurrency, storage, cache, and strictness | Call argument -> resolved configuration |
 
-Saved model selection recognizes `GPTModel`, `AIModel`, `model`, and the legacy
-Excel key `GPTModelName`, in that order (ignoring case and punctuation). Blank
-values do not select a model; absent selections inherit the caller or configured
-default. Existing explicit saved selections continue to take precedence over
-the caller's `model`.
+For example, a saved extraction model might contain `ReasoningEffort: low`:
 
-The config loader rejects malformed declarations, conflicting default roles,
-and configured enum defaults outside declared supported values. It does not
-contact providers or validate credentials. Provider compatibility and extraction
-quality still require live validation when adopting a new model.
+- A recipe calling it with `reasoning: {effort: none}` requests `none`.
+- The same recipe without a `reasoning` argument requests the saved `low` value.
+- If the saved model also omits `ReasoningEffort`, the runtime uses the resolved
+  configuration for the selected model. If that configuration omits reasoning,
+  the request leaves it to the provider.
 
-Python callers can inspect the effective policy without making an AI request:
+The model-name rule preserves the saved definition's selected model even when
+the Python or recipe caller also supplies `model`. Saved model selection checks
+`GPTModel`, `AIModel`, `model`, and `GPTModelName`, in that order, ignoring case
+and punctuation. Null and empty-string values do not select a model.
+
+Saved `ReasoningEffort` is a scalar string. Python and recipe calls use the
+`reasoning` object. Declared reasoning and verbosity enums are checked against
+the requested values; unsupported values produce a warning and are omitted.
+The model's provider default then applies. These rules apply to both Responses
+and Chat Completions. Omitted reasoning and verbosity stay omitted when no
+setting source supplies them.
+
+The packaged extraction default model sets `none` reasoning and `low` verbosity.
+Those values are not automatically applied when a caller selects a different
+model whose configuration leaves them unset. WranglesXL deliberately offers
+only `none|low` reasoning choices to fit its current batch processing window.
+
+All packaged operations use one additional retry after the first attempt.
+`retries: 0` disables retries. Explicit call values such as `False` and `0` are
+preserved. Timeout applies to each HTTP attempt; it is not a whole-batch deadline.
+Endpoint overrides remain available in APIs that expose them.
+
+Extraction uses its operation defaults directly. There is no named profile or
+caller-selectable preset registry. Provider request options use allowlists so
+runtime controls and catalog metadata do not leak into request payloads.
+
+### Inspect the resolved configuration
+
+Python callers can inspect defaults without making an AI request:
 
 ```python
 from wrangles import ai_config
@@ -132,185 +186,197 @@ extraction = ai_config.resolve("extract.ai")
 embeddings = ai_config.resolve("embeddings")
 trial = ai_config.resolve("extract.ai", role="test")
 
-# Existing helper remains available.
 assert ai_config.extract_ai() == extraction
 ```
 
-`load()` returns a defensive copy of the active YAML structure. `resolve()` and
-`extract_ai()` return defensive copies of flat effective policies. Changing a
-returned dictionary does not alter cached configuration.
+`load()` returns a copy of the runtime configuration. `resolve()` and
+`extract_ai()` return copies of resolved settings. Modifying these returned
+dictionaries does not change the cached configuration.
 
-## Integrated callers
+## Configured operations
 
-| Operation | Callers | Configured settings |
+| Operation | WranglesPY callers | Configured settings |
 | --- | --- | --- |
-| `ai.choose`, `ai.score`, `ai.true_false`, `ai.answers` | Python and recipe structured answers | Provider, model, endpoint, concurrency, timeout, retries, cache |
-| `extract.ai` | Python and recipe extraction | Model, endpoints, model tuning, concurrency, timeout, retries, strictness, storage, cache, prompt |
+| `extract.ai` | Python and recipe extraction, including WranglesXL extraction requests | Model, endpoints, tuning, concurrency, timeout, retries, strictness, storage, cache, prompt |
 | `embeddings` | `openai.embeddings` and recipe `create.embeddings` | Provider, model, endpoint, batch size, concurrency, timeout, retries, precision, dimensions, Jina task/normalization/truncation |
+| `ai.choose`, `ai.score`, `ai.true_false`, `ai.answers` | Python and recipe structured answers | Provider, model, endpoint, concurrency, timeout, retries, cache |
 | `search.retrieve_link_content` | Python, recipe, and Gemini URL-context client | Model, endpoint/API version, concurrency, timeout, retries, temperature/top-p/top-k/token limits/stop sequences |
-| `generate.ai` | Python and recipe generation | Model, endpoint, reasoning/text tuning, concurrency, timeout, retries, strictness |
+| `generate.ai` | Python and recipe generation; unreleased | Model, endpoint, reasoning/text tuning, concurrency, timeout, retries, strictness |
 | `huggingface` | Generic recipe task wrangle | Explicit model, endpoint, timeout, retries, task parameters |
 
-The four answer wrangles provide structured answers to common types of
-questions through [Typesafe](https://docs.typesafe.ai/introduction).
-`ai.choose` selects the best-fitting option, `ai.score` locates the input along
-ordered criteria, and `ai.true_false` returns the probability that a statement
-is true. `ai.answers` answers any combination of these question types together.
-They use Typesafe's `systemone` protocol at
-`https://api.typesafe.ai/v1/systemone`, with `jev-1.13.0` as their pinned default
-model. Each operation has its own default role; changing an extraction or global
-model does not change these operations. Explicit unlisted Typesafe model names
-remain available. This adapter supports only `provider: typesafe` and
-`protocol: systemone`; adding another catalog provider alone does not implement
-an adapter for it.
+## Provider settings
 
-Their packaged runtime defaults are 10 concurrent requests, a 30-second timeout,
-and one additional attempt after a transient failure. Successful results use a
-bounded in-memory cache with a one-hour TTL, at most 512 entries, and a maximum
-value size of 65,536 bytes. Duplicate in-flight requests share their result, and
-periodic cache logging is disabled. `WRANGLES_AI_CACHE_*` environment controls
-apply to these operations independently of the existing
-`WRANGLES_EXTRACT_AI_CACHE_*` controls. See [AI answers](ai_answers.md) for
-question schemas, examples, output columns, and cache overrides.
+### OpenAI
 
-Keep credentials outside the catalog. Supply `api_key` explicitly, use the local
-`TYPESAFE_API_KEY` environment variable, or use `api_key: ${TYPESAFE_API_KEY}` in
-a hosted recipe with that managed secret. Hosted secrets are supplied as recipe
-variables; they are not placed in the worker's environment.
+Extraction uses Responses by default. Chat Completions remains available through
+`extract.ai(protocol="chat_completions")`. The packaged `gpt-6-luna` model holds
+the extraction, generation, global, and test default roles.
 
-OpenAI embeddings retain `text-embedding-3-small` and their existing dimensions
-unless explicitly configured otherwise. Jina requires an explicit model or a
-Jina catalog model assigned the `embeddings` role; the package does not invent a
-Jina model default. Explicit Jina URLs retain their existing provider inference.
+Modern model entries leave temperature unset, so the provider chooses it.
+GPT-4o Chat Completions entries configure `temperature: 0.2`.
 
-The catalog records Jina v5's `task` enum on the model: `retrieval.query`,
-`retrieval.passage`, `text-matching`, `clustering`, and `classification`. Its
-default is `text-matching`, matching the provider's documented default. Use
-`retrieval.passage` for indexed documents and `retrieval.query` for search queries;
-explicit caller `task` overrides the model default. Validation uses the selected
-model's catalog enum. Uncataloged older Jina models retain their existing task
-validation, including v3's `separation` value. See the
-[Jina API schema](https://api.jina.ai/openapi.json) for model-specific values.
+Embedding model `text-embedding-3-small` holds the `embeddings` default role;
+`text-embedding-3-large` is another catalog option. Embeddings keep their current
+dimensions unless configured or supplied by the caller. The embedding operation
+has independent defaults: batch size 100, concurrency 10, a 30-second timeout,
+one retry, and `float32` precision. It does not inherit extraction settings.
 
-Gemini URL retrieval uses the configured model and Google's URL-context tools.
-`search.ai_mode` delegates its underlying model to SerpAPI/Google and has no
-selectable LLM model in this API.
+OpenAI endpoint entries are complete URLs on `https://api.openai.com`:
+`/v1/responses`, `/v1/chat/completions`, and `/v1/embeddings`.
 
-For Google, `endpoints.base_url` is the SDK service root
-`https://generativelanguage.googleapis.com`. The retrieval operation sets
-`api_version: v1beta`; the SDK appends the model and method. With the configured
-`gemini-3.8-flash`, the complete request URL is
+Generation remains unreleased. Its operation sets `low` reasoning; its Python
+and recipe strictness defaults are `strict` and `recipe_strict`, respectively.
+WranglesJS note-generation functions still require a separate integration.
+
+### Jina
+
+Jina uses the complete endpoint `https://api.jina.ai/v1/embeddings`. It requires
+an explicit model unless a Jina catalog entry holds the `embeddings` default
+role. The packaged Jina entry does not currently hold that role. An explicit
+Jina URL retains the embedding caller's provider inference.
+
+`jina-embeddings-v5-omni-small` declares `task` values `retrieval.query`,
+`retrieval.passage`, `text-matching`, `clustering`, and `classification`.
+Its configured default is `text-matching`. Use `retrieval.passage` for indexed
+documents and `retrieval.query` for search queries. Call argument `task` overrides
+the model default and is checked against the model's enum. Other configurable
+request settings include dimensions, normalization, truncation, and late
+chunking. See the [Jina API schema](https://api.jina.ai/openapi.json).
+
+### Google
+
+Gemini URL retrieval uses Google's URL-context tools. The packaged model is
+`gemini-3.8-flash`, with `temperature: 0.1` and `api_version: v1beta`.
+
+`endpoints.base_url` is the SDK service root
+`https://generativelanguage.googleapis.com`. The SDK appends the API version,
+model, and method; the configured model's complete endpoint is
 `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent`.
-Both the base URL and version are configurable. See the
+Both the service root and version are configurable. See the
 [Google API reference](https://ai.google.dev/api/generate-content).
-Google model names with or without the SDK's `models/` prefix share the same
-catalog defaults. Declare only one spelling for each model in the catalog.
 
-OpenAI and Jina use complete request URLs in `endpoints`: OpenAI
-`/v1/responses`, `/v1/chat/completions`, and `/v1/embeddings` on `api.openai.com`,
-and Jina `/v1/embeddings` on `api.jina.ai`. Provider documentation links are not
-request endpoints.
+Model names with or without the SDK's `models/` prefix share catalog defaults;
+declare only one spelling. `search.ai_mode` delegates model selection to
+SerpAPI/Google and has no selectable language model in the WranglesPY API.
 
-Hugging Face's generic task wrangle retains its required explicit `model`:
-different tasks cannot share one model default. Its operation declares
-`requires_model: true`, and model entries can supply task-specific `parameters`
-and lifecycle status. Explicit parameters override configured values. Requests
-use the configured HF Inference base plus the model ID, currently
+### Typesafe
+
+The four structured-answer operations use Typesafe's `systemone` protocol at
+`https://api.typesafe.ai/v1/systemone`, with `jev-1.13.0` as their default model:
+
+- `ai.choose` selects the best-fitting option.
+- `ai.score` locates the input along ordered criteria.
+- `ai.true_false` returns the probability that a statement is true.
+- `ai.answers` combines these question types in one request.
+
+Each operation has its own default role; changing an extraction or global
+default does not affect them. Explicit unlisted Typesafe model names remain
+available. This adapter supports `provider: typesafe` and `protocol: systemone`.
+
+Packaged defaults are concurrency 10, a 30-second timeout, and one retry.
+Successful results use a bounded one-hour cache with at most 512 entries and
+65,536 bytes per value. Duplicate in-flight requests share their result, and
+periodic cache logging is disabled. `WRANGLES_AI_CACHE_*` controls apply
+independently of `WRANGLES_EXTRACT_AI_CACHE_*`. See [AI answers](ai_answers.md).
+
+Supply `api_key`, use the local `TYPESAFE_API_KEY` environment variable, or use
+`api_key: ${TYPESAFE_API_KEY}` in a hosted recipe with that managed secret.
+Hosted secrets are recipe variables, not worker environment variables.
+
+### Hugging Face
+
+The generic task wrangle requires an explicit `model`: different tasks cannot
+share one default. Its operation declares `requires_model: true`. Model entries
+can supply task-specific `parameters` and lifecycle status; call arguments
+override configured parameters.
+
+Requests use the configured HF Inference base plus the model ID, currently
 `https://router.huggingface.co/hf-inference/models/{model}`. The wrangle preserves
 raw JSON results and retries transient failures only. See the
 [HF Inference reference](https://huggingface.co/docs/inference-providers/en/providers/hf-inference).
 
-The public `openai.chatGPT` wrapper has been removed. Legacy Chat Completions
-remains available through `extract.ai(protocol="chat_completions")`. Extraction
-resolves configuration once per operation and uses a private transport for its
-individual rows.
+### Anthropic
 
-Generation remains unreleased. Its operation keeps `low` reasoning; extraction
-keeps `none` where supported. Its existing direct-Python and recipe strictness
-defaults are represented by `strict` and `recipe_strict`, respectively.
+The provider entry is reserved for a future adapter. It does not currently
+enable Anthropic calls.
 
-Extraction uses the operation's `defaults` directly. There is no profile registry
-or caller-selectable preset behavior; the unused `profile` label has been removed.
-A named preset system is outside the current configuration work.
+## Published catalog for WranglesXL
 
-Provider request options use explicit allowlists so runtime settings and catalog
-metadata cannot leak into API payloads. Explicit request arguments still override
-configured options. Extraction retains `messages`/`examples` aliases and recipe
-output-shape controls because existing callers use them. Private transport
-arguments and unused generation scaffolding have been removed where redundant.
+The published catalog contains both extraction and embedding information.
+WranglesXL's extraction editor reads the extraction choices; embedding models
+are kept in their own section for semantic-lookup consumers.
 
-WranglesJS note-generation calls still select models outside Python and require
-a separate client integration. SerpAPI AI Mode and WrangleWorks saved-model
-service endpoints own their server-side model selection.
-
-## Packaged catalog for the saved-model editor
-
-The WranglesXL extraction editor reads a small JSON export of the packaged
-catalog. Generate it from the repository root with:
+Generate the JSON from the repository root:
 
 ```sh
 python schema/generate_ai_catalog.py
 ```
 
-The generated `schema/ai-models-v1.json` carries a `schema_version` and the
+`schema/ai-models-v1.json` carries the JSON format's `schema_version` and the
 WranglesPY `package_version`. Release workflows pass the exact release or RC
-version using `--package-version`. The export always reads the packaged YAML;
-`WRANGLES_AI_CONFIG` cannot redirect it to local or deployment-specific settings.
-Only extraction model IDs, lifecycle statuses, effective reasoning defaults,
-and declared reasoning enum values are exported. Credentials, endpoints,
-prompts, and unrelated operational settings are excluded.
+version using `--package-version`. This export reads packaged YAML, never a
+worker's `WRANGLES_AI_CONFIG` replacement.
 
-The export includes the extraction provider's text models, including deprecated
-and older entries without application labels; embedding models are excluded.
-Missing enum metadata means unknown support, while an empty enum means the
-setting is unsupported. This is a catalog projection, with no provider discovery
-or model availability requests.
+The top-level extraction fields contain model IDs, lifecycle status, resolved
+reasoning defaults, and declared reasoning enums. The separate `embeddings`
+object contains the selected embedding provider and default model, plus a
+`providers` object containing each provider's models, lifecycle status, default
+roles, resolved settings, and declared enums.
+
+The packaged embedding section includes OpenAI's `text-embedding-3-small`
+default and `text-embedding-3-large` option, plus Jina's
+`jina-embeddings-v5-omni-small`. Jina's provider default is `null`: a caller must
+select a model until one is assigned the `embeddings` role. Exported settings
+include batch size, concurrency, timeout, retries, precision, and dimensions
+when configured; Jina also includes configured task, normalization, truncation,
+and late-chunking settings. Omitted dimensions remain omitted rather than
+copying an assumed provider default.
+
+Credentials, endpoints, prompts, and arbitrary provider parameters are excluded.
+The export performs no provider discovery or availability checks.
 
 CI saves the file as the `ai-model-catalog` artifact. Deployment workflows publish
-that same artifact to the public repository only after the matching Lambda
-deployment succeeds:
+that artifact after the matching Lambda deployment succeeds:
 
-- DEV: `schema/ai/models-v1_dev.json`
-- PROD: `schema/ai/models-v1.json`
+| Channel | Public path |
+| --- | --- |
+| DEV | `schema/ai/models-v1_dev.json` |
+| PROD | `schema/ai/models-v1.json` |
 
-WranglesXL loads these files from `https://public.wrangle.works`. The files follow
-their deployment channel, and `package_version` identifies each published
-snapshot. A publishing failure leaves the previous catalog available and fails
-the workflow. Before retrying a publishing job, confirm its `package_version`
-still matches the deployed runtime. If a newer deployment has completed, publish
-that deployment's catalog instead; replaying an older artifact would replace
-the current channel file.
+WranglesXL loads these files from `https://public.wrangle.works`. Each channel
+file identifies its snapshot with `package_version`. If publication fails, the
+previous catalog remains available and the workflow fails. Before retrying,
+confirm that the run's version is still deployed; otherwise publish the newer
+deployment's artifact instead of replacing it with an old snapshot.
 
-New saved models can inherit the configured model and reasoning without storing
-copies of today's defaults. Selecting a model or reasoning effort stores an
-explicit override. The Excel reasoning choices stay limited to `none|low`,
-filtered by the selected model's declared support. Existing saved selections
-remain visible, even if unlisted
-or the catalog cannot load. Only an explicit deprecated status produces a
-deprecation warning; it does not block execution. Catalog load failures offer a
-retry and do not rewrite saved settings.
+### Saved extraction editor behavior
 
-The editor shows packaged defaults. A deployment-specific `WRANGLES_AI_CONFIG`
-can therefore differ from what the editor displays; the runtime configuration
-still determines execution. Publish the Python changes and catalog before
-releasing the corresponding editor update. A saved or inherited extended
-reasoning setting is flagged in the editor because of its batch processing window.
+**Use configured default** leaves the saved model selection absent, and
+**Use model default** leaves saved reasoning absent. Execution then follows the
+selection rules above. Choosing a particular model or reasoning effort stores
+that choice in the saved settings.
 
-## Version-1 overrides
+WranglesXL offers only `none|low` reasoning values, filtered by the selected
+model's declared support. Existing saved selections remain visible even when
+unlisted or when the catalog cannot load. An explicit deprecated status produces
+a warning without blocking execution. Catalog load failures offer a retry and
+do not rewrite settings. A saved or inherited extended reasoning value is
+flagged because of WranglesXL's batch processing window.
 
-Existing `version: 1` files with an `extract_ai` section remain supported with
-their original replacement semantics. Existing `model_capabilities` flags
-remain accepted on that compatibility path and retain packaged capability
-inheritance. Generation still follows a version-1 extraction model override;
-other operations use packaged defaults because version 1 did not configure them.
-This includes all four Typesafe answer wrangles.
+The editor displays packaged defaults. A worker's replacement runtime
+configuration can differ, and that runtime configuration controls execution.
+Publish the Python changes and catalog before releasing the corresponding
+WranglesXL editor update.
 
-A version-2 replacement remains authoritative: it must define any new operation
-you intend to use, its provider, and a default model role (unless you supply the
-model explicitly). An older version-2 file does not silently inherit the new
-`ai.*` entries from the packaged catalog. Update it from the packaged catalog
-before calling these operations.
+### Semantic lookup coverage
 
-For new files, copy version 2 and edit the provider/model catalog and operation
-settings. The compatibility API `model_capabilities()` remains available for
-existing extraction internals; new configuration should use `supported_values`.
+WranglesXL creates and updates semantic lookup definitions through
+`/model/content` and runs them through `/wrangles/lookup`. Its current calls
+identify the saved lookup, matching columns, returned columns, and result count;
+they do not directly select a provider embedding model or dimensions.
+
+The published catalog now includes embedding metadata for those consumers.
+Adding that metadata does not change the lookup service's model selection or
+rebuild existing indexes. Training and query embeddings must continue to use
+compatible provider, model, and dimension settings; a changed catalog default
+must not silently change the model used to query an existing index.

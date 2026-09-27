@@ -1,17 +1,97 @@
-"""Public model metadata exported from the packaged extraction configuration.
+"""Public extraction and embedding metadata from the packaged configuration.
 
 The public catalog is deliberately smaller than runtime configuration: it does
 not expose endpoints, prompts, credentials, or arbitrary provider parameters.
 Deployment exports always use the packaged YAML, never WRANGLES_AI_CONFIG.
 """
+import copy as _copy
+import math as _math
+
 from . import ai_config as _ai_config
 
 
-def extract_ai_catalog(package_version: str) -> dict:
-    """Return the versioned public catalog for the packaged extract.ai adapter.
+_EMBEDDING_COMMON_FIELDS = (
+    "batch_size", "default_concurrency", "request_timeout_seconds", "retries",
+    "precision", "dimensions",
+)
+_EMBEDDING_PROVIDER_FIELDS = {
+    "openai": _EMBEDDING_COMMON_FIELDS,
+    "jina": (*_EMBEDDING_COMMON_FIELDS, "task", "normalized", "truncate", "late_chunking"),
+}
 
-    OpenAI catalog entries are eligible unless their applications include
-    embeddings. Entries without application annotations remain eligible so
+
+def _is_embedding_model(entry: dict) -> bool:
+    return ("embeddings" in entry.get("applications", [])
+            or "embeddings" in entry.get("default_for", []))
+
+
+def _embedding_default(key: str, value, model: str):
+    """Reject structured/private values masquerading as public scalar options."""
+    if key in {"precision", "task"}:
+        valid = isinstance(value, str) and bool(value.strip())
+    elif key in {"normalized", "truncate", "late_chunking"}:
+        valid = isinstance(value, bool)
+    elif key == "request_timeout_seconds":
+        valid = type(value) in {int, float} and _math.isfinite(value) and value > 0
+    else:
+        valid = type(value) is int and value >= (0 if key == "retries" else 1)
+    if not valid:
+        raise ValueError(f"Embedding model {model!r} has an invalid public default for {key!r}.")
+    return value
+
+
+def _embedding_catalog(config: dict) -> dict:
+    operation = "embeddings"
+    policy = _ai_config._resolve_v2(config, operation)
+    if policy["protocol"] != "embeddings":
+        raise ValueError("The public embedding catalog requires the embeddings protocol.")
+    providers = {}
+    for provider, fields in sorted(_EMBEDDING_PROVIDER_FIELDS.items()):
+        if provider not in config["providers"]:
+            continue
+        entries = config["providers"][provider]["models"]
+        models = []
+        for model_id, raw_entry in sorted(entries.items()):
+            entry = _ai_config._model_entry(config, provider, model_id)
+            if not _is_embedding_model(entry):
+                continue
+            resolved = _ai_config._resolve_v2(config, operation, model=model_id, provider=provider)
+            defaults = {key: _embedding_default(key, resolved[key], model_id)
+                        for key in fields if key in resolved}
+            supported = entry.get("supported_values", {})
+            supported_values = {key: _copy.deepcopy(supported[key])
+                                for key in fields if key in supported}
+            _ai_config._validate_defaults(defaults, supported_values, f"embeddings.{provider}.{model_id}")
+            models.append({
+                "id": model_id,
+                "status": entry["status"],
+                # Default roles belong to explicit catalog entries, not their
+                # snapshots: runtime selection does not inherit these roles.
+                "default_for": list(raw_entry.get("default_for", [])),
+                "defaults": defaults,
+                "supported_values": supported_values,
+            })
+        assigned_default = next((model["id"] for model in models
+                                 if operation in model["default_for"]), None)
+        providers[provider] = {"default_model": assigned_default, "models": models}
+
+    selected = providers.get(policy["provider"])
+    if selected is None or selected["default_model"] != policy["model"]:
+        raise ValueError("The embeddings default must select an eligible model from a supported provider.")
+    return {
+        "operation": operation,
+        "provider": policy["provider"],
+        "protocol": policy["protocol"],
+        "default_model": policy["model"],
+        "providers": providers,
+    }
+
+
+def extract_ai_catalog(package_version: str) -> dict:
+    """Return extraction choices with a separate, additive embeddings catalog.
+
+    OpenAI extraction entries exclude models whose applications or default roles
+    identify embeddings. Entries without annotations remain eligible so
     older extraction models remain visible with their lifecycle status.
     Missing reasoning enums mean unknown; an explicit empty enum means the
     model does not support the option. No model capabilities are guessed.
@@ -30,7 +110,7 @@ def extract_ai_catalog(package_version: str) -> dict:
     models = []
     for model_id in sorted(config["providers"][provider]["models"]):
         entry = _ai_config._model_entry(config, provider, model_id)
-        if "embeddings" in entry.get("applications", []):
+        if _is_embedding_model(entry):
             continue
         resolved = _ai_config._resolve_v2(config, operation, model=model_id)
         defaults = {}
@@ -68,4 +148,5 @@ def extract_ai_catalog(package_version: str) -> dict:
         "protocol": policy["protocol"],
         "default_model": policy["model"],
         "models": models,
+        "embeddings": _embedding_catalog(config),
     }

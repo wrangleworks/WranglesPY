@@ -14,7 +14,7 @@ be treated as one setting.
 
 | Layer | Unit of work | Controlled by | Purpose |
 | --- | --- | --- | --- |
-| WranglesXL request batch | A selected number of worksheet rows | WranglesXL Recipe editor | Bounds the rows sent to one Lambda request so the complete round trip can fit within the approximately 20-second XL window |
+| WranglesXL request batch | A selected number of worksheet rows | WranglesXL Recipe editor | Bounds the rows sent to one Lambda request so the complete round trip can fit within the approximately 20-second WranglesXL window |
 | Recipe DataFrame | The rows received by one `recipe.run` call | Caller and recipe | Runs the recipe's read, wrangle, and write steps |
 | `extract.ai` execution batch | All rows passed to one `extract.ai` call | WranglesPY | Deduplicates identical effective requests, checks the local cache, and schedules row requests |
 | OpenAI request | One unique, uncached input row | WranglesPY thread pool | Performs one Responses API call, with any retry occurring inside the same row task |
@@ -23,14 +23,14 @@ This implementation does **not** use the OpenAI Batch API, and `extract.ai`
 does not combine multiple input rows into one Responses API request. Each
 unique, uncached row is a separate synchronous OpenAI request.
 
-## End-to-end XL flow
+## End-to-end WranglesXL flow
 
-For an XL recipe using a batch size of 10:
+For a WranglesXL recipe using a batch size of 10:
 
 1. WranglesXL sends up to 10 rows to the AWS Lambda endpoint.
 2. Lambda passes those rows to WranglesPY as one DataFrame and runs the recipe.
 3. Recipe wrangles execute in recipe order. Non-AI work consumes part of the
-   same approximately 20-second XL round trip.
+   same approximately 20-second WranglesXL round trip.
 4. When the recipe reaches `extract.ai`, the wrangle passes all applicable
    DataFrame rows to the lower-level `wrangles.extract.ai` function.
 5. WranglesPY groups duplicate effective requests, checks its warm-process
@@ -40,9 +40,9 @@ For an XL recipe using a batch size of 10:
 7. Results are restored to the original row order and merged into the
    DataFrame.
 8. Remaining recipe wrangles and writes run before Lambda serializes the
-   response and returns it to XL.
+   response and returns it to WranglesXL.
 
-The XL batch size therefore controls the maximum rows entering one Lambda
+The WranglesXL batch size therefore controls the maximum rows entering one Lambda
 invocation. It does not create an additional OpenAI request batch and does not
 replace the `threads`, `timeout`, or `retries` settings.
 
@@ -70,7 +70,7 @@ for log visibility, cache behavior, and configuration overrides.
 
 OpenAI requests automatically include available `recipe_name` and
 `wrangles_user` metadata. After both the WranglesXL companion update and
-WranglesPY update are deployed, XL recipes use the displayed recipe name and
+WranglesPY update are deployed, WranglesXL recipes use the displayed recipe name and
 existing user email without recipe edits. Saved recipes and local recipe
 files also supply their names. Inline Python recipes can receive a
 `recipe_name` run variable.
@@ -79,7 +79,7 @@ Explicit `metadata` overrides those labels or adds custom labels;
 `metadata: {}` disables automatic labels. These diagnostic labels are
 separate from the model prompt and workflow tracing. See
 [recipe and user labels](../extract_ai_configuration.md#recipe-and-user-labels-in-openai-logs)
-for sources, limits, overrides, and older XL clients.
+for sources, limits, overrides, and older WranglesXL clients.
 
 ## Threads and row concurrency
 
@@ -102,7 +102,7 @@ wrangle immediately instead of returning and logging the same error per row.
 
 Examples with the default `threads: 32`:
 
-| XL rows reaching `extract.ai` | Unique effective requests | Maximum active row tasks |
+| WranglesXL rows reaching `extract.ai` | Unique effective requests | Maximum active row tasks |
 | ---: | ---: | ---: |
 | 10 | 10 | 10 |
 | 20 | 20 | 20 |
@@ -162,9 +162,9 @@ row and `retries` for the additional attempts allowed after a retryable
 failure. Set `threads` according to the provider's request and token limits.
 Any time limit imposed by the calling job or application still applies.
 
-## Choosing the XL row batch size
+## Choosing the WranglesXL row batch size
 
-The safe XL batch size depends primarily on:
+The safe WranglesXL batch size depends primarily on:
 
 - the slowest OpenAI row request, not merely the average;
 - the number of concurrency waves;
@@ -176,11 +176,11 @@ The safe XL batch size depends primarily on:
 With `threads: 32`, 20 unique rows can begin together. Fifty unique rows
 require at least two scheduling waves. This does not mean that 50 rows are
 unsafe, but all waves and the rest of the recipe must fit within the
-approximately 20-second XL round trip.
+approximately 20-second WranglesXL round trip.
 
 A conservative rollout is:
 
-1. Keep XL batches at 5-10 while measuring real request durations and rate
+1. Keep WranglesXL batches at 5-10 while measuring real request durations and rate
    limits.
 2. Test 20 rows with representative long inputs and a cold local cache.
 3. Increase toward 50 only if the second wave reliably finishes with enough
@@ -228,7 +228,7 @@ the provider call entirely.
 
 ## Worked example
 
-Suppose an XL request contains 20 rows:
+Suppose a WranglesXL request contains 20 rows:
 
 - 4 rows are exact duplicates of other effective requests;
 - 6 unique requests are already in the warm-process result cache; and
@@ -274,5 +274,5 @@ result = wrangles.extract.ai(
 ```
 
 The Python example allows a longer timeout for each attempt. The configured
-defaults otherwise apply equally to XL, recipes run locally or in GitHub,
+defaults otherwise apply equally to WranglesXL, recipes run locally or in GitHub,
 saved models, and direct Python calls.

@@ -1,4 +1,4 @@
-"""Generate the public AI model catalog without runtime configuration overrides."""
+"""Generate public extraction and embedding metadata from packaged configuration."""
 import argparse
 import ast
 import json
