@@ -28,27 +28,17 @@ below show how these sources combine for extraction.
 
 | Group | Term used in this guide | Meaning |
 | --- | --- | --- |
-| Configuration and saved definitions | Packaged configuration | The `ai_defaults.yml` shipped with a WranglesPY release |
+| **Configuration and saved definitions** | Packaged configuration | The `ai_defaults.yml` shipped with a WranglesPY release |
 | | Runtime configuration | The configuration loaded by the executing WranglesPY process: the packaged file, or the complete replacement selected by `WRANGLES_AI_CONFIG` |
 | | Resolved configuration | Model defaults, then protocol defaults, then operation defaults combined for the selected model; later values override earlier ones |
 | | Published catalog | A versioned JSON export of the packaged configuration for clients such as WranglesXL; it does not read a worker's replacement configuration |
 | | Saved settings | Values stored with a saved definition; for extraction, these include `Settings.GPTModel` and `Settings.ReasoningEffort` |
-| Defaults | Provider default | The behavior chosen by the AI provider when the request omits a setting |
+| **Defaults** | Provider default | The behavior chosen by the AI provider when the request omits a setting |
 | | Default-model role | A named purpose in a model's `default_for` list, such as `extract.ai` or `embeddings`, that selects that model when none is supplied |
 | | Model defaults | Settings under `providers.<provider>.models.<model>.defaults` |
 | | Protocol defaults | Settings under that model's `protocol_defaults.<protocol>`, used only for the selected request protocol |
 | | Operation defaults | Settings under `operations.<operation>.defaults`, such as `operations.extract.ai.defaults.retries` |
-| Individual call | Call arguments | Values supplied for this invocation: Python arguments or recipe-step parameters, such as `reasoning: {effort: none}` |
-
-Set `WRANGLES_AI_CONFIG` to a replacement YAML file when a process needs its own
-runtime configuration. Start from a complete copy of the packaged file. A
-replacement must define each operation and provider it uses, plus the required
-default model roles unless callers supply models explicitly. It does not inherit
-missing operations from the packaged file.
-
-Configuration is read locally and cached. Call
-`wrangles.ai_config.clear_cache()` after changing a file already loaded by the
-process. Keep credentials outside configuration and the published catalog.
+| **Individual call** | Call arguments | Values supplied for this invocation: Python arguments or recipe-step parameters, such as `reasoning: {effort: none}` |
 
 ## Providers, models, and operations
 
@@ -380,8 +370,11 @@ Generate the JSON from the repository root:
 python schema/generate_ai_catalog.py
 ```
 
-`schema/ai-models-v1.json` carries the JSON format's `schema_version` and the
-WranglesPY `package_version`. Release workflows pass the exact release or RC
+schema/ai-models-v1.json uses version 1 of the public JSON catalog format,
+independently of the YAML configuration version. Its package_version
+identifies the WranglesPY release that produced it.
+
+Release workflows pass the exact release or RC
 version using `--package-version`. This export reads packaged YAML, never a
 worker's `WRANGLES_AI_CONFIG` replacement.
 
@@ -416,3 +409,15 @@ file identifies its snapshot with `package_version`. If publication fails, the
 previous catalog remains available and the workflow fails. Before retrying,
 confirm that the run's version is still deployed; otherwise publish the newer
 deployment's artifact instead of replacing it with an old snapshot.
+
+### Overrding the Runtime Configuration
+
+Set `WRANGLES_AI_CONFIG` to a replacement YAML file when a process needs its own
+runtime configuration. Start from a complete copy of the packaged file. A
+replacement must define each operation and provider it uses, plus the required
+default model roles unless callers supply models explicitly. It does not inherit
+missing operations from the packaged file.
+
+Configuration is read locally and cached. Call
+`wrangles.ai_config.clear_cache()` after changing a file already loaded by the
+process. Keep credentials outside configuration and the published catalog.
