@@ -1169,7 +1169,7 @@ class _Compiler:
         saved_model = None
         saved_messages = []
         saved_reasoning = None
-        for key in ("gptmodel", "aimodel", "model"):
+        for key in ("gptmodel", "aimodel", "model", "gptmodelname"):
             if normalized_settings.get(key) not in (None, ""):
                 saved_model = normalized_settings[key]
                 if key != "model":
@@ -1184,20 +1184,24 @@ class _Compiler:
                 )
 
         reasoning_effort = normalized_settings.get("reasoningeffort")
-        if reasoning_effort not in (None, ""):
-            reasoning_effort = str(reasoning_effort).strip().lower()
-            if reasoning_effort not in {"none", "low"}:
+        if reasoning_effort is not None:
+            if not isinstance(reasoning_effort, str):
                 self.error(
                     "model_id.settings.ReasoningEffort",
-                    "must be 'none' or 'low'.",
+                    "must be a string.",
                 )
-            saved_reasoning = {"effort": reasoning_effort}
+            # The selected model's catalog owns the enum values. The saved
+            # definition compiler validates only their common scalar shape.
+            reasoning_effort = reasoning_effort.strip().lower()
+            if reasoning_effort:
+                saved_reasoning = {"effort": reasoning_effort}
 
         known_settings = {
             "additionalmessages",
             "aimodel",
             "generalinstructions",
             "gptmodel",
+            "gptmodelname",
             "instructions",
             "messages",
             "model",

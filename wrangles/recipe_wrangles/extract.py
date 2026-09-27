@@ -6,7 +6,6 @@ import re as _re
 import logging as _logging
 import pandas as _pd
 from .. import extract as _extract
-from .. import data as _data
 
 
 _OUTPUT_FORMAT_ALIASES = {
@@ -517,19 +516,21 @@ def ai(
       threads:
         type: integer
         minimum: 1
-        description: Maximum number of row-level requests sent in parallel. The configured default is 32.
+        description: Maximum number of row-level requests sent in parallel. Inherits default_concurrency from the selected model and operation configuration.
       timeout:
         type: number
         exclusiveMinimum: 0
         description: >-
-          Network timeout in seconds for each HTTP attempt. The configured
-          default is 12. Each retry uses the same timeout.
+          Positive finite network timeout in seconds for each HTTP attempt.
+          Inherits request_timeout_seconds from the selected model and operation
+          configuration. Each retry uses the same timeout.
       retries:
         type: integer
         minimum: 0
         description: >-
-          Number of additional attempts per row after a retryable failure. The
-          configured default is 1. Retry delays are separate from timeout.
+          Number of additional attempts per row after a retryable failure.
+          Inherits retries from the selected model and operation configuration.
+          Retry delays are separate from timeout.
       url:
         type: string
         description: |-
@@ -551,7 +552,7 @@ def ai(
           - chat_completions
       store:
         type: boolean
-        description: Whether OpenAI may store Responses API results. Defaults to true.
+        description: Whether OpenAI may store Responses API results. Inherits store from the selected model and operation configuration.
       metadata:
         type: object
         description: >-
@@ -571,7 +572,8 @@ def ai(
         type: boolean
         description: >-
           Reuse identical successful results from the bounded warm-instance cache.
-          Defaults to true. Set false when fresh model or web results are required.
+          Inherits cache.enabled from the selected model and operation configuration.
+          Set false when fresh model or web results are required.
       cache_ttl:
         type: number
         exclusiveMinimum: 0
@@ -599,7 +601,8 @@ def ai(
       strict:
         type: boolean
         description: >-
-          Require OpenAI structured-output strict mode. Defaults to true.
+          Require OpenAI structured-output strict mode. Inherits strict from the
+          selected model and operation configuration.
           Definitions with dynamic dictionary keys automatically switch to
           non-strict provider mode and are still validated locally.
       output_format:
@@ -618,9 +621,10 @@ def ai(
       reasoning:
         type: object
         description: >-
-          Responses API reasoning controls. Set effort for reasoning-capable
-          models. The configured default is none when that model supports it;
-          otherwise the provider default applies.
+          Reasoning controls for compatible models, using the selected protocol's
+          parameter format. Explicit effort overrides saved ReasoningEffort,
+          then the selected model and operation configuration. If no value is
+          configured, the provider default applies.
         properties:
           effort:
             type: string
@@ -636,8 +640,10 @@ def ai(
       verbosity:
         type: string
         description: >-
-          Responses API text verbosity for compatible models. Defaults to low
-          when supported; ignored with a warning for incompatible models.
+          Text verbosity for compatible models using either supported protocol.
+          Inherits text.verbosity from the selected model and operation configuration;
+          if omitted there, the provider default applies. Unsupported values are
+          ignored with a warning.
         enum:
           - low
           - medium
@@ -684,18 +690,10 @@ def ai(
 
         output = None
 
-        # If more than one column is expected to be output
-        # check that matches the length of the model defined
+        # The shared runtime checks the compiled schema before contacting the
+        # provider, using the same saved-model lookup as extraction.
         if len(target_columns) > 1:
-            metadata = {
-                str(k).lower(): v
-                for k, v in _data.model_content(model_id).items()
-            }
-            if len(target_columns) != len(metadata['data']):
-                raise ValueError(
-                  f"The number of columns does not match the number defined in model_id {model_id}. ",
-                  f"Expected {len(metadata['data'])}"
-                )
+            kwargs["_expected_output_count"] = len(target_columns)
 
     # Otherwise output defines the schema the AI is expected to produce
 

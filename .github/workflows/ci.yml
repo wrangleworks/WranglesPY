@@ -178,6 +178,15 @@ jobs:
       - name: Generate and Test Schema
         run: cd schema && python generate_recipe_schema.py
 
+      - name: Generate packaged AI model catalog
+        run: python schema/generate_ai_catalog.py
+
+      - name: Save AI model catalog as artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ai-model-catalog
+          path: schema/ai-models-v1.json
+
       - name: Save Schema as Artifact
         uses: actions/upload-artifact@v6
         with:

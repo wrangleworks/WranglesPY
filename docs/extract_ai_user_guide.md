@@ -19,8 +19,17 @@ override precedence, test-role selection, and version-1 compatibility.
 
 The public parameters remain `reasoning: {effort: ...}` and
 `verbosity: low | medium | high`. Supported values in the catalog describe the
-model; they are separate from the value requested by a recipe. Existing saved
-model validation and legacy model-family compatibility behavior are preserved.
+model; they are separate from the value requested by a recipe. Saved models use
+the scalar setting `ReasoningEffort` for the same purpose. Omitted tuning follows
+the selected model and operation configuration; if neither sets it, the provider
+default applies. Unsupported tuning values are logged and omitted.
+
+The Excel saved-model editor gets its model list, status, and reasoning choices
+from a versioned export of this packaged catalog. Choose **Use configured
+default** to inherit settings instead of pinning them in the saved model. Existing
+explicit selections stay intact, including unlisted and deprecated models.
+Deprecated models produce a warning but remain runnable. The displayed catalog
+does not reflect a deployment-specific replacement configuration.
 
 For each model upgrade, verify capabilities against
 [OpenAI's model documentation](https://developers.openai.com/api/docs/models)
@@ -163,9 +172,11 @@ With `model_id`, `output` is the destination dataframe column or columns. The
 saved model supplies the attribute schema, model, general instructions, and
 reasoning effort.
 
-The Excel settings panel currently offers reasoning effort `none` (default) and
-`low`. It stores this as `ReasoningEffort` and the runtime maps it to the
-Responses API reasoning setting.
+The Excel settings panel offers `none` and `low`, filtered by the selected
+model's declared support. Extended reasoning is excluded because of Excel's
+current batch processing window. It stores an explicit choice as `ReasoningEffort`;
+the runtime maps that value to the selected protocol's reasoning setting.
+Leaving the selection at **Use model default** omits the saved override.
 
 ## Saving AI definitions from Python or recipes
 
@@ -187,11 +198,14 @@ wrangles.connectors.train.extract.write(
     name="Voltage schema",
     variant="ai",
     settings={
-        "GPTModel": wrangles.ai_config.extract_ai()["model"],
-        "ReasoningEffort": "none",
+        "GeneralInstructions": "Use only explicit product specifications.",
     },
 )
 ```
+
+This definition inherits the configured model and reasoning when it runs.
+Include `GPTModel` or `ReasoningEffort` only when the saved definition should
+pin an explicit choice.
 
 Only `Find` is universally required. Existing seven-column models, models with
 paired examples instead of `Examples`, reordered columns, and smaller valid

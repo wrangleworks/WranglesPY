@@ -72,7 +72,7 @@ def test_extract_ai_uses_responses_structured_outputs(monkeypatch, caplog):
     assert calls[0]["url"] == "https://api.openai.com/v1/responses"
     assert payload["model"] == "gpt-5-mini"
     assert "reasoning" not in payload
-    assert payload["text"]["verbosity"] == "low"
+    assert "verbosity" not in payload["text"]
     assert payload["text"]["format"]["strict"] is True
     assert payload["store"] is True
     assert "tools" not in payload
@@ -1127,6 +1127,222 @@ def test_extract_checks_each_requested_enum_value(
     assert payload["text"].get("verbosity") == expected_verbosity
 
 
+@pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
+@pytest.mark.parametrize("via_recipe", [False, True])
+@pytest.mark.parametrize("saved_effort,explicit_tuning", [
+    pytest.param(None, False, id="omitted"),
+    pytest.param("low", False, id="saved-reasoning"),
+    pytest.param("low", True, id="caller-overrides-saved"),
+])
+def test_extract_v2_omitted_tuning_uses_provider_defaults(
+    extraction_config, monkeypatch, protocol, via_recipe, saved_effort, explicit_tuning,
+):
+    config, save = extraction_config
+    config["providers"]["openai"]["models"]["untuned-model"] = {
+        "status": "active", "default_for": [],
+        "supported_values": {
+            "reasoning.effort": ["none", "low", "medium"],
+            "text.verbosity": ["low", "medium", "high"],
+        },
+    }
+    save()
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(protocol),
+    )
+    settings = {
+        "api_key": "key", "model": "untuned-model", "protocol": protocol,
+        "output": {"length": {"type": "string"}}, "threads": 1, "cache": False,
+    }
+    if saved_effort is not None:
+        settings.pop("output")
+        settings.update(model_id="saved-definition", model="gpt-6-luna")
+        monkeypatch.setattr(extract._data, "model_content", lambda model_id: {
+            "Settings": {"GPTModel": "untuned-model", "ReasoningEffort": saved_effort},
+            "Columns": ["Find", "Type"], "Data": [["length", "string"]],
+        })
+    if explicit_tuning:
+        settings.update(reasoning={"effort": "medium"}, verbosity="high")
+
+    if via_recipe:
+        result = recipe.run(
+            {"wrangles": [{"extract.ai": {"input": "data", **settings}}]},
+            dataframe=pd.DataFrame({"data": ["wrench 25mm"]}),
+        )
+        assert result["length"].tolist() == ["25mm"]
+    else:
+        assert extract.ai("wrench 25mm", **settings) == {"length": "25mm"}
+
+    assert len(calls) == 1
+    payload = calls[0]["json"]
+    assert payload["model"] == "untuned-model"
+    expected_effort = "medium" if explicit_tuning else saved_effort
+    expected_verbosity = "high" if explicit_tuning else None
+    if protocol == "responses":
+        if expected_effort is None:
+            assert "reasoning" not in payload
+        else:
+            assert payload["reasoning"] == {"effort": expected_effort}
+        if expected_verbosity is None:
+            assert "verbosity" not in payload["text"]
+        else:
+            assert payload["text"]["verbosity"] == expected_verbosity
+    else:
+        if expected_effort is None:
+            assert "reasoning_effort" not in payload
+        else:
+            assert payload["reasoning_effort"] == expected_effort
+        if expected_verbosity is None:
+            assert "verbosity" not in payload
+        else:
+            assert payload["verbosity"] == expected_verbosity
+        assert "reasoning" not in payload
+        assert "text" not in payload
+
+
+@pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
+@pytest.mark.parametrize("saved_effort,expected_effort", [
+    ("  Medium ", "medium"),
+    ("HIGH", "high"),
+    ("unsupported", None),
+])
+def test_saved_reasoning_effort_uses_selected_catalog_enum(
+    extraction_config, monkeypatch, caplog, protocol, saved_effort, expected_effort,
+):
+    config, save = extraction_config
+    config["providers"]["openai"]["models"]["saved-tuning-model"] = {
+        "status": "active", "default_for": [],
+        "defaults": {"reasoning": {"effort": "low"}},
+        "supported_values": {"reasoning.effort": ["low", "medium", "high"]},
+    }
+    save()
+    monkeypatch.setattr(extract._data, "model_content", lambda model_id: {
+        "Settings": {"GPTModel": "saved-tuning-model", "ReasoningEffort": saved_effort},
+        "Columns": ["Find", "Type"], "Data": [["length", "string"]],
+    })
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(protocol),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="wrangles.extract"):
+        result = extract.ai(
+            "wrench 25mm", "key", model_id="saved-definition", model="gpt-4o-mini",
+            protocol=protocol, threads=1, cache=False,
+        )
+
+    assert result == {"length": "25mm"}
+    assert len(calls) == 1
+    payload = calls[0]["json"]
+    assert payload["model"] == "saved-tuning-model"
+    if protocol == "responses":
+        assert payload.get("reasoning") == (
+            {"effort": expected_effort} if expected_effort is not None else None
+        )
+    else:
+        assert payload.get("reasoning_effort") == expected_effort
+    if expected_effort is None:
+        assert "Ignoring reasoning effort 'unsupported'" in caplog.text
+        assert "saved-tuning-model" in caplog.text
+    else:
+        assert "Ignoring reasoning effort" not in caplog.text
+
+
+@pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
+@pytest.mark.parametrize("target_columns", [["Color", "Shape"], ["Color", "Shape", "Size"]])
+def test_recipe_saved_model_reads_once_and_checks_output_count_before_provider(
+    monkeypatch, protocol, target_columns,
+):
+    reads = []
+    calls = []
+
+    def model_content(model_id):
+        reads.append(model_id)
+        return {
+            "Columns": ["Find", "Type"],
+            "Data": [["Color", "string"], ["Shape", "string"]],
+        }
+
+    def infer(data, api_key, payload, *args):
+        calls.append(payload)
+        return {"Color": "yellow", "Shape": "square"}
+
+    monkeypatch.setattr(extract._data, "model_content", model_content)
+    monkeypatch.setattr(extract._openai_responses, "call_structured", infer)
+    monkeypatch.setattr(extract._openai, "_chatGPT", infer)
+    settings = {
+        "input": "Description", "output": target_columns, "model_id": "saved-definition",
+        "api_key": "key", "protocol": protocol, "threads": 1, "cache": False,
+    }
+
+    if len(target_columns) == 2:
+        result = recipe.run(
+            {"wrangles": [{"extract.ai": settings}]},
+            dataframe=pd.DataFrame({"Description": ["yellow square"]}),
+        )
+        assert result["Color"].tolist() == ["yellow"]
+        assert result["Shape"].tolist() == ["square"]
+        assert len(calls) == 1
+        assert "_expected_output_count" not in calls[0]
+    else:
+        with pytest.raises(ValueError, match="number of columns.*saved-definition.*Expected 2"):
+            recipe.run(
+                {"wrangles": [{"extract.ai": settings}]},
+                dataframe=pd.DataFrame({"Description": ["yellow square"]}),
+            )
+        assert calls == []
+    assert reads == ["saved-definition"]
+
+
+@pytest.mark.parametrize("count", [True, 0, -1, 2.0, "2", [], {}])
+def test_extract_rejects_invalid_internal_output_count_before_lookup(monkeypatch, count):
+    def unexpected_lookup(model_id):
+        raise AssertionError("Saved content must not be fetched for an invalid count hint")
+
+    monkeypatch.setattr(extract._data, "model_content", unexpected_lookup)
+    with pytest.raises(ValueError, match="_expected_output_count must be a positive integer"):
+        extract.ai("yellow square", "key", model_id="saved-definition", _expected_output_count=count)
+
+
+@pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
+def test_extract_v1_omitted_tuning_preserves_legacy_defaults(monkeypatch, tmp_path, protocol):
+    override = tmp_path / "legacy-ai.yml"
+    override.write_text(json.dumps({
+        "version": 1,
+        "extract_ai": {
+            "model": "gpt-6-luna", "provider": "openai",
+            "endpoints": {
+                "responses": "https://api.openai.com/v1/responses",
+                "chat_completions": "https://api.openai.com/v1/chat/completions",
+            },
+            "prompt": {"instructions": "Extract only the requested fields."},
+        },
+    }), encoding="utf-8")
+    monkeypatch.setenv("WRANGLES_AI_CONFIG", str(override))
+    ai_config.clear_cache()
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(protocol),
+    )
+    try:
+        assert extract.ai(
+            "wrench 25mm", "key", output={"length": {"type": "string"}},
+            protocol=protocol, threads=1, cache=False,
+        ) == {"length": "25mm"}
+        payload = calls[0]["json"]
+        if protocol == "responses":
+            assert payload["reasoning"] == {"effort": "none"}
+            assert payload["text"]["verbosity"] == "low"
+        else:
+            assert "reasoning_effort" not in payload
+            assert "verbosity" not in payload
+    finally:
+        ai_config.clear_cache()
+
+
 @pytest.mark.parametrize("verbosity,expected", [(None, "high"), ("medium", "medium")])
 def test_extract_text_options_preserve_schema_and_named_verbosity_precedence(
     extraction_config, monkeypatch, verbosity, expected,
@@ -1585,6 +1801,17 @@ def test_extract_ai_validates_runtime_limits(setting, value, message):
             output={"length": {"type": "string"}},
             **{setting: value},
         )
+
+
+@pytest.mark.parametrize("timeout", [float("nan"), float("inf"), float("-inf")])
+def test_extract_ai_rejects_nonfinite_timeout_before_saved_lookup(monkeypatch, timeout):
+    def unexpected_call(*args, **kwargs):
+        pytest.fail("Invalid timeout must be rejected before saved lookup or HTTP.")
+
+    monkeypatch.setattr(extract._data, "model_content", unexpected_call)
+    monkeypatch.setattr(extract._openai_responses._requests, "post", unexpected_call)
+    with pytest.raises(ValueError, match="timeout.*positive"):
+        extract.ai("25mm", "key", model_id="saved-definition", timeout=timeout)
 
 
 def _requests_response(body, status_code=200, headers=None):

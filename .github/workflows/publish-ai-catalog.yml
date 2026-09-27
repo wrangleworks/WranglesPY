@@ -1,0 +1,70 @@
+name: Publish AI model catalog
+
+on:
+  workflow_call:
+    inputs:
+      channel:
+        required: true
+        type: string
+    secrets:
+      DEPLOY_APP_PRIVATE_KEY:
+        required: true
+
+# Callers wait for the matching Lambda deployment before updating the catalog.
+# Serialize writes to the shared public repository across DEV and PROD runs.
+concurrency:
+  group: publish-ai-model-catalog
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download catalog from this run
+        uses: actions/download-artifact@v6
+        with:
+          name: ai-model-catalog
+          path: catalog
+
+      - name: Create catalog publishing token
+        id: catalog-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEPLOY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
+          owner: wrangleworks
+          repositories: wrangleworks.github.io
+          permission-contents: write
+
+      - name: Checkout public repository
+        uses: actions/checkout@v5
+        with:
+          repository: wrangleworks/wrangleworks.github.io
+          token: ${{ steps.catalog-token.outputs.token }}
+          path: public
+
+      - name: Publish catalog
+        working-directory: public
+        env:
+          CATALOG_CHANNEL: ${{ inputs.channel }}
+        run: |
+          case "$CATALOG_CHANNEL" in
+            dev) target=schema/ai/models-v1_dev.json ;;
+            prod) target=schema/ai/models-v1.json ;;
+            *) echo "::error::Unknown catalog channel"; exit 1 ;;
+          esac
+          mkdir -p schema/ai
+          cp ../catalog/ai-models-v1.json "$target"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$target"
+          if git diff --cached --quiet; then
+            echo "Catalog is unchanged."
+          else
+            git commit -m "Update $CATALOG_CHANNEL AI model catalog"
+            git pull --rebase
+            git push
+          fi

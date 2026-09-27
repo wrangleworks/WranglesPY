@@ -101,8 +101,22 @@ selected model before applying explicit caller overrides.
 Explicit reasoning takes precedence over saved reasoning, which takes precedence
 over configured reasoning. Declared reasoning and verbosity enums are checked
 against the requested value; unsupported values are warned about and omitted.
-Recipe reasoning includes `max`. Saved `ReasoningEffort` remains `none|low` to
-preserve compatibility with existing editors that use that narrower contract.
+In version 2, omitted reasoning and verbosity defaults stay omitted from the
+request, allowing the provider's defaults to apply. This is the same for inline
+recipes, saved definitions, and both supported extraction protocols. The packaged
+default model explicitly configures `none` reasoning and `low` verbosity; those
+values are not silently applied to an explicit model without tuning defaults.
+Version-1 replacement files retain their existing compatibility fallbacks.
+Saved `ReasoningEffort` is a scalar string, such as `none`, `medium`, or `max`.
+It uses the selected model's supported values, just as recipe reasoning does.
+The runtime accepts broader values, but the Excel editor deliberately limits new
+reasoning choices to `none|low` to fit its current batch processing window.
+
+Saved model selection recognizes `GPTModel`, `AIModel`, `model`, and the legacy
+Excel key `GPTModelName`, in that order (ignoring case and punctuation). Blank
+values do not select a model; absent selections inherit the caller or configured
+default. Existing explicit saved selections continue to take precedence over
+the caller's `model`.
 
 The config loader rejects malformed declarations, conflicting default roles,
 and configured enum defaults outside declared supported values. It does not
@@ -225,10 +239,62 @@ configured options. Extraction retains `messages`/`examples` aliases and recipe
 output-shape controls because existing callers use them. Private transport
 arguments and unused generation scaffolding have been removed where redundant.
 
-This catalog governs WranglesPY callers. WranglesXL saved-model authoring and
-WranglesJS note-generation calls still select models outside Python. Their model
-defaults require a separate client integration. SerpAPI AI Mode and WrangleWorks
-saved-model service endpoints own their server-side model selection.
+WranglesJS note-generation calls still select models outside Python and require
+a separate client integration. SerpAPI AI Mode and WrangleWorks saved-model
+service endpoints own their server-side model selection.
+
+## Packaged catalog for the saved-model editor
+
+The WranglesXL extraction editor reads a small JSON export of the packaged
+catalog. Generate it from the repository root with:
+
+```sh
+python schema/generate_ai_catalog.py
+```
+
+The generated `schema/ai-models-v1.json` carries a `schema_version` and the
+WranglesPY `package_version`. Release workflows pass the exact release or RC
+version using `--package-version`. The export always reads the packaged YAML;
+`WRANGLES_AI_CONFIG` cannot redirect it to local or deployment-specific settings.
+Only extraction model IDs, lifecycle statuses, effective reasoning defaults,
+and declared reasoning enum values are exported. Credentials, endpoints,
+prompts, and unrelated operational settings are excluded.
+
+The export includes the extraction provider's text models, including deprecated
+and older entries without application labels; embedding models are excluded.
+Missing enum metadata means unknown support, while an empty enum means the
+setting is unsupported. This is a catalog projection, with no provider discovery
+or model availability requests.
+
+CI saves the file as the `ai-model-catalog` artifact. Deployment workflows publish
+that same artifact to the public repository only after the matching Lambda
+deployment succeeds:
+
+- DEV: `schema/ai/models-v1_dev.json`
+- PROD: `schema/ai/models-v1.json`
+
+WranglesXL loads these files from `https://public.wrangle.works`. The files follow
+their deployment channel, and `package_version` identifies each published
+snapshot. A publishing failure leaves the previous catalog available and fails
+the workflow. Before retrying a publishing job, confirm its `package_version`
+still matches the deployed runtime. If a newer deployment has completed, publish
+that deployment's catalog instead; replaying an older artifact would replace
+the current channel file.
+
+New saved models can inherit the configured model and reasoning without storing
+copies of today's defaults. Selecting a model or reasoning effort stores an
+explicit override. The Excel reasoning choices stay limited to `none|low`,
+filtered by the selected model's declared support. Existing saved selections
+remain visible, even if unlisted
+or the catalog cannot load. Only an explicit deprecated status produces a
+deprecation warning; it does not block execution. Catalog load failures offer a
+retry and do not rewrite saved settings.
+
+The editor shows packaged defaults. A deployment-specific `WRANGLES_AI_CONFIG`
+can therefore differ from what the editor displays; the runtime configuration
+still determines execution. Publish the Python changes and catalog before
+releasing the corresponding editor update. A saved or inherited extended
+reasoning setting is flagged in the editor because of its batch processing window.
 
 ## Version-1 overrides
 

@@ -182,6 +182,17 @@ jobs:
       - name: Generate and Test Schema
         run: cd schema && python generate_recipe_schema.py
 
+      - name: Generate packaged AI model catalog
+        env:
+          PACKAGE_VERSION: ${{ needs.compute-version.outputs.rc_version }}
+        run: python schema/generate_ai_catalog.py --package-version "$PACKAGE_VERSION"
+
+      - name: Save AI model catalog as artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ai-model-catalog
+          path: schema/ai-models-v1.json
+
       - name: Save schema as schema_dev.json
         run: cp schema/schema.json schema/schema_dev.json
 
@@ -332,3 +343,15 @@ jobs:
           propagate_failure: true
           trigger_workflow: true
           wait_workflow: true
+
+  publish-ai-catalog:
+    name: Publish DEV AI model catalog
+    needs: [trigger-deploy-dev]
+    if: ${{ !cancelled() && needs.trigger-deploy-dev.result == 'success' }}
+    uses: ./.github/workflows/publish-ai-catalog.yml
+    permissions:
+      contents: read
+    with:
+      channel: dev
+    secrets:
+      DEPLOY_APP_PRIVATE_KEY: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
