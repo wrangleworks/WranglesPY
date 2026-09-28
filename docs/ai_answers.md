@@ -286,7 +286,116 @@ complete ordered list inside that question, as shown for `tone` in the
 `ai.choose` and `ai.score` require exactly three output names; `ai.true_false`
 requires exactly two, in the order shown in the schema table. Every name must
 be a nonblank string and unique across all questions in the wrangle. Partial
-lists, an empty list, and a single nonempty string are invalid.
+lists, an empty list, and a single nonempty string are invalid for ordinary
+questions. A question with `for_each` instead creates one column containing a
+list of answers, as described below.
+
+## Questions from row values
+
+All four AI wrangles support `{{ column_name }}` placeholders in instructions
+and criterion descriptions, including nested objects and arrays. Replace each
+space or punctuation character in a column name with `_`: `Manufacturer Name`
+becomes `{{ Manufacturer_Name }}`. These are literal substitutions, not Python
+expressions or Jinja filters. Missing or ambiguous references raise an error
+before provider calls. `${...}` remains the syntax for recipe variables.
+
+Templates also work without `for_each`:
+
+```yaml
+questions:
+  category_fit:
+    instructions: >-
+      How strongly does this description support "{{ Proposed_Category }}"?
+      The manufacturer is "{{ Manufacturer_Name }}".
+    criteria: [Contradicted, Weakly supported, Supported but incomplete, Clearly supported]
+```
+
+To ask the same question about several candidates, add `for_each`. Its `values`
+must be an exact column name; the cell must contain a list or a dictionary.
+It does not accept literal candidate collections or JSON-encoded strings.
+`variable` names the placeholder for each candidate value and takes precedence
+over a column with the same name within that question.
+
+**Example input**
+
+```yaml
+- Description: CONTAINER 24X15X11 CHARCOAL
+  Manufacturer Name: Example Supply
+  CandidateCategories:
+    category_1: Containers
+    category_2: Shelves
+```
+
+**Template**
+
+```yaml
+wrangles:
+  - ai.score:
+      input: Description  # Shared input sent to the provider.
+      questions:
+        category_fit:
+          for_each:
+            values: CandidateCategories  # Exact column name, resolved per row.
+            variable: category           # Current list item or dictionary value.
+          instructions: >-
+            How strongly does this description support "{{ category }}"?
+            The manufacturer is "{{ Manufacturer_Name }}".
+            Distinguish missing information from contradictory information.
+          criteria:
+            - Contradicted
+            - Weakly supported
+            - Supported but incomplete
+            - Clearly supported
+          # output: Category Fits  # Optional single name; defaults to category_fit.
+```
+
+The full row supplies template references and the candidate collection even
+when `input` selects only `Description`. Referenced values become part of the
+rendered questions sent to the provider. Every generated question, including
+ordinary questions in the same wrangle, is sent together in one request per
+row. Candidate lists can differ between rows.
+
+**Illustrative `category_fit` cell**
+
+```yaml
+- category_1:
+    value: Containers
+    score: 2.77
+    confidence: 0.77
+    probabilities:
+      Contradicted: 0.01
+      Weakly supported: 0.03
+      Supported but incomplete: 0.14
+      Clearly supported: 0.82
+- category_2:
+    value: Shelves
+    score: 0.23
+    confidence: 0.77
+    probabilities:
+      Contradicted: 0.82
+      Weakly supported: 0.14
+      Supported but incomplete: 0.03
+      Clearly supported: 0.01
+```
+
+A list-valued cell such as `[Containers, Shelves]` produces the same list of
+answer dictionaries without the `category_1` / `category_2` wrappers. Each
+answer retains its `value`. Dictionary keys identify the results; dictionary
+values supply `{{ category }}`. Both input shapes preserve their order and
+return `[]` for an empty collection. When all questions expand to empty
+collections, no provider request is needed.
+
+Repeated `choose`, `score`, and `true_false` questions retain their usual
+answer fields inside each item. For example, a repeated `true_false` answer
+contains `value`, `probability_true`, and `true_criteria`. An omitted or blank
+`output` uses the question label; a string or one-item list renames this single
+column. Ordinary questions retain their existing positional output names.
+
+Use the existing `split.list` followed by `split.dictionary` to turn keyed
+results into semantic columns such as `category_1_score`. The runnable
+[category scoring fixture](../tests/fixtures/ai_question_templates/README.md)
+includes the complete recipe, a detailed four-level rubric, varying candidate
+counts and key order, padding for missing candidates, and a small Python runner.
 
 ## Python
 
@@ -310,6 +419,8 @@ print(answers["product_class"]["choice"])
 
 A string or dictionary input returns named answers; a list returns one set of
 named answers per input, in order. Question definitions match the YAML schema.
+For templates, pass dictionary records containing the referenced fields;
+`for_each.values` remains a field name in Python calls as well.
 
 ## Runtime settings and compatibility
 
