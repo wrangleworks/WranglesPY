@@ -1528,6 +1528,9 @@ def regex(
           Specifies the format to output matches and specific capture groups using backreferences (e.g., `\1`, `\2`). Default is to return entire matches.
 
           **Example**: For a regex pattern `r'(\d+)\s(\w+)'` and `output_pattern = '\2 \1'`, with input `'120 volt'`, the output would be `'volt 120'`.
+
+          output_pattern reformats or reorders each match into a single value.
+          To split a match into separate values, use capture_groups instead.
       first_element:
         type: boolean
         description: Get the first element from results
@@ -1550,6 +1553,23 @@ def regex(
 
           **Example**: For a regex pattern `r'([A-Z]+)(\d+)'` with input `'LRB812'`
           and `output = ['Model', 'Bore']`, Model would be `'LRB'` and Bore `'812'`.
+
+          capture_groups vs output_pattern:
+          - capture_groups splits a match into one value per group, e.g. one
+            output column per group.
+          - output_pattern keeps one value per match and only changes how it
+            is formatted, e.g. reordering groups with `\2 \1`.
+
+          Notes:
+          - Only capturing groups `( )` and named groups `(?P<name> )` produce
+            results. Non-capturing groups `(?: )` are ignored.
+          - If a pattern has no capture groups, the entire match is returned,
+            the same as when capture_groups is false. Define at least one
+            group when setting this option.
+          - A group that did not participate in a match returns an empty string.
+          - Results are in group order, match by match. When output is a list of
+            columns and there are multiple matches, groups from later matches
+            fill further columns.
     """
     if capture_groups and output_pattern:
         raise ValueError(
