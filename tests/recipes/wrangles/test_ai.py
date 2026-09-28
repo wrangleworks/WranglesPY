@@ -427,6 +427,39 @@ def test_recipe_templates_read_other_columns_and_return_one_grouped_output(kind,
     pd.testing.assert_frame_equal(source[original.columns], original)
 
 
+@pytest.mark.parametrize("kind", ["choose", "score", "true_false", "answers"])
+def test_recipe_blank_candidate_slots_keep_collection_shape_and_skip_provider_questions(kind, http_transport):
+    question_kind = "score" if kind == "answers" else kind
+    definition = repeat_question(question_kind)
+    if kind == "answers":
+        definition["type"] = question_kind
+    source = pd.DataFrame({
+        "Description": ["first", "second", "blank list", "blank dict"],
+        "Manufacturer Name": ["Acme", "Other", "Neither", "Neither"],
+        "CandidateCategories": [
+            ["", "Containers", " \t"],
+            {"category_1": "", "category_2": "Storage", "category_3": "  "},
+            ["", "\n"],
+            {"category_1": "", "category_2": "  "},
+        ],
+    }, index=[12, 4, 19, 23])
+
+    result = run(kind, {"fits": definition}, dataframe=source, cache=False, threads=1)
+
+    assert result.index.tolist() == [12, 4, 19, 23]
+    assert len(http_transport) == 2
+    assert [len(call["json"]["questions"]) for call in http_transport] == [1, 1]
+    assert [next(iter(call["json"]["questions"].values()))["instructions"] for call in http_transport] == [
+        "Evaluate Containers for Acme.", "Evaluate Storage for Other."]
+    assert result["fits"].iloc[0][0] == result["fits"].iloc[0][2] == {}
+    assert result["fits"].iloc[0][1]["value"] == "Containers"
+    assert list(result["fits"].iloc[1]) == ["category_1", "category_2", "category_3"]
+    assert result["fits"].iloc[1]["category_1"] == result["fits"].iloc[1]["category_3"] == {}
+    assert result["fits"].iloc[1]["category_2"]["value"] == "Storage"
+    assert result["fits"].iloc[2] == [{}, {}]
+    assert result["fits"].iloc[3] == {"category_1": {}, "category_2": {}}
+
+
 def test_recipe_row_templates_without_loop_read_full_row_but_send_selected_input(http_transport):
     source = pd.DataFrame({"Description": ["first", "second"], "Proposed Category": ["Containers", "Shelves"]})
     result = run("score", {"fit": question("score", instructions="Fit for {{ Proposed_Category }}?")},
@@ -524,27 +557,29 @@ def test_schema_rejects_multi_column_expanded_outputs(output):
         jsonschema.validate({"questions": {"fits": repeat_question(output=output)}}, schema)
 
 
-def test_category_template_example_splits_dictionary_answers_and_leaves_optional_steps_disabled(http_transport):
+def test_category_template_example_splits_dictionary_answers_with_blank_placeholders(http_transport):
     fixture = Path(__file__).resolve().parents[2] / "fixtures" / "ai_question_templates"
     source = pd.DataFrame(json.loads((fixture / "products.json").read_text(encoding="utf-8")))
-    recipe = yaml.safe_load((fixture / "recipe.wrgl.yml").read_text(encoding="utf-8"))
+    recipe = yaml.safe_load((fixture / "ai_category_judge.recipe").read_text(encoding="utf-8"))
     assert [next(iter(step)) for step in recipe["wrangles"]] == ["ai.score", "split.dictionary"]
     assert list(recipe["wrangles"][0]["ai.score"]["questions"]) == ["category_fit"]
+    recipe["wrangles"][0]["ai.score"].update(cache=False, threads=1)
     result = wrangles.recipe.run(recipe, dataframe=source)
 
     assert len(http_transport) == 2
     assert [len(call["json"]["questions"]) for call in http_transport] == [3, 2]
-    assert [len(row) for row in result["category_fit"]] == [3, 2, 0]
+    assert [len(row) for row in result["category_fit"]] == [3, 3, 0]
     assert [list(row) for row in result["category_fit"]] == [
-        ["category_1", "category_2", "category_3"], ["category_3", "category_1"], []]
+        ["category_1", "category_2", "category_3"], ["category_1", "category_2", "category_3"], []]
     assert all(isinstance(row, dict) for row in result["category_fit"])
     assert "list_fit" not in result
     assert "category_1_score" not in result
     assert [answer["value"] for answer in result["category_1"].iloc[:2]] == ["Containers", "Shelving Units"]
     assert [answer["score"] for answer in result["category_1"].iloc[:2]] == [2.77, 2.77]
     assert result["category_2"].iloc[0]["value"] == "Shelves"
-    assert result["category_2"].iloc[1] == ""
-    assert [answer["value"] for answer in result["category_3"].iloc[:2]] == ["Food Storage Containers", "Storage Cabinets"]
+    assert result["category_2"].iloc[1]["value"] == "Storage Cabinets"
+    assert result["category_3"].iloc[0]["value"] == "Food Storage Containers"
+    assert result["category_3"].iloc[1] == {}
     assert len(result["category_1"].iloc[0]["probabilities"]) == 4
     assert result["category_1"].iloc[2] == ""
     assert result["category_fit"].iloc[2] == {}
@@ -565,21 +600,24 @@ def test_unused_context_cells_need_not_be_json_when_provider_input_is_selected(h
 
 
 @pytest.mark.parametrize("row_index,expected_calls", [(1, 1), (2, 0)])
-def test_category_template_example_handles_short_and_empty_only_trial_slices(row_index, expected_calls, http_transport):
+def test_category_template_example_handles_padded_and_empty_only_trial_slices(row_index, expected_calls, http_transport):
     fixture = Path(__file__).resolve().parents[2] / "fixtures" / "ai_question_templates"
     source = pd.DataFrame(json.loads((fixture / "products.json").read_text(encoding="utf-8")))[row_index:row_index + 1]
-    recipe = yaml.safe_load((fixture / "recipe.wrgl.yml").read_text(encoding="utf-8"))
+    recipe = yaml.safe_load((fixture / "ai_category_judge.recipe").read_text(encoding="utf-8"))
+    recipe["wrangles"][0]["ai.score"].update(cache=False, threads=1)
     result = wrangles.recipe.run(recipe, dataframe=source)
     assert len(http_transport) == expected_calls
     assert "list_fit" not in result
-    assert "category_2" not in result
     if row_index == 1:
-        assert list(result["category_fit"].iloc[0]) == ["category_3", "category_1"]
+        assert list(result["category_fit"].iloc[0]) == ["category_1", "category_2", "category_3"]
         assert result["category_1"].iloc[0]["value"] == "Shelving Units"
-        assert result["category_3"].iloc[0]["value"] == "Storage Cabinets"
+        assert result["category_2"].iloc[0]["value"] == "Storage Cabinets"
+        assert result["category_3"].iloc[0] == {}
+        assert len(http_transport[0]["json"]["questions"]) == 2
     else:
         assert result["category_fit"].tolist() == [{}]
         assert "category_1" not in result
+        assert "category_2" not in result
         assert "category_3" not in result
 
 

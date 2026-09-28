@@ -10,29 +10,33 @@ existing split wrangles. No customer data or live responses are committed.
 | `Description` | string | Shared input sent to the model. |
 | `Manufacturer Name` | string | Substituted as `{{ Manufacturer_Name }}`. |
 | `CandidateCategories` | dictionary of string keys to category strings | Produces a dictionary of answers with the same semantic keys, such as `category_1`. |
-| `CandidateList` | list of category strings | Produces a list of answers when the optional `list_fit` question is enabled. |
+| `CandidateList` | list of category strings | Alternate source shape for testing list answers; not used by the active recipe. |
 
-The first record has three candidates. The second has two different candidates,
-ordered `category_3` then `category_1`, to verify that splitting follows keys
-rather than positions. The third has empty collections. All manufacturer names
-are fictional. This file is the deterministic source fixture; there is no
-sampling or external export to regenerate.
+The first record has three candidates. The second has two different candidates
+and an empty-string placeholder at `category_3`; its list also ends with an
+empty-string placeholder. The third has empty collections. All manufacturer
+names are fictional. This file is the deterministic source fixture; there is
+no sampling or external export to regenerate.
 
-`recipe.wrgl.yml` renders the `category_fit` questions from each product's
+`ai_category_judge.recipe` renders the `category_fit` questions from each product's
 `CandidateCategories` dictionary and sends them together in one Typesafe request
-per product with candidates. The row with no candidates needs no request and
-returns `{}`. The same detailed four-level rubric applies to every candidate.
+per product with nonblank candidates. The row with no candidates needs no
+request and returns `{}`. The same detailed four-level rubric applies to every
+nonblank candidate.
 The resulting `category_fit` dictionary retains the original candidate keys;
 each answer contains its `value`, score, confidence, and criterion-labelled
-probabilities. The optional `list_fit` question remains commented out. If
-enabled, it returns a list of answer dictionaries, or `[]` for an empty list.
+probabilities. An empty or whitespace-only string produces `{}` at its original
+key without sending a question to Typesafe, so the second product retains
+`category_3: {}`. With a list source, the same placeholder rule preserves the
+list position. Missing keys or positions are not added automatically; supply
+blank-string slots in the input when needed. Other JSON values are not skipped.
 
 The active `split.dictionary` step expands `category_fit` directly into columns
 such as `category_1`, each containing the complete answer dictionary. Candidate
-keys determine these columns regardless of input order. The additional recipe
-steps remain commented out, including the field-splitting examples for columns
-such as `category_1_score`. The old list-padding and wrapper-merging examples are
-also preserved as comments; dictionary results no longer need those steps.
+keys determine these columns regardless of input order, and supplied placeholder
+keys retain `{}`. The recipe has just two steps: `ai.score` and
+`split.dictionary`. A further `split.dictionary` step can expose individual
+answer fields if needed.
 
 ## Run from the repository's VS Code terminal
 

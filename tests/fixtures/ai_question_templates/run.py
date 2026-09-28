@@ -11,7 +11,7 @@ import sys
 FIXTURE_DIR = Path(__file__).resolve().parent
 REPOSITORY = FIXTURE_DIR.parents[2]
 INPUT_PATH = FIXTURE_DIR / "products.json"
-RECIPE_PATH = FIXTURE_DIR / "recipe.wrgl.yml"
+RECIPE_PATH = FIXTURE_DIR / "ai_category_judge.recipe"
 NROWS = 2  # A bounded trial. Use None to include every record in the input file.
 MODEL = None  # None uses the configured Typesafe model.
 CACHE = False

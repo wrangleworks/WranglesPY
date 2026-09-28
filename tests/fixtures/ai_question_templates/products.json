@@ -13,10 +13,11 @@
     "Description": "STEEL SHELVING UNIT 5 SHELVES 36X18X72 GRAY",
     "Manufacturer Name": "Example Fixtures",
     "CandidateCategories": {
-      "category_3": "Storage Cabinets",
-      "category_1": "Shelving Units"
+      "category_1": "Shelving Units",
+      "category_2": "Storage Cabinets",
+      "category_3": ""
     },
-    "CandidateList": ["Storage Cabinets", "Shelving Units"]
+    "CandidateList": ["Storage Cabinets", "Shelving Units", ""]
   },
   {
     "Description": "UNCLASSIFIED SAMPLE",

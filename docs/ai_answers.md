@@ -324,6 +324,7 @@ over a column with the same name within that question.
   CandidateCategories:
     category_1: Containers
     category_2: Shelves
+    category_3: ""  # Reserve a named slot without asking a question.
 ```
 
 **Template**
@@ -376,14 +377,25 @@ category_2:
     Weakly supported: 0.14
     Supported but incomplete: 0.03
     Clearly supported: 0.01
+category_3: {}
 ```
 
 A dictionary-valued cell produces a dictionary of answers using the input's
 original keys. Its values supply `{{ category }}`. A list-valued cell such as
 `[Containers, Shelves]` produces a list of answer dictionaries. Each answer
-retains its `value` in either shape. Both input shapes preserve their order;
-an empty dictionary returns `{}` and an empty list returns `[]`. When all
-questions expand to empty collections, no provider request is needed.
+retains its `value` in either shape. Both input shapes preserve their order.
+
+An empty or whitespace-only candidate string reserves a slot without generating
+a provider question. That slot returns `{}` at its original dictionary key or
+list position. For example, `{category_1: Containers, category_2: ""}` returns
+an answer under `category_1` and `{}` under `category_2`; `[Containers, ""]`
+returns `[<answer>, {}]`. Supply these placeholders in the input when you need
+consistent named slots. Missing keys and list positions are not added
+automatically. Other JSON values keep their usual meaning and are not skipped.
+
+An empty source dictionary returns `{}` and an empty source list returns `[]`.
+When every question expands to an empty collection or only blank-string
+placeholders, no provider request is needed.
 
 Repeated `choose`, `score`, and `true_false` questions retain their usual
 answer fields inside each item. For example, a repeated `true_false` answer
@@ -396,9 +408,9 @@ as `category_1`, each containing that candidate's answer dictionary. A further
 `split.dictionary` step can expose its answer fields with a prefix such as
 `category_1_score`. No `split.list` step is needed for dictionary sources. The runnable
 [category scoring fixture](../tests/fixtures/ai_question_templates/README.md)
-includes the complete recipe, a detailed four-level rubric, varying candidate
-counts and key order, and a small Python runner. Its optional list example and
-further field-splitting steps are commented out.
+includes `ai_category_judge.recipe`, a detailed four-level rubric, a blank
+candidate slot, empty collections, and a small Python runner. Its two steps
+score the candidates and split the keyed answers into columns.
 
 ## Python
 

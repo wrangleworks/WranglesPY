@@ -223,6 +223,10 @@ def _row_plan(state, context, prepared):
         items = candidates.items() if keyed else ((None, value) for value in candidates)
         group = {"keyed": keyed, "items": []}
         for key, value in items:
+            # Blank strings reserve a result slot without asking a question.
+            if isinstance(value, str) and not value.strip():
+                group["items"].append((None, key, value))
+                continue
             while True:
                 wire_label = f"_wrangles_question_{next_label}"
                 next_label += 1
@@ -252,7 +256,8 @@ def _project_answers(response, plan):
             continue
         result[label] = {} if group["keyed"] else []
         for wire_label, key, value in group["items"]:
-            answer = {"value": _copy.deepcopy(value), **answers[wire_label]}
+            answer = {} if wire_label is None else {
+                "value": _copy.deepcopy(value), **answers[wire_label]}
             if group["keyed"]:
                 result[label][key] = answer
             else:
@@ -381,6 +386,8 @@ def choose(data, questions, api_key=None, *, model=None, provider=None, protocol
     ``for_each`` names a list/dictionary field in ``values`` and binds each
     candidate to ``variable``. List sources return lists of candidate answers;
     dictionary sources return dictionaries preserving the original keys.
+    Blank string candidates retain their key or position as an empty dictionary
+    without generating a provider question.
     Python calls using these features must supply the referenced fields in
     their input records.
     """

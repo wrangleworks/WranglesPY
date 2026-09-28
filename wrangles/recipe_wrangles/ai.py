@@ -114,10 +114,13 @@ def _question_schema(kind):
             "type": "object", "additionalProperties": False,
             "required": ["values", "variable"],
             "description": (
-                "Construct one question per item in this row's source collection. "
+                "Construct one question per item in this row's source collection, except blank strings. "
                 "All constructed and ordinary questions share one provider request per row. "
                 "The output is one column matching the source collection: a list of answers for a list, "
                 "or a dictionary of answers retaining the original keys for a dictionary. "
+                "Empty or whitespace-only strings produce {} at the original key or list position, "
+                "without generating a provider question. Missing keys or positions are not added. "
+                "Other JSON values are not skipped. "
                 "An empty list produces [], and an empty dictionary produces {}."
             ),
             "properties": {
@@ -126,6 +129,7 @@ def _question_schema(kind):
                     "description": (
                         "Exact source column name, never a literal collection. "
                         "Each cell must contain a list or a dictionary with string keys. "
+                        "Use empty-string entries to reserve slots that return {} without scoring. "
                         "The source column can be outside the selected input columns."
                     ),
                 },
@@ -147,7 +151,8 @@ def _question_schema(kind):
                 "for `ai.choose`/`ai.score`, or the question label and _true_criteria for `ai.true_false`. "
                 "An explicit list must name every output column. "
                 "With for_each, use one column name or a single-entry list; "
-                "blank defaults to the question label. Each result retains value and its answer fields."
+                "blank defaults to the question label. Each answer retains value and its answer fields; "
+                "blank-string candidate placeholders return {}."
             ),
             "type": ["null", "string", "array"],
         },
