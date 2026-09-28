@@ -250,10 +250,13 @@ def _project_answers(response, plan):
         if group is None:
             result[label] = answers[label]
             continue
-        result[label] = []
+        result[label] = {} if group["keyed"] else []
         for wire_label, key, value in group["items"]:
             answer = {"value": _copy.deepcopy(value), **answers[wire_label]}
-            result[label].append({key: answer} if group["keyed"] else answer)
+            if group["keyed"]:
+                result[label][key] = answer
+            else:
+                result[label].append(answer)
     return result
 
 
@@ -376,7 +379,8 @@ def choose(data, questions, api_key=None, *, model=None, provider=None, protocol
     Instruction and criterion string values accept ``{{ field_name }}``
     references to input-record fields (spaces/punctuation become underscores).
     ``for_each`` names a list/dictionary field in ``values`` and binds each
-    candidate to ``variable``; its named answer is a list of candidate answers.
+    candidate to ``variable``. List sources return lists of candidate answers;
+    dictionary sources return dictionaries preserving the original keys.
     Python calls using these features must supply the referenced fields in
     their input records.
     """
@@ -421,7 +425,7 @@ def answers(data, questions, api_key=None, *, model=None, provider=None, protoco
     and criteria. Any combination of these types is answered in one request per
     input record. Instructions and criteria support input-record templates and
     ``for_each`` as described in :func:`choose`. Outputs follow the corresponding
-    individual wrangles, including lists for repeated questions.
+    individual wrangles; repeated results retain their source collection shape.
     """
     return _run(data, questions, None, api_key=api_key, model=model, provider=provider,
                 protocol=protocol, threads=threads, timeout=timeout, retries=retries,

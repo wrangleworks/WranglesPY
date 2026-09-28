@@ -116,8 +116,9 @@ def _question_schema(kind):
             "description": (
                 "Construct one question per item in this row's source collection. "
                 "All constructed and ordinary questions share one provider request per row. "
-                "The output is one list-valued column; dictionary sources retain their keys around each answer. "
-                "An empty collection produces an empty list."
+                "The output is one column matching the source collection: a list of answers for a list, "
+                "or a dictionary of answers retaining the original keys for a dictionary. "
+                "An empty list produces [], and an empty dictionary produces {}."
             ),
             "properties": {
                 "values": {

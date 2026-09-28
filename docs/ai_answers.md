@@ -288,7 +288,7 @@ requires exactly two, in the order shown in the schema table. Every name must
 be a nonblank string and unique across all questions in the wrangle. Partial
 lists, an empty list, and a single nonempty string are invalid for ordinary
 questions. A question with `for_each` instead creates one column containing a
-list of answers, as described below.
+list or dictionary of answers matching its source collection, as described below.
 
 ## Questions from row values
 
@@ -358,32 +358,32 @@ row. Candidate lists can differ between rows.
 **Illustrative `category_fit` cell**
 
 ```yaml
-- category_1:
-    value: Containers
-    score: 2.77
-    confidence: 0.77
-    probabilities:
-      Contradicted: 0.01
-      Weakly supported: 0.03
-      Supported but incomplete: 0.14
-      Clearly supported: 0.82
-- category_2:
-    value: Shelves
-    score: 0.23
-    confidence: 0.77
-    probabilities:
-      Contradicted: 0.82
-      Weakly supported: 0.14
-      Supported but incomplete: 0.03
-      Clearly supported: 0.01
+category_1:
+  value: Containers
+  score: 2.77
+  confidence: 0.77
+  probabilities:
+    Contradicted: 0.01
+    Weakly supported: 0.03
+    Supported but incomplete: 0.14
+    Clearly supported: 0.82
+category_2:
+  value: Shelves
+  score: 0.23
+  confidence: 0.77
+  probabilities:
+    Contradicted: 0.82
+    Weakly supported: 0.14
+    Supported but incomplete: 0.03
+    Clearly supported: 0.01
 ```
 
-A list-valued cell such as `[Containers, Shelves]` produces the same list of
-answer dictionaries without the `category_1` / `category_2` wrappers. Each
-answer retains its `value`. Dictionary keys identify the results; dictionary
-values supply `{{ category }}`. Both input shapes preserve their order and
-return `[]` for an empty collection. When all questions expand to empty
-collections, no provider request is needed.
+A dictionary-valued cell produces a dictionary of answers using the input's
+original keys. Its values supply `{{ category }}`. A list-valued cell such as
+`[Containers, Shelves]` produces a list of answer dictionaries. Each answer
+retains its `value` in either shape. Both input shapes preserve their order;
+an empty dictionary returns `{}` and an empty list returns `[]`. When all
+questions expand to empty collections, no provider request is needed.
 
 Repeated `choose`, `score`, and `true_false` questions retain their usual
 answer fields inside each item. For example, a repeated `true_false` answer
@@ -391,11 +391,14 @@ contains `value`, `probability_true`, and `true_criteria`. An omitted or blank
 `output` uses the question label; a string or one-item list renames this single
 column. Ordinary questions retain their existing positional output names.
 
-Use the existing `split.list` followed by `split.dictionary` to turn keyed
-results into semantic columns such as `category_1_score`. The runnable
+Use `split.dictionary` directly on a dictionary result to create columns such
+as `category_1`, each containing that candidate's answer dictionary. A further
+`split.dictionary` step can expose its answer fields with a prefix such as
+`category_1_score`. No `split.list` step is needed for dictionary sources. The runnable
 [category scoring fixture](../tests/fixtures/ai_question_templates/README.md)
 includes the complete recipe, a detailed four-level rubric, varying candidate
-counts and key order, padding for missing candidates, and a small Python runner.
+counts and key order, and a small Python runner. Its optional list example and
+further field-splitting steps are commented out.
 
 ## Python
 

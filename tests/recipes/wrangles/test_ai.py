@@ -401,14 +401,14 @@ def test_recipe_templates_read_other_columns_and_return_one_grouped_output(kind,
     definition = repeat_question(question_kind)
     if kind == "answers":
         definition["type"] = question_kind
-    source = pd.DataFrame({"Description": ["first", "second", "empty"],
-                           "Manufacturer Name": ["Acme", "Other", "Neither"],
-                           "CandidateCategories": [["Containers", "Shelves"], {"category_2": "Storage"}, []]},
-                          index=[12, 4, 19])
+    source = pd.DataFrame({"Description": ["first", "second", "empty list", "empty dict"],
+                           "Manufacturer Name": ["Acme", "Other", "Neither", "Neither"],
+                           "CandidateCategories": [["Containers", "Shelves"], {"category_2": "Storage"}, [], {}]},
+                          index=[12, 4, 19, 23])
     original = source.copy(deep=True)
     result = run(kind, {"fits": definition}, dataframe=source, cache=False, threads=1)
 
-    assert result.index.tolist() == [12, 4, 19]
+    assert result.index.tolist() == [12, 4, 19, 23]
     assert result.columns.tolist() == [*original.columns, "fits"]
     assert len(http_transport) == 2
     assert [call["json"]["state"] for call in http_transport] == [{"Description": "first"}, {"Description": "second"}]
@@ -416,8 +416,14 @@ def test_recipe_templates_read_other_columns_and_return_one_grouped_output(kind,
         "Evaluate Containers for Acme.", "Evaluate Shelves for Acme."]
     assert [q["instructions"] for q in http_transport[1]["json"]["questions"].values()] == ["Evaluate Storage for Other."]
     assert [entry["value"] for entry in result["fits"].iloc[0]] == ["Containers", "Shelves"]
-    assert result["fits"].iloc[1][0]["category_2"]["value"] == "Storage"
+    assert list(result["fits"].iloc[1]) == ["category_2"]
+    assert result["fits"].iloc[1]["category_2"]["value"] == "Storage"
+    fields = {"choose": {"choice", "confidence", "probabilities"},
+              "score": {"score", "confidence", "probabilities"},
+              "true_false": {"probability_true", "true_criteria"}}[question_kind]
+    assert set(result["fits"].iloc[1]["category_2"]) == {"value", *fields}
     assert result["fits"].iloc[2] == []
+    assert result["fits"].iloc[3] == {}
     pd.testing.assert_frame_equal(source[original.columns], original)
 
 
@@ -449,7 +455,7 @@ def test_where_templates_resolve_only_selected_rows_and_preserve_other_values(ht
                  where="Description = 'second'", cache=False, threads=1)
     assert result.index.tolist() == [9, 3]
     assert result["Category Fits"].iloc[0] == "keep"
-    assert result["Category Fits"].iloc[1][0]["category_2"]["value"] == "Shelves"
+    assert result["Category Fits"].iloc[1]["category_2"]["value"] == "Shelves"
     assert len(http_transport) == 1
     assert http_transport[0]["json"]["state"] == {"Description": "second"}
 
@@ -477,7 +483,7 @@ def test_concurrent_collects_repeated_outputs_with_fixed_outputs(http_transport)
     ]}}]}
     result = wrangles.recipe.run(recipe, dataframe=source)
     assert len(http_transport) == 2
-    assert result["Category Fits"].iloc[0][0]["category_1"]["value"] == "Containers"
+    assert result["Category Fits"].iloc[0]["category_1"]["value"] == "Containers"
     assert result["Outdoor"].tolist() == [0.0]
     assert result["Copied"].tolist() == ["first"]
 
@@ -518,24 +524,30 @@ def test_schema_rejects_multi_column_expanded_outputs(output):
         jsonschema.validate({"questions": {"fits": repeat_question(output=output)}}, schema)
 
 
-def test_category_template_example_splits_existing_wrangles_into_semantic_columns(http_transport):
+def test_category_template_example_splits_dictionary_answers_and_leaves_optional_steps_disabled(http_transport):
     fixture = Path(__file__).resolve().parents[2] / "fixtures" / "ai_question_templates"
     source = pd.DataFrame(json.loads((fixture / "products.json").read_text(encoding="utf-8")))
     recipe = yaml.safe_load((fixture / "recipe.wrgl.yml").read_text(encoding="utf-8"))
+    assert [next(iter(step)) for step in recipe["wrangles"]] == ["ai.score", "split.dictionary"]
+    assert list(recipe["wrangles"][0]["ai.score"]["questions"]) == ["category_fit"]
     result = wrangles.recipe.run(recipe, dataframe=source)
 
     assert len(http_transport) == 2
-    assert [len(call["json"]["questions"]) for call in http_transport] == [6, 4]
+    assert [len(call["json"]["questions"]) for call in http_transport] == [3, 2]
     assert [len(row) for row in result["category_fit"]] == [3, 2, 0]
-    assert [len(row) for row in result["list_fit"]] == [3, 2, 0]
-    assert result["category_1_value"].tolist() == ["Containers", "Shelving Units", ""]
-    assert result["category_2_value"].tolist() == ["Shelves", "", ""]
-    assert result["category_3_value"].tolist() == ["Food Storage Containers", "Storage Cabinets", ""]
-    assert result["category_1_score"].iloc[:2].tolist() == [2.77, 2.77]
-    assert result["category_2_score"].iloc[1] == ""
-    assert isinstance(result["category_1_probabilities"].iloc[0], dict)
-    assert len(result["category_1_probabilities"].iloc[0]) == 4
-    assert result["category_1_probabilities"].iloc[2] == {}
+    assert [list(row) for row in result["category_fit"]] == [
+        ["category_1", "category_2", "category_3"], ["category_3", "category_1"], []]
+    assert all(isinstance(row, dict) for row in result["category_fit"])
+    assert "list_fit" not in result
+    assert "category_1_score" not in result
+    assert [answer["value"] for answer in result["category_1"].iloc[:2]] == ["Containers", "Shelving Units"]
+    assert [answer["score"] for answer in result["category_1"].iloc[:2]] == [2.77, 2.77]
+    assert result["category_2"].iloc[0]["value"] == "Shelves"
+    assert result["category_2"].iloc[1] == ""
+    assert [answer["value"] for answer in result["category_3"].iloc[:2]] == ["Food Storage Containers", "Storage Cabinets"]
+    assert len(result["category_1"].iloc[0]["probabilities"]) == 4
+    assert result["category_1"].iloc[2] == ""
+    assert result["category_fit"].iloc[2] == {}
     for call in http_transport:
         assert list(call["json"]["state"]) == ["Description"]
         assert all("{{" not in definition["instructions"] for definition in call["json"]["questions"].values())
@@ -559,27 +571,34 @@ def test_category_template_example_handles_short_and_empty_only_trial_slices(row
     recipe = yaml.safe_load((fixture / "recipe.wrgl.yml").read_text(encoding="utf-8"))
     result = wrangles.recipe.run(recipe, dataframe=source)
     assert len(http_transport) == expected_calls
-    assert result["category_2_value"].tolist() == [""]
-    assert result["category_2_probabilities"].tolist() == [{}]
+    assert "list_fit" not in result
+    assert "category_2" not in result
     if row_index == 1:
-        assert result["category_1_value"].tolist() == ["Shelving Units"]
-        assert result["category_3_value"].tolist() == ["Storage Cabinets"]
+        assert list(result["category_fit"].iloc[0]) == ["category_3", "category_1"]
+        assert result["category_1"].iloc[0]["value"] == "Shelving Units"
+        assert result["category_3"].iloc[0]["value"] == "Storage Cabinets"
     else:
-        assert result["category_fit"].tolist() == [[]]
-        assert result["list_fit"].tolist() == [[]]
-        assert result["category_1_value"].tolist() == [""]
-        assert result["category_3_value"].tolist() == [""]
+        assert result["category_fit"].tolist() == [{}]
+        assert "category_1" not in result
+        assert "category_3" not in result
 
 
-def test_category_template_runner_uses_anchored_paths_and_prints_full_results(http_transport, monkeypatch, tmp_path, capsys):
+@pytest.mark.parametrize("full_results", [False, True])
+def test_category_template_runner_uses_anchored_paths_and_prints_nested_results(full_results, http_transport, monkeypatch, tmp_path, capsys):
     runner = Path(__file__).resolve().parents[2] / "fixtures" / "ai_question_templates" / "run.py"
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(sys, "argv", [str(runner), "--all-rows", "--full-results"])
+    args = [str(runner), "--all-rows"]
+    if full_results:
+        args.append("--full-results")
+    monkeypatch.setattr(sys, "argv", args)
     monkeypatch.setattr(sys, "path", list(sys.path))
     runpy.run_path(str(runner), run_name="__main__")
     output = capsys.readouterr().out
     assert "Scoring 3" in output
-    assert "category_1_score" in output
+    assert "category_fit" in output
+    assert "category_1" in output
     assert "Containers" in output
     assert "probabilities" in output
+    assert "list_fit" not in output
+    assert ("CandidateCategories" in output) is full_results
     assert len(http_transport) == 2

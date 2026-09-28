@@ -9,8 +9,8 @@ existing split wrangles. No customer data or live responses are committed.
 | --- | --- | --- |
 | `Description` | string | Shared input sent to the model. |
 | `Manufacturer Name` | string | Substituted as `{{ Manufacturer_Name }}`. |
-| `CandidateCategories` | dictionary of string keys to category strings | Preserves semantic keys such as `category_1` in each answer wrapper. |
-| `CandidateList` | list of category strings | Produces answers without key wrappers. |
+| `CandidateCategories` | dictionary of string keys to category strings | Produces a dictionary of answers with the same semantic keys, such as `category_1`. |
+| `CandidateList` | list of category strings | Produces a list of answers when the optional `list_fit` question is enabled. |
 
 The first record has three candidates. The second has two different candidates,
 ordered `category_3` then `category_1`, to verify that splitting follows keys
@@ -18,20 +18,21 @@ rather than positions. The third has empty collections. All manufacturer names
 are fictional. This file is the deterministic source fixture; there is no
 sampling or external export to regenerate.
 
-`recipe.wrgl.yml` renders both sets of questions and sends them together in one
-Typesafe request per product with candidates. The row with no candidates needs
-no request. The same detailed four-level rubric applies to every candidate.
-The resulting `category_fit` and `list_fit` cells retain all scores, confidence,
-and criterion-labelled probabilities.
+`recipe.wrgl.yml` renders the `category_fit` questions from each product's
+`CandidateCategories` dictionary and sends them together in one Typesafe request
+per product with candidates. The row with no candidates needs no request and
+returns `{}`. The same detailed four-level rubric applies to every candidate.
+The resulting `category_fit` dictionary retains the original candidate keys;
+each answer contains its `value`, score, confidence, and criterion-labelled
+probabilities. The optional `list_fit` question remains commented out. If
+enabled, it returns a list of answer dictionaries, or `[]` for an empty list.
 
-The final recipe steps use `split.list` followed by `split.dictionary` twice:
-once to merge the keyed wrappers and once to expose the answer fields. This
-produces `category_1_score`, `category_2_score`, and `category_3_score`, plus each
-candidate's value, confidence, and complete probability dictionary. Existing
-`create.column` coalescing fills padded slots with empty dictionaries. Absent
-candidates have blank values, scores, and confidence, not fabricated answers.
-The split steps are deliberately configured for this fixture's three semantic
-keys; add matching steps if your own data uses other keys.
+The active `split.dictionary` step expands `category_fit` directly into columns
+such as `category_1`, each containing the complete answer dictionary. Candidate
+keys determine these columns regardless of input order. The additional recipe
+steps remain commented out, including the field-splitting examples for columns
+such as `category_1_score`. The old list-padding and wrapper-merging examples are
+also preserved as comments; dictionary results no longer need those steps.
 
 ## Run from the repository's VS Code terminal
 
@@ -43,12 +44,13 @@ environment. The runner does not load, print, or save credential values.
 .\.venv\Scripts\python.exe tests\fixtures\ai_question_templates\run.py
 ```
 
-The default run submits only the first two synthetic products and prints a
-compact table of candidate values, scores, and confidence. It uses the model
+The default run submits only the first two synthetic products and prints their
+`Description` and full `category_fit` dictionaries. It uses the model
 catalog, disables the in-process AI cache, uses one thread, and retries zero
 times. This command makes live Typesafe calls; results are not deterministic.
 
-To include the empty-candidate record and inspect full result dictionaries:
+To include the empty-candidate record and print every result column, including
+the candidate columns created by `split.dictionary`:
 
 ```powershell
 .\.venv\Scripts\python.exe tests\fixtures\ai_question_templates\run.py --all-rows --full-results

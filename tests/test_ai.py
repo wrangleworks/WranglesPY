@@ -306,13 +306,15 @@ def expanded_question(kind="score", **overrides):
 
 
 @pytest.mark.parametrize("method", ["choose", "score", "true_false", "answers"])
-def test_templates_expand_each_row_into_one_request_and_preserve_candidate_values(method, transport):
+@pytest.mark.parametrize("keyed", [False, True])
+def test_templates_expand_each_row_into_one_request_and_preserve_candidate_values(method, keyed, transport):
     kind = "score" if method == "answers" else method
     definition = expanded_question(kind)
     if method == "answers":
         definition["type"] = kind
     definitions = {"fits": definition}
-    row = {"Product Description": "Metal container", "Candidate Categories": ["Containers", "Shelves"]}
+    candidates = {"category_7": "Containers", "category_2": "Shelves"} if keyed else ["Containers", "Shelves"]
+    row = {"Product Description": "Metal container", "Candidate Categories": candidates}
     original = copy.deepcopy((row, definitions))
 
     result = getattr(ai, method)(row, definitions, api_key="synthetic-key")
@@ -323,15 +325,22 @@ def test_templates_expand_each_row_into_one_request_and_preserve_candidate_value
     assert [q["instructions"] for q in wire] == [
         "Evaluate Containers for Metal container.", "Evaluate Shelves for Metal container."]
     assert all("for_each" not in q and "output" not in q for q in wire)
-    assert [item["value"] for item in result["fits"]] == ["Containers", "Shelves"]
+    if keyed:
+        assert isinstance(result["fits"], dict)
+        assert list(result["fits"]) == ["category_7", "category_2"]
+        answers = list(result["fits"].values())
+    else:
+        assert isinstance(result["fits"], list)
+        answers = result["fits"]
+    assert [item["value"] for item in answers] == ["Containers", "Shelves"]
     fields = {"choose": {"choice", "confidence", "probabilities"},
               "score": {"score", "confidence", "probabilities"},
               "true_false": {"probability_true", "true_criteria"}}[kind]
-    assert all(set(item) == {"value", *fields} for item in result["fits"])
+    assert all(set(item) == {"value", *fields} for item in answers)
     assert (row, definitions) == original
 
 
-def test_varying_candidates_keep_list_shape_dictionary_keys_and_fixed_answers(transport):
+def test_varying_candidates_preserve_each_rows_collection_shape_keys_and_fixed_answers(transport):
     definitions = {
         "fits": expanded_question(type="score"),
         "repeat": {**NOUL["repeat"], "type": "true_false"},
@@ -347,9 +356,11 @@ def test_varying_candidates_keep_list_shape_dictionary_keys_and_fixed_answers(tr
     assert [list(row) for row in result] == [["fits", "repeat"]] * 4
     assert [len(row["fits"]) for row in result] == [3, 2, 0, 0]
     assert [item["value"] for item in result[0]["fits"]] == ["Containers", "Containers", "Shelves"]
-    assert [list(item) for item in result[1]["fits"]] == [["category_7"], ["category_2"]]
-    assert result[1]["fits"][0]["category_7"]["value"] == "Shelves"
-    assert result[1]["fits"][1]["category_2"]["value"] == "Storage"
+    assert list(result[1]["fits"]) == ["category_7", "category_2"]
+    assert result[1]["fits"]["category_7"]["value"] == "Shelves"
+    assert result[1]["fits"]["category_2"]["value"] == "Storage"
+    assert result[2]["fits"] == []
+    assert result[3]["fits"] == {}
     assert [len(call["questions"]) for call in transport] == [4, 3, 1, 1]
     assert all(row["repeat"]["probability_true"] == 0.94 for row in result)
     result[0]["fits"][0]["probabilities"]["Cosmetic"] = 1
@@ -360,7 +371,8 @@ def test_varying_candidates_keep_list_shape_dictionary_keys_and_fixed_answers(tr
 def test_empty_expansion_needs_no_credentials_or_catalog(candidates, transport, monkeypatch):
     monkeypatch.setattr(ai_config, "resolve", lambda *a, **kw: pytest.fail("Empty expansion needs no config"))
     result = ai.score({"Candidate Categories": candidates}, {"fits": expanded_question()})
-    assert result == {"fits": []}
+    assert result == {"fits": candidates}
+    assert result["fits"] is not candidates
     assert transport == []
 
 
@@ -413,15 +425,18 @@ def test_substitution_is_single_pass_and_local_variable_takes_precedence(transpo
     assert result["fits"][0]["value"] == "{{ Other_Missing }}"
 
 
-def test_structured_candidate_values_are_preserved_and_rendered_as_json(transport):
-    row = {"Candidate Categories": [{"name": "Containers", "levels": [1, 2]}, None, 7]}
+@pytest.mark.parametrize("keyed", [False, True])
+def test_structured_candidate_values_are_preserved_and_rendered_as_json(keyed, transport):
+    candidates = [{"name": "Containers", "levels": [1, 2]}, None, 7]
+    row = {"Candidate Categories": dict(zip(["structured", "null", "number"], candidates)) if keyed else candidates}
     definition = expanded_question(instructions="Candidate {{ category }}")
     result = ai.score(row, {"fits": definition}, api_key="synthetic-key")
-    assert [item["value"] for item in result["fits"]] == row["Candidate Categories"]
+    answers = list(result["fits"].values()) if keyed else result["fits"]
+    assert [item["value"] for item in answers] == candidates
     assert [q["instructions"] for q in transport[0]["questions"].values()] == [
         'Candidate {"name":"Containers","levels":[1,2]}', "Candidate null", "Candidate 7"]
-    result["fits"][0]["value"]["levels"].append(3)
-    assert row["Candidate Categories"][0]["levels"] == [1, 2]
+    answers[0]["value"]["levels"].append(3)
+    assert candidates[0]["levels"] == [1, 2]
 
 
 @pytest.mark.parametrize("for_each", [None, [], {}, {"values": "Candidates"}, {"variable": "category"},
@@ -501,10 +516,14 @@ def test_cached_wire_answers_are_projected_with_each_rows_own_candidate_value_an
                      timeout=None, retries=None, cache=None, cache_ttl=None)
     assert len(transport) == 1
     assert result[0]["fits"][0]["value"] == "Containers"
-    assert result[1]["fits"][0]["category_7"]["value"] == "Shelves"
-    assert result[2]["fits"][0]["category_2"]["value"] == {"name": "Storage"}
-    result[1]["fits"][0]["category_7"]["probabilities"]["Cosmetic"] = 1
-    assert result[2]["fits"][0]["category_2"]["probabilities"]["Cosmetic"] == 0.0
+    assert list(result[1]["fits"]) == ["category_7"]
+    assert result[1]["fits"]["category_7"]["value"] == "Shelves"
+    assert list(result[2]["fits"]) == ["category_2"]
+    assert result[2]["fits"]["category_2"]["value"] == {"name": "Storage"}
+    result[1]["fits"]["category_7"]["probabilities"]["Cosmetic"] = 1
+    assert result[2]["fits"]["category_2"]["probabilities"]["Cosmetic"] == 0.0
+    result[2]["fits"]["category_2"]["value"]["name"] = "mutated"
+    assert contexts[2]["Candidate Categories"]["category_2"] == {"name": "Storage"}
 
 
 @pytest.mark.parametrize("row", [{}, {"Proposed Category": "First", "Proposed_Category": "Second"}])

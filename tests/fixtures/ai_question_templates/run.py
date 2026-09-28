@@ -21,9 +21,7 @@ RETRIES = 0
 FULL_RESULTS = False
 DISPLAY_COLUMNS = [
     "Description",
-    "category_1_value", "category_1_score", "category_1_confidence",
-    "category_2_value", "category_2_score", "category_2_confidence",
-    "category_3_value", "category_3_score", "category_3_confidence",
+    "category_fit",
 ]
 
 
@@ -70,7 +68,7 @@ def main():
     if args.full_results:
         pprint(result.to_dict("records"), sort_dicts=False)
     else:
-        print(result[DISPLAY_COLUMNS].to_string(index=False))
+        pprint(result[DISPLAY_COLUMNS].to_dict("records"), sort_dicts=False)
 
 
 if __name__ == "__main__":
