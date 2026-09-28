@@ -151,14 +151,21 @@ remain available. This adapter supports only `provider: typesafe` and
 an adapter for it.
 
 Their packaged runtime defaults are 10 concurrent requests, a 30-second timeout,
-and one additional attempt after a transient failure. Caching is off by default.
-Set `cache: true` to enable a bounded in-memory cache with a one-hour TTL, at most
+and one additional attempt after a transient failure. All four packaged operation
+entries set `defaults.cache.enabled: false`, so caching is off when omitted.
+Set `cache: true` in a recipe or `cache=True` in Python to enable a bounded
+in-memory cache with a one-hour TTL, at most
 512 entries, and a maximum value size of 65,536 bytes. When enabled, duplicate
 in-flight requests share their result. Periodic cache logging is disabled.
-`WRANGLES_AI_CACHE_*` environment controls apply to these operations
-independently of the existing
-`WRANGLES_EXTRACT_AI_CACHE_*` controls. See [AI answers](ai_answers.md) for
-question schemas, examples, output columns, and cache overrides.
+For cache settings, precedence is `WRANGLES_AI_CACHE_*` environment controls,
+then explicit caller options, then catalog defaults. For example,
+`WRANGLES_AI_CACHE_ENABLED=true` enables caching even when the catalog or caller
+sets it to false. These controls are independent of the existing
+`WRANGLES_EXTRACT_AI_CACHE_*` controls. See
+[AI answer runtime settings](ai_answers.md#runtime-settings-and-compatibility)
+for the complete cache controls, and
+[question templates](#question-templates-and-repeated-answers) below for recipe
+configuration.
 
 Keep credentials outside the catalog. Supply `api_key` explicitly, use the local
 `TYPESAFE_API_KEY` environment variable, or use `api_key: ${TYPESAFE_API_KEY}` in
@@ -230,6 +237,64 @@ This catalog governs WranglesPY callers. WranglesXL saved-model authoring and
 WranglesJS note-generation calls still select models outside Python. Their model
 defaults require a separate client integration. SerpAPI AI Mode and WrangleWorks
 saved-model service endpoints own their server-side model selection.
+
+## Question templates and repeated answers
+
+`ai.choose`, `ai.score`, `ai.true_false`, and `ai.answers` support per-row question
+templates. Configure them inside each question in a recipe's `questions` mapping
+or the equivalent Python argument. The model catalog controls provider and
+runtime defaults; it does not store these question definitions.
+
+Use `{{ column_name }}` in instruction and criterion-description string values,
+including values nested in objects or lists. Replace spaces and punctuation in
+column references with `_`, so `Manufacturer Name` becomes
+`{{ Manufacturer_Name }}`. References use the full source row, while `input`
+selects the shared state sent to Typesafe. Referenced values are sent as part of
+the rendered questions. These substitutions work with or without `for_each`;
+`${...}` still denotes a recipe variable.
+
+Add `for_each` to repeat one question for each candidate in a row:
+
+```yaml
+wrangles:
+  - ai.score:
+      input: Description  # Shared provider state; other columns remain available to templates.
+      # cache: true      # Optional opt-in; caching defaults to off.
+      questions:
+        category_fit:    # Default output column for this group of answers.
+          for_each:
+            values: CandidateCategories  # Exact column name; each cell holds a list or dictionary.
+            variable: category           # Local placeholder for the current candidate value.
+          instructions: >-
+            How strongly does this description support "{{ category }}"?
+            The manufacturer is "{{ Manufacturer_Name }}".
+            Distinguish missing information from contradictory information.
+          criteria:     # Ordered score levels, from lowest to highest.
+            - Contradicted
+            - Weakly supported
+            - Supported but incomplete
+            - Clearly supported
+          # output: Category Fits  # Optional single output name.
+```
+
+`for_each.values` always names an exact source column or Python record field;
+it does not accept a literal collection or a JSON-encoded string. Its cell value
+must be a list or a dictionary with string keys. `for_each.variable` binds each
+candidate value locally and takes precedence over a row reference with the same
+name in that question. All generated and ordinary questions for a row share one
+provider request.
+
+Each repeated question creates one result column. A list source returns a list
+of answer dictionaries in the same order; a dictionary source returns a
+dictionary under the original keys. Each nonblank candidate's answer includes
+its original `value` and the usual fields for its question type. An empty or
+whitespace-only candidate string returns `{}` in its existing slot without
+scoring it. Empty collections return `[]` or `{}` to match the source. Missing
+keys or positions are not added automatically.
+
+See [Questions from row values](ai_answers.md#questions-from-row-values) for
+complete input and output examples, template validation rules, output naming,
+and splitting keyed answers into columns.
 
 ## Version-1 overrides
 

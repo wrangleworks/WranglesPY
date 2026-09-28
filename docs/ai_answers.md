@@ -9,6 +9,11 @@ The existing [AI model catalog](ai_configuration.md) supplies
 `provider: typesafe`, `protocol: systemone`, and the pinned model `jev-1.13.0`
 as defaults. `extract.ai` keeps its current API and behavior.
 
+All four wrangles support [question templates](#questions-from-row-values):
+insert row values with `{{ column_name }}`, or use `for_each` to ask a question
+about each candidate in a row's list or dictionary. Typesafe caching is
+[off by default](#runtime-settings-and-compatibility).
+
 ## Input and output schema
 
 Every wrangle takes a nonempty `questions` mapping. Each key is a nonblank
@@ -292,29 +297,54 @@ list or dictionary of answers matching its source collection, as described below
 
 ## Questions from row values
 
-All four AI wrangles support `{{ column_name }}` placeholders in instructions
-and criterion descriptions, including nested objects and arrays. Replace each
-space or punctuation character in a column name with `_`: `Manufacturer Name`
-becomes `{{ Manufacturer_Name }}`. These are literal substitutions, not Python
-expressions or Jinja filters. Missing or ambiguous references raise an error
-before provider calls. `${...}` remains the syntax for recipe variables.
+### Insert column values into a question
 
-Templates also work without `for_each`:
+All four AI wrangles support `{{ column_name }}` placeholders in instructions
+and criterion description string values, including those inside nested objects
+and arrays. Replace each character outside `A–Z`, `a–z`, `0–9`, and `_` in a
+column name with `_`: `Manufacturer Name` becomes `{{ Manufacturer_Name }}`.
+The resulting alias must start with a letter or `_`. These are literal
+substitutions, not Python expressions or Jinja filters. Missing or ambiguous
+references raise an error before provider calls. For example, `Product Name`
+and `Product-Name` both produce `Product_Name` and cannot be referenced
+unambiguously in the same row. `${...}` remains the syntax for recipe variables.
+
+Question labels, option labels, dictionary keys, and output names stay literal.
+Substitution runs once, so braces inside inserted data remain part of that data.
+String values are inserted as text; other finite JSON values are serialized as
+JSON text. For `ai.score`, rendered criterion descriptions also become the
+probability keys and must remain nonblank and unique.
+
+Templates also work without `for_each`. Given columns `Description`,
+`Proposed Category`, and `Manufacturer Name`, this recipe asks one question per
+row and creates `category_fit`, `category_fit_confidence`, and
+`category_fit_probabilities`:
 
 ```yaml
-questions:
-  category_fit:
-    instructions: >-
-      How strongly does this description support "{{ Proposed_Category }}"?
-      The manufacturer is "{{ Manufacturer_Name }}".
-    criteria: [Contradicted, Weakly supported, Supported but incomplete, Clearly supported]
+wrangles:
+  - ai.score:
+      input: Description  # Templates may reference other columns in the row.
+      questions:
+        category_fit:
+          instructions: >-
+            How strongly does this description support "{{ Proposed_Category }}"?
+            The manufacturer is "{{ Manufacturer_Name }}".
+          criteria: [Contradicted, Weakly supported, Supported but incomplete, Clearly supported]
 ```
+
+### Repeat a question with `for_each`
 
 To ask the same question about several candidates, add `for_each`. Its `values`
 must be an exact column name; the cell must contain a list or a dictionary.
 It does not accept literal candidate collections or JSON-encoded strings.
 `variable` names the placeholder for each candidate value and takes precedence
 over a column with the same name within that question.
+
+| Field | Meaning |
+| --- | --- |
+| `for_each.values` | Required exact source column name, including its spaces and punctuation; a record field name in Python. Each cell contains a list or a dictionary with string keys. |
+| `for_each.variable` | Required local placeholder name, such as `category`. Use ASCII letters, digits, or underscores, starting with a letter or underscore. |
+| `output` | Optional single output column name or one-item list. Omitted or blank uses the question label. |
 
 **Example input**
 
@@ -333,6 +363,7 @@ over a column with the same name within that question.
 wrangles:
   - ai.score:
       input: Description  # Shared input sent to the provider.
+      # cache: true  # Optional opt-in; Typesafe caching defaults to off.
       questions:
         category_fit:
           for_each:
@@ -406,7 +437,18 @@ column. Ordinary questions retain their existing positional output names.
 Use `split.dictionary` directly on a dictionary result to create columns such
 as `category_1`, each containing that candidate's answer dictionary. A further
 `split.dictionary` step can expose its answer fields with a prefix such as
-`category_1_score`. No `split.list` step is needed for dictionary sources. The runnable
+`category_1_score`. For example:
+
+```yaml
+- split.dictionary:
+    input: category_fit  # Creates category_1, category_2, and category_3.
+- split.dictionary:
+    input: category_1
+    output:
+      - "*": category_1_*  # Exposes category_1_value, category_1_score, etc.
+```
+
+No `split.list` step is needed for dictionary sources. The runnable
 [category scoring fixture](../tests/fixtures/ai_question_templates/README.md)
 includes `ai_category_judge.recipe`, a detailed four-level rubric, a blank
 candidate slot, empty collections, and a small Python runner. Its two steps
