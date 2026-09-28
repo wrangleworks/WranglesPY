@@ -96,14 +96,15 @@ def test_individual_wrangles_support_multiple_questions_in_one_request(transport
     assert len(transport[0]["questions"]) == 2
 
 
-def test_batch_shape_order_duplicate_suppression_and_independent_results(transport):
-    result = ai.true_false(["zero", "positive", "zero"], NOUL, api_key="synthetic-key")
+@pytest.mark.parametrize("cache,expected_calls", [(None, 3), (True, 2)])
+def test_batch_shape_order_optional_cache_and_independent_results(transport, cache, expected_calls):
+    result = ai.true_false(["zero", "positive", "zero"], NOUL, api_key="synthetic-key", cache=cache)
     assert [row["repeat"]["probability_true"] for row in result] == [0.0, 0.94, 0.0]
-    assert len(transport) == 2
+    assert len(transport) == expected_calls
     result[0]["repeat"]["probability_true"] = 1
     assert result[2]["repeat"]["probability_true"] == 0
-    assert ai.true_false("zero", NOUL, api_key="synthetic-key")["repeat"]["probability_true"] == 0
-    assert len(transport) == 2
+    assert ai.true_false("zero", NOUL, api_key="synthetic-key", cache=cache)["repeat"]["probability_true"] == 0
+    assert len(transport) == (expected_calls if cache else expected_calls + 1)
 
 
 def test_true_criterion_is_supplied_context_and_not_a_generated_explanation(transport):
@@ -244,6 +245,7 @@ def test_unusable_endpoint_error_does_not_disclose_credentials(transport, monkey
 
 def test_typesafe_cache_controls_are_independent_of_extraction(transport, monkeypatch):
     monkeypatch.setenv("WRANGLES_EXTRACT_AI_CACHE_ENABLED", "false")
+    monkeypatch.setenv("WRANGLES_AI_CACHE_ENABLED", "true")
     for _ in range(2):
         ai.true_false("state", NOUL, api_key="synthetic-key")
     assert len(transport) == 1
@@ -264,17 +266,17 @@ def test_invalid_cache_environment_value_is_not_exposed_in_traceback(transport, 
 
 
 def test_cache_identity_includes_key_model_endpoint_state_and_questions(transport, monkeypatch, tmp_path):
-    ai.true_false("a", NOUL, api_key="key-a")
-    ai.true_false("b", NOUL, api_key="key-a")
-    ai.true_false("a", NOUL, api_key="key-b")
-    ai.true_false("a", NOUL, api_key="key-a", model="other-model")
-    ai.true_false("a", {"repeat": {"instructions": "A different question?"}}, api_key="key-a")
+    ai.true_false("a", NOUL, api_key="key-a", cache=True)
+    ai.true_false("b", NOUL, api_key="key-a", cache=True)
+    ai.true_false("a", NOUL, api_key="key-b", cache=True)
+    ai.true_false("a", NOUL, api_key="key-a", model="other-model", cache=True)
+    ai.true_false("a", {"repeat": {"instructions": "A different question?"}}, api_key="key-a", cache=True)
     config = ai_config.load()
     config["providers"]["typesafe"]["endpoints"]["systemone"] = "https://other.example/systemone"
     save_config(config, monkeypatch, tmp_path)
-    ai.true_false("a", NOUL, api_key="key-a")
+    ai.true_false("a", NOUL, api_key="key-a", cache=True)
     # Output names only affect local projection, so renaming may reuse the answer.
-    ai.true_false("a", {"repeat": {**NOUL["repeat"], "output": ["new", "new_criteria"]}}, api_key="key-a")
+    ai.true_false("a", {"repeat": {**NOUL["repeat"], "output": ["new", "new_criteria"]}}, api_key="key-a", cache=True)
     assert len(transport) == 6
 
 
@@ -286,7 +288,7 @@ def test_failures_are_not_cached(monkeypatch):
     monkeypatch.setattr(typesafe, "call_systemone", fail)
     for _ in range(2):
         with pytest.raises(RuntimeError, match="synthetic"):
-            ai.true_false("state", NOUL, api_key="synthetic-key")
+            ai.true_false("state", NOUL, api_key="synthetic-key", cache=True)
     assert len(attempts) == 2
     assert ai_cache.stats()["entries"] == 0
 
@@ -520,7 +522,7 @@ def test_cache_uses_rendered_questions_with_identical_provider_state_and_distinc
     ]
     result = ai._run(["same product"] * 3, definitions, "score", contexts=contexts,
                      api_key="synthetic-key", model=None, provider=None, protocol=None, threads=1,
-                     timeout=None, retries=None, cache=None, cache_ttl=None)
+                     timeout=None, retries=None, cache=True, cache_ttl=None)
     assert len(transport) == 2
     assert all(call["state"] == "same product" for call in transport)
     assert [len(row["fits"]) for row in result] == [1, 2, 1]
@@ -549,7 +551,7 @@ def test_cached_wire_answers_are_projected_with_each_rows_own_candidate_value_an
                 {"Candidate Categories": {"category_2": {"name": "Storage"}, "category_3": "", "category_4": "\t"}}]
     result = ai._run(["same product"] * 3, definitions, "score", contexts=contexts,
                      api_key="synthetic-key", model=None, provider=None, protocol=None, threads=1,
-                     timeout=None, retries=None, cache=None, cache_ttl=None)
+                     timeout=None, retries=None, cache=True, cache_ttl=None)
     assert len(transport) == 1
     assert result[0]["fits"][0]["value"] == "Containers"
     assert result[0]["fits"][1] == {}

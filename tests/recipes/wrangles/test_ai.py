@@ -474,7 +474,7 @@ def test_recipe_template_cache_includes_row_context_only_when_it_changes_questio
     source = pd.DataFrame({"Description": ["first"] * 3, "Manufacturer Name": ["Acme", "Other", "Acme"],
                            "CandidateCategories": [["Containers"], ["Shelves"], ["Containers"]],
                            "Unused": [1, 2, 3]})
-    result = run("score", {"fits": repeat_question()}, dataframe=source, threads=1)
+    result = run("score", {"fits": repeat_question()}, dataframe=source, threads=1, cache=True)
     assert len(http_transport) == 2
     assert [value[0]["value"] for value in result["fits"]] == ["Containers", "Shelves", "Containers"]
     assert all(call["json"]["state"] == {"Description": "first"} for call in http_transport)

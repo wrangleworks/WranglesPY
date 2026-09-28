@@ -446,11 +446,13 @@ are 10 threads, 30 seconds, and one retry. Use `retries: 0` to disable retries.
 Only transient failures are retried; invalid credentials, question definitions,
 and malformed results fail. Errors do not become fabricated answers.
 
-Successful results are cached in memory by request identity. The packaged
-defaults enable a one-hour TTL, up to 512 entries, and up to 65,536 bytes per
-cached value. Concurrent duplicate requests share one in-flight request.
-Use `cache: false` or `cache_ttl` in seconds to override the corresponding
-catalog values. Process-level environment controls take precedence:
+Caching is off by default for all four Typesafe answer wrangles. Set
+`cache: true` in a recipe or `cache=True` in Python to enable it. When enabled,
+successful results are cached in memory by request identity, and concurrent
+duplicate requests share one in-flight request. The configured limits are a
+one-hour TTL, up to 512 entries, and up to 65,536 bytes per cached value.
+Use `cache_ttl` in seconds to override the lifetime. Process-level environment
+controls take precedence:
 
 - `WRANGLES_AI_CACHE_ENABLED`
 - `WRANGLES_AI_CACHE_TTL_SECONDS`

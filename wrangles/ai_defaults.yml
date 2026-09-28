@@ -137,7 +137,7 @@ operations:
       request_timeout_seconds: 30
       retries: 1
       cache:
-        enabled: true
+        enabled: false
         ttl_seconds: 3600
         max_entries: 512
         max_value_bytes: 65536
@@ -151,7 +151,7 @@ operations:
       request_timeout_seconds: 30
       retries: 1
       cache:
-        enabled: true
+        enabled: false
         ttl_seconds: 3600
         max_entries: 512
         max_value_bytes: 65536
@@ -165,7 +165,7 @@ operations:
       request_timeout_seconds: 30
       retries: 1
       cache:
-        enabled: true
+        enabled: false
         ttl_seconds: 3600
         max_entries: 512
         max_value_bytes: 65536
@@ -179,7 +179,7 @@ operations:
       request_timeout_seconds: 30
       retries: 1
       cache:
-        enabled: true
+        enabled: false
         ttl_seconds: 3600
         max_entries: 512
         max_value_bytes: 65536

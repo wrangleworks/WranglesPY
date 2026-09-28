@@ -256,7 +256,7 @@ def _schema(kind):
                         "description": "Per-attempt request timeout in seconds; defaults to the AI catalog."},
             "retries": {"type": "integer", "minimum": 0,
                         "description": "Additional attempts for retryable failures; defaults to the AI catalog."},
-            "cache": {"type": "boolean", "description": "Reuse identical successful requests through the shared AI cache."},
+            "cache": {"type": "boolean", "description": "Reuse identical successful requests through the shared AI cache. Off by default for Typesafe; set true to enable."},
             "cache_ttl": {"type": "number", "exclusiveMinimum": 0,
                           "description": "Override the cache result lifetime in seconds."},
         },

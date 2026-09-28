@@ -151,11 +151,12 @@ remain available. This adapter supports only `provider: typesafe` and
 an adapter for it.
 
 Their packaged runtime defaults are 10 concurrent requests, a 30-second timeout,
-and one additional attempt after a transient failure. Successful results use a
-bounded in-memory cache with a one-hour TTL, at most 512 entries, and a maximum
-value size of 65,536 bytes. Duplicate in-flight requests share their result, and
-periodic cache logging is disabled. `WRANGLES_AI_CACHE_*` environment controls
-apply to these operations independently of the existing
+and one additional attempt after a transient failure. Caching is off by default.
+Set `cache: true` to enable a bounded in-memory cache with a one-hour TTL, at most
+512 entries, and a maximum value size of 65,536 bytes. When enabled, duplicate
+in-flight requests share their result. Periodic cache logging is disabled.
+`WRANGLES_AI_CACHE_*` environment controls apply to these operations
+independently of the existing
 `WRANGLES_EXTRACT_AI_CACHE_*` controls. See [AI answers](ai_answers.md) for
 question schemas, examples, output columns, and cache overrides.
 
