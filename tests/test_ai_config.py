@@ -70,7 +70,7 @@ def test_typesafe_operations_resolve_independent_packaged_defaults(operation):
     assert policy["request_timeout_seconds"] == 30
     assert policy["retries"] == 1
     assert policy["cache"] == {
-        "enabled": True, "ttl_seconds": 3600, "max_entries": 512,
+        "enabled": False, "ttl_seconds": 3600, "max_entries": 512,
         "max_value_bytes": 65536, "single_flight": True, "log_every": 0,
     }
     assert "reasoning" not in policy

@@ -1,0 +1,31 @@
+wrangles:
+  - ai.score:
+      input: Description
+      questions:
+        category_fit:
+          for_each:
+            values: CandidateCategories  # Column containing a dictionary per row.
+            variable: category
+          instructions: >-
+            How strongly does the description support the category "{{ category }}"
+            at its stated specificity? The manufacturer is "{{ Manufacturer_Name }}".
+            Distinguish missing information from contradictory information.
+            Do not assume an unstated material, function, or intended use.
+          criteria:
+            - >-
+              Contradicted: The description identifies a different product type
+              or conflicts with a defining category requirement.
+            - >-
+              Weakly supported: There is no contradiction, but only generic details
+              match; the category's main product type or use is not established.
+            - >-
+              Supported but incomplete: The main product type or use matches
+              without contradiction, but a detail needed to confirm this specific
+              category is missing.
+            - >-
+              Clearly supported: The description establishes the category at its
+              stated specificity, with no material ambiguity or contradictory detail.
+
+  # Expose keyed answers directly as category_1, category_2, etc.
+  - split.dictionary:
+      input: category_fit

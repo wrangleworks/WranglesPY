@@ -1,0 +1,28 @@
+[
+  {
+    "Description": "CONTAINER 24X15X11 CHARCOAL",
+    "Manufacturer Name": "Example Supply",
+    "CandidateCategories": {
+      "category_1": "Containers",
+      "category_2": "Shelves",
+      "category_3": "Food Storage Containers"
+    },
+    "CandidateList": ["Containers", "Shelves", "Food Storage Containers"]
+  },
+  {
+    "Description": "STEEL SHELVING UNIT 5 SHELVES 36X18X72 GRAY",
+    "Manufacturer Name": "Example Fixtures",
+    "CandidateCategories": {
+      "category_1": "Shelving Units",
+      "category_2": "Storage Cabinets",
+      "category_3": ""
+    },
+    "CandidateList": ["Storage Cabinets", "Shelving Units", ""]
+  },
+  {
+    "Description": "UNCLASSIFIED SAMPLE",
+    "Manufacturer Name": "Example Supply",
+    "CandidateCategories": {},
+    "CandidateList": []
+  }
+]

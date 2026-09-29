@@ -137,37 +137,47 @@ returned dictionary does not alter cached configuration.
 | `generate.ai` | Python and recipe generation | Model, endpoint, reasoning/text tuning, concurrency, timeout, retries, strictness |
 | `huggingface` | Generic recipe task wrangle | Explicit model, endpoint, timeout, retries, task parameters |
 
-The four answer wrangles provide structured answers to common types of
-questions through [Typesafe](https://docs.typesafe.ai/introduction).
-`ai.choose` selects the best-fitting option, `ai.score` locates the input along
-ordered criteria, and `ai.true_false` returns the probability that a statement
-is true. `ai.answers` answers any combination of these question types together.
-They use Typesafe's `systemone` protocol at
-`https://api.typesafe.ai/v1/systemone`, with `jev-1.13.0` as their pinned default
-model. Each operation has its own default role; changing an extraction or global
-model does not change these operations. Explicit unlisted Typesafe model names
-remain available. This adapter supports only `provider: typesafe` and
-`protocol: systemone`; adding another catalog provider alone does not implement
-an adapter for it.
+Provider request options use explicit allowlists so runtime settings and catalog
+metadata cannot leak into API payloads. Explicit request arguments still override
+configured options. Extraction retains `messages`/`examples` aliases and recipe
+output-shape controls because existing callers use them. Private transport
+arguments and unused generation scaffolding have been removed where redundant.
 
-Their packaged runtime defaults are 10 concurrent requests, a 30-second timeout,
-and one additional attempt after a transient failure. Successful results use a
-bounded in-memory cache with a one-hour TTL, at most 512 entries, and a maximum
-value size of 65,536 bytes. Duplicate in-flight requests share their result, and
-periodic cache logging is disabled. `WRANGLES_AI_CACHE_*` environment controls
-apply to these operations independently of the existing
-`WRANGLES_EXTRACT_AI_CACHE_*` controls. See [AI answers](ai_answers.md) for
-question schemas, examples, output columns, and cache overrides.
+This catalog governs WranglesPY callers. WranglesXL saved-model authoring and
+WranglesJS note-generation calls still select models outside Python. Their model
+defaults require a separate client integration. SerpAPI AI Mode and WrangleWorks
+saved-model service endpoints own their server-side model selection.
 
-Keep credentials outside the catalog. Supply `api_key` explicitly, use the local
-`TYPESAFE_API_KEY` environment variable, or use `api_key: ${TYPESAFE_API_KEY}` in
-a hosted recipe with that managed secret. Hosted secrets are supplied as recipe
-variables; they are not placed in the worker's environment.
+## Provider settings
+
+### OpenAI
 
 OpenAI embeddings retain `text-embedding-3-small` and their existing dimensions
-unless explicitly configured otherwise. Jina requires an explicit model or a
-Jina catalog model assigned the `embeddings` role; the package does not invent a
-Jina model default. Explicit Jina URLs retain their existing provider inference.
+unless explicitly configured otherwise.
+
+OpenAI uses complete request URLs in `endpoints`: `/v1/responses`,
+`/v1/chat/completions`, and `/v1/embeddings` on `api.openai.com`.
+Provider documentation links are not request endpoints.
+
+The public `openai.chatGPT` wrapper has been removed. Legacy Chat Completions
+remains available through `extract.ai(protocol="chat_completions")`. Extraction
+resolves configuration once per operation and uses a private transport for its
+individual rows.
+
+Generation remains unreleased. Its operation keeps `low` reasoning; extraction
+keeps `none` where supported. Its existing direct-Python and recipe strictness
+defaults are represented by `strict` and `recipe_strict`, respectively.
+
+Extraction uses the operation's `defaults` directly. There is no profile registry
+or caller-selectable preset behavior; the unused `profile` label has been removed.
+A named preset system is outside the current configuration work.
+
+### Jina
+
+Jina requires an explicit model or a Jina catalog model assigned the `embeddings`
+role; the package does not invent a Jina model default. Explicit Jina URLs retain
+their existing provider inference. Jina uses the complete `/v1/embeddings`
+request URL on `api.jina.ai` in `endpoints`.
 
 The catalog records Jina v5's `task` enum on the model: `retrieval.query`,
 `retrieval.passage`, `text-matching`, `clustering`, and `classification`. Its
@@ -177,6 +187,8 @@ explicit caller `task` overrides the model default. Validation uses the selected
 model's catalog enum. Uncataloged older Jina models retain their existing task
 validation, including v3's `separation` value. See the
 [Jina API schema](https://api.jina.ai/openapi.json) for model-specific values.
+
+### Google Gemini
 
 Gemini URL retrieval uses the configured model and Google's URL-context tools.
 `search.ai_mode` delegates its underlying model to SerpAPI/Google and has no
@@ -192,10 +204,38 @@ Both the base URL and version are configurable. See the
 Google model names with or without the SDK's `models/` prefix share the same
 catalog defaults. Declare only one spelling for each model in the catalog.
 
-OpenAI and Jina use complete request URLs in `endpoints`: OpenAI
-`/v1/responses`, `/v1/chat/completions`, and `/v1/embeddings` on `api.openai.com`,
-and Jina `/v1/embeddings` on `api.jina.ai`. Provider documentation links are not
-request endpoints.
+### Typesafe
+
+The four answer wrangles provide structured answers to common types of
+questions through [Typesafe](https://docs.typesafe.ai/introduction).
+`ai.choose` selects the best-fitting option, `ai.score` locates the input along
+ordered criteria, and `ai.true_false` returns the probability that a statement
+is true. `ai.answers` answers any combination of these question types together.
+They use Typesafe's `systemone` protocol at
+`https://api.typesafe.ai/v1/systemone`, with `jev-1.13.0` as their pinned default
+model. Each operation has its own default role; changing an extraction or global
+model does not change these operations. Explicit unlisted Typesafe model names
+remain available. This adapter supports only `provider: typesafe` and
+`protocol: systemone`; adding another catalog provider alone does not implement
+an adapter for it.
+
+Their packaged runtime defaults are 10 concurrent requests, a 30-second timeout,
+and one additional attempt after a transient failure. Caching is off by default
+(`defaults.cache.enabled: false`). Set `cache: true` in a recipe or `cache=True`
+in Python to enable a bounded in-memory cache with a one-hour TTL, at most 512
+entries, and a maximum value size of 65,536 bytes. When enabled, duplicate
+in-flight requests share their result. Periodic cache logging is disabled.
+`WRANGLES_AI_CACHE_*` environment controls take precedence over caller and
+catalog settings, independently of the existing `WRANGLES_EXTRACT_AI_CACHE_*`
+controls. See [AI answers](ai_answers.md) for question schemas, examples, output
+columns, and cache overrides.
+
+Keep credentials outside the catalog. Supply `api_key` explicitly, use the local
+`TYPESAFE_API_KEY` environment variable, or use `api_key: ${TYPESAFE_API_KEY}` in
+a hosted recipe with that managed secret. Hosted secrets are supplied as recipe
+variables; they are not placed in the worker's environment.
+
+### Hugging Face
 
 Hugging Face's generic task wrangle retains its required explicit `model`:
 different tasks cannot share one model default. Its operation declares
@@ -206,29 +246,10 @@ use the configured HF Inference base plus the model ID, currently
 raw JSON results and retries transient failures only. See the
 [HF Inference reference](https://huggingface.co/docs/inference-providers/en/providers/hf-inference).
 
-The public `openai.chatGPT` wrapper has been removed. Legacy Chat Completions
-remains available through `extract.ai(protocol="chat_completions")`. Extraction
-resolves configuration once per operation and uses a private transport for its
-individual rows.
+### Anthropic
 
-Generation remains unreleased. Its operation keeps `low` reasoning; extraction
-keeps `none` where supported. Its existing direct-Python and recipe strictness
-defaults are represented by `strict` and `recipe_strict`, respectively.
-
-Extraction uses the operation's `defaults` directly. There is no profile registry
-or caller-selectable preset behavior; the unused `profile` label has been removed.
-A named preset system is outside the current configuration work.
-
-Provider request options use explicit allowlists so runtime settings and catalog
-metadata cannot leak into API payloads. Explicit request arguments still override
-configured options. Extraction retains `messages`/`examples` aliases and recipe
-output-shape controls because existing callers use them. Private transport
-arguments and unused generation scaffolding have been removed where redundant.
-
-This catalog governs WranglesPY callers. WranglesXL saved-model authoring and
-WranglesJS note-generation calls still select models outside Python. Their model
-defaults require a separate client integration. SerpAPI AI Mode and WrangleWorks
-saved-model service endpoints own their server-side model selection.
+The Anthropic provider entry is reserved for a future adapter. It does not
+enable Anthropic extraction or other runtime support.
 
 ## Version-1 overrides
 

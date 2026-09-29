@@ -10,6 +10,7 @@ import copy as _copy
 import json as _json
 import math as _math
 import os as _os
+import re as _re
 from urllib.parse import urlsplit as _urlsplit
 
 from . import ai_cache as _cache
@@ -23,6 +24,8 @@ _FIELDS = {
     "score": ("score", "confidence", "probabilities"),
     "true_false": ("probability_true", "true_criteria"),
 }
+_IDENTIFIER = _re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*\Z")
+_PLACEHOLDER = _re.compile(r"\{\{\s*(.*?)\s*\}\}", _re.DOTALL)
 
 
 def _json_value(value, location):
@@ -73,8 +76,17 @@ def _prepare_questions(questions, kind=None):
             raise ValueError("Question labels must be non-empty strings.")
         if not isinstance(definition, dict):
             raise ValueError("Each question must be an object.")
-        if set(definition) - {"type", "instructions", "criteria", "output"}:
-            raise ValueError("Question definitions only accept type, instructions, criteria, and output.")
+        if set(definition) - {"type", "instructions", "criteria", "output", "for_each"}:
+            raise ValueError("Question definitions only accept type, instructions, criteria, output, and for_each.")
+        expansion = definition.get("for_each")
+        if "for_each" in definition:
+            if not isinstance(expansion, dict) or set(expansion) != {"values", "variable"}:
+                raise ValueError("for_each must define values and variable.")
+            if not isinstance(expansion["values"], str) or not expansion["values"].strip():
+                raise ValueError("for_each values must name a source column or record field.")
+            variable = expansion["variable"]
+            if not isinstance(variable, str) or not _IDENTIFIER.fullmatch(variable):
+                raise ValueError("for_each variable must be an ASCII identifier containing letters, digits, or underscores.")
         question_kind = definition.get("type", kind)
         if not isinstance(question_kind, str) or question_kind not in _KINDS:
             raise ValueError("Question type must be choose, score, or true_false.")
@@ -104,7 +116,15 @@ def _prepare_questions(questions, kind=None):
 
         fields = _FIELDS[question_kind]
         names = definition.get("output")
-        if names is None or (isinstance(names, str) and not names.strip()):
+        if expansion is not None:
+            if names is None or (isinstance(names, str) and not names.strip()):
+                names = [label]
+            elif isinstance(names, str):
+                names = [names]
+            elif (not isinstance(names, list) or len(names) != 1
+                    or not isinstance(names[0], str) or not names[0].strip()):
+                raise ValueError("for_each output must be blank, a column name, or a list containing one column name.")
+        elif names is None or (isinstance(names, str) and not names.strip()):
             names = [label, *(f"{label}_{field}" for field in fields[1:])]
         elif (not isinstance(names, list) or len(names) != len(fields)
                 or any(not isinstance(name, str) or not name.strip() for name in names)):
@@ -116,6 +136,8 @@ def _prepare_questions(questions, kind=None):
                       "output": list(names)}
         if "criteria" in definition:
             normalized["criteria"] = _copy.deepcopy(criteria)
+        if expansion is not None:
+            normalized["for_each"] = dict(expansion)
         prepared[label] = normalized
     return prepared
 
@@ -132,6 +154,115 @@ def _wire_questions(prepared):
                 **({"criteria": question["criteria"]} if "criteria" in question else {})}
         for label, question in prepared.items()
     }
+
+
+def _render_template(value, aliases, local):
+    """Substitute string values once; object keys and inserted data stay literal."""
+    if isinstance(value, str):
+        def substitute(match):
+            name = match.group(1).strip()
+            if not _IDENTIFIER.fullmatch(name):
+                raise ValueError("AI template references must be ASCII identifiers; use underscores for spaces or punctuation.")
+            if name in local:
+                replacement = local[name]
+            else:
+                matches = aliases.get(name, [])
+                if not matches:
+                    raise ValueError(f"AI template reference {name!r} does not match a source column or local variable.")
+                if len(matches) > 1:
+                    raise ValueError(f"AI template reference {name!r} is ambiguous because source columns share the same normalized name.")
+                replacement = matches[0]
+            _json_value(replacement, "AI template value")
+            return replacement if isinstance(replacement, str) else _json.dumps(
+                replacement, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+        return _PLACEHOLDER.sub(substitute, value)
+    if isinstance(value, list):
+        return [_render_template(item, aliases, local) for item in value]
+    if isinstance(value, dict):
+        return {key: _render_template(item, aliases, local) for key, item in value.items()}
+    return value
+
+
+def _row_plan(state, context, prepared):
+    """Prepare one effective request and keep its result projection separate."""
+    aliases = {}
+    for name, value in context.items():
+        if isinstance(name, str):
+            alias = _re.sub(r"[^a-zA-Z0-9_]", "_", name)
+            aliases.setdefault(alias, []).append(value)
+
+    expanded = {}
+    groups = {}
+    reserved_labels = set(prepared)
+    next_label = 0
+
+    def render(question, local):
+        result = {
+            "type": question["type"],
+            "instructions": _render_template(question["instructions"], aliases, local),
+        }
+        if "criteria" in question:
+            result["criteria"] = _render_template(question["criteria"], aliases, local)
+        return result
+
+    for label, question in prepared.items():
+        expansion = question.get("for_each")
+        if expansion is None:
+            expanded[label] = render(question, {})
+            groups[label] = None
+            continue
+
+        field = expansion["values"]
+        if field not in context:
+            raise ValueError(f"for_each values names a missing source column or record field: {field!r}.")
+        candidates = context[field]
+        if not isinstance(candidates, (list, dict)):
+            raise ValueError("for_each source values must be a list or a dictionary with string keys.")
+        _json_value(candidates, "for_each source values")
+        keyed = isinstance(candidates, dict)
+        items = candidates.items() if keyed else ((None, value) for value in candidates)
+        group = {"keyed": keyed, "items": []}
+        for key, value in items:
+            # Blank strings reserve a result slot without asking a question.
+            if isinstance(value, str) and not value.strip():
+                group["items"].append((None, key, value))
+                continue
+            while True:
+                wire_label = f"_wrangles_question_{next_label}"
+                next_label += 1
+                if wire_label not in reserved_labels:
+                    break
+            reserved_labels.add(wire_label)
+            expanded[wire_label] = render(question, {expansion["variable"]: value})
+            group["items"].append((wire_label, key, _copy.deepcopy(value)))
+        groups[label] = group
+
+    # Rendering can make otherwise valid criteria empty or duplicate. Validate
+    # the complete row before resolving credentials or making any request.
+    # Destinations were checked on the original definitions. Validate each
+    # rendered question independently so generated labels never introduce
+    # irrelevant collisions between default (unused) projection columns.
+    rendered = {label: _prepare_questions({label: definition})[label]
+                for label, definition in expanded.items()}
+    return {"state": state, "prepared": rendered, "wire": _wire_questions(rendered), "groups": groups}
+
+
+def _project_answers(response, plan):
+    answers = _answers(response, plan["prepared"])
+    result = {}
+    for label, group in plan["groups"].items():
+        if group is None:
+            result[label] = answers[label]
+            continue
+        result[label] = {} if group["keyed"] else []
+        for wire_label, key, value in group["items"]:
+            answer = {} if wire_label is None else {
+                "value": _copy.deepcopy(value), **answers[wire_label]}
+            if group["keyed"]:
+                result[label][key] = answer
+            else:
+                result[label].append(answer)
+    return result
 
 
 def _answers(response, prepared):
@@ -168,16 +299,26 @@ def _positive_number(value, name):
 
 
 def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
-         timeout, retries, cache, cache_ttl):
+         timeout, retries, cache, cache_ttl, contexts=None):
     prepared = _prepare_questions(questions, kind)
     rows = data if isinstance(data, list) else [data]
     for row in rows:
         if not isinstance(row, (str, dict, list)):
             raise ValueError("Each AI input must be text, a JSON object, or an array.")
         _json_value(row, "AI input")
+    if contexts is None:
+        contexts = [row if isinstance(row, dict) else {} for row in rows]
+    elif (not isinstance(contexts, list) or len(contexts) != len(rows)
+          or any(not isinstance(context, dict) for context in contexts)):
+        raise ValueError("AI template contexts must be a list of records matching the input rows.")
+    plans = [_row_plan(row, context, prepared) for row, context in zip(rows, contexts)]
     # All input/question validation precedes credentials and any provider request.
     if not rows:
         return []
+    pending = [plan for plan in plans if plan["wire"]]
+    if not pending:
+        results = [_project_answers({"answers": {}}, plan) for plan in plans]
+        return results if isinstance(data, list) else results[0]
 
     operation = f"ai.{kind or 'answers'}"
     settings = _config.resolve(operation, model=model, provider=provider, protocol=protocol)
@@ -213,21 +354,21 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
                                   env_prefix="WRANGLES_AI_CACHE")
     _positive_number(policy.ttl_seconds, "cache_ttl")
     _config.warn_if_deprecated(settings["model"], provider=settings["provider"])
-    wire = _wire_questions(prepared)
-    static_request = {"endpoint": url, "model": settings["model"], "questions": wire}
-
-    def key_for(row):
+    def key_for(plan):
+        static_request = {"endpoint": url, "model": settings["model"], "questions": plan["wire"]}
         return _cache.make_key(namespace=operation, provider=settings["provider"],
                                protocol=settings["protocol"], tenant_secret=secret,
-                               static_request=static_request, data=row)
+                               static_request=static_request, data=plan["state"])
 
-    def compute(row):
-        return _typesafe.call_systemone(state=row, questions=wire, model=settings["model"],
+    def compute(plan):
+        return _typesafe.call_systemone(state=plan["state"], questions=plan["wire"], model=settings["model"],
                                        api_key=secret, url=url, timeout=request_timeout, retries=attempts)
 
-    responses = _cache.execute_batch(rows, key_for=key_for, compute=compute, cacheable=lambda result: True,
+    responses = _cache.execute_batch(pending, key_for=key_for, compute=compute, cacheable=lambda result: True,
                                     max_workers=workers, policy=policy, preflight_first=True)
-    results = [_answers(response, prepared) for response in responses]
+    responses = iter(responses)
+    results = [_project_answers(next(responses) if plan["wire"] else {"answers": {}}, plan)
+               for plan in plans]
     return results if isinstance(data, list) else results[0]
 
 
@@ -239,6 +380,16 @@ def choose(data, questions, api_key=None, *, model=None, provider=None, protocol
     instructions and a mapping of option labels to descriptions (or None).
     A scalar input returns a named-answer dictionary; a list returns an ordered
     list of those dictionaries. Model and runtime defaults come from the catalog.
+
+    Instruction and criterion string values accept ``{{ field_name }}``
+    references to input-record fields (spaces/punctuation become underscores).
+    ``for_each`` names a list/dictionary field in ``values`` and binds each
+    candidate to ``variable``. List sources return lists of candidate answers;
+    dictionary sources return dictionaries preserving the original keys.
+    Blank string candidates retain their key or position as an empty dictionary
+    without generating a provider question.
+    Python calls using these features must supply the referenced fields in
+    their input records.
     """
     return _run(data, questions, "choose", api_key=api_key, model=model, provider=provider,
                 protocol=protocol, threads=threads, timeout=timeout, retries=retries,
@@ -251,7 +402,8 @@ def score(data, questions, api_key=None, *, model=None, provider=None, protocol=
 
     Scores retain the provider's native 0..N-1 scale. Confidence and complete
     probabilities keyed by description accompany each score. Input/output batch
-    shape and configuration follow :func:`choose`.
+    shape, input-record templates, ``for_each``, and configuration follow
+    :func:`choose`.
     """
     return _run(data, questions, "score", api_key=api_key, model=model, provider=provider,
                 protocol=protocol, threads=threads, timeout=timeout, retries=retries,
@@ -264,7 +416,8 @@ def true_false(data, questions, api_key=None, *, model=None, provider=None, prot
 
     Each named answer includes probability_true and the supplied true_criteria.
     Optional criteria use string keys "true" and "false". No Boolean conversion
-    is performed. Input/output batch shape and configuration follow :func:`choose`.
+    is performed. Input/output batch shape, input-record templates, ``for_each``,
+    and configuration follow :func:`choose`.
     """
     return _run(data, questions, "true_false", api_key=api_key, model=model, provider=provider,
                 protocol=protocol, threads=threads, timeout=timeout, retries=retries,
@@ -277,7 +430,9 @@ def answers(data, questions, api_key=None, *, model=None, provider=None, protoco
 
     Each question declares type choose, score, or true_false with its instructions
     and criteria. Any combination of these types is answered in one request per
-    input record. Outputs follow the corresponding individual wrangles.
+    input record. Instructions and criteria support input-record templates and
+    ``for_each`` as described in :func:`choose`. Outputs follow the corresponding
+    individual wrangles; repeated results retain their source collection shape.
     """
     return _run(data, questions, None, api_key=api_key, model=model, provider=provider,
                 protocol=protocol, threads=threads, timeout=timeout, retries=retries,

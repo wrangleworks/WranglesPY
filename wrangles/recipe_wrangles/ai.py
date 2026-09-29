@@ -24,11 +24,16 @@ def _run(df, questions, kind, input=None, **settings):
         return df
 
     source = df if input is None else df[input if isinstance(input, list) else [input]]
-    operation = getattr(_ai, kind or "answers")
-    results = operation(source.to_dict(orient="records"), questions=questions, **settings)
+    # Templates can reference the full row even when only selected columns are
+    # sent as the provider's shared state. Unreferenced columns stay local.
+    results = _ai._run(source.to_dict(orient="records"), questions, kind,
+                       contexts=df.to_dict(orient="records"), **settings)
     if not isinstance(results, list) or len(results) != len(df):
         raise RuntimeError("AI response count does not match the input row count.")
     for label, question in prepared.items():
+        if "for_each" in question:
+            df[question["output"][0]] = [result[label] for result in results]
+            continue
         for column, field in zip(question["output"], _FIELDS[question["type"]]):
             df[column] = [result[label][field] for result in results]
     return df
@@ -79,25 +84,77 @@ def _description_schema(nullable=False):
 
 def _question_schema(kind):
     fields = _FIELDS[kind]
+    positional_output = {
+        "oneOf": [
+            {"type": "null"},
+            {"type": "string", "pattern": r"^\s*$"},
+            {"type": "array", "minItems": len(fields), "maxItems": len(fields),
+             "uniqueItems": True, "items": {"type": "string", "pattern": r"\S"}},
+        ],
+    }
+    grouped_output = {
+        "oneOf": [
+            {"type": "null"},
+            {"type": "string"},
+            {"type": "array", "minItems": 1, "maxItems": 1,
+             "items": {"type": "string", "pattern": r"\S"}},
+        ],
+    }
     properties = {
         "type": {"type": "string", "enum": [kind],
                  "description": "Question type to answer; optional for a wrangle dedicated to one type."},
         "instructions": {**_description_schema(),
-                         "description": "Question to answer about this row's input, as text or structured instructions."},
+                         "description": (
+                             "Question to answer about this row's input, as text or structured instructions. "
+                             "String values support {{ column_name }} references to the current row, "
+                             "with non-alphanumeric characters replaced by underscores. "
+                             "Templates work with or without for_each; missing or ambiguous references fail."
+                         )},
+        "for_each": {
+            "type": "object", "additionalProperties": False,
+            "required": ["values", "variable"],
+            "description": (
+                "Construct one question per item in this row's source collection, except blank strings. "
+                "All constructed and ordinary questions share one provider request per row. "
+                "The output is one column matching the source collection: a list of answers for a list, "
+                "or a dictionary of answers retaining the original keys for a dictionary. "
+                "Empty or whitespace-only strings produce {} at the original key or list position, "
+                "without generating a provider question. Missing keys or positions are not added. "
+                "Other JSON values are not skipped. "
+                "An empty list produces [], and an empty dictionary produces {}."
+            ),
+            "properties": {
+                "values": {
+                    "type": "string", "pattern": r"\S",
+                    "description": (
+                        "Exact source column name, never a literal collection. "
+                        "Each cell must contain a list or a dictionary with string keys. "
+                        "Use empty-string entries to reserve slots that return {} without scoring. "
+                        "The source column can be outside the selected input columns."
+                    ),
+                },
+                "variable": {
+                    "type": "string", "pattern": r"^[A-Za-z_][A-Za-z0-9_]*$",
+                    "description": (
+                        "Local template variable for the current list item or dictionary value. "
+                        "Use {{ variable_name }} in instructions or criterion descriptions. "
+                        "This binding takes precedence over column shorthand within this question."
+                    ),
+                },
+            },
+        },
         "output": {
             "description": (
                 "Destination columns in order: " + ", ".join(fields) + ". "
                 "Omit, use null, or use a blank string for defaults. "
                 "Defaults are the question label followed by _confidence and _probabilities "
                 "for `ai.choose`/`ai.score`, or the question label and _true_criteria for `ai.true_false`. "
-                "An explicit list must name every output column."
+                "An explicit list must name every output column. "
+                "With for_each, use one column name or a single-entry list; "
+                "blank defaults to the question label. Each answer retains value and its answer fields; "
+                "blank-string candidate placeholders return {}."
             ),
-            "oneOf": [
-                {"type": "null"},
-                {"type": "string", "pattern": r"^\s*$"},
-                {"type": "array", "minItems": len(fields), "maxItems": len(fields),
-                 "uniqueItems": True, "items": {"type": "string", "pattern": r"\S"}},
-            ],
+            "type": ["null", "string", "array"],
         },
     }
     required = ["instructions"]
@@ -107,7 +164,9 @@ def _question_schema(kind):
             "uniqueItems": True, "items": {"type": "string", "pattern": r"\S"},
             "description": (
                 "Distinct criterion descriptions used as probability keys. "
-                "For `ai.score`, order defines the native zero-based score positions; no custom scale."
+                "For `ai.score`, order defines the native zero-based score positions; no custom scale. "
+                "Descriptions support {{ column_name }} and local for_each variable references. "
+                "Rendered descriptions must remain distinct and become the probability keys."
             ),
         }
         required.append("criteria")
@@ -116,7 +175,10 @@ def _question_schema(kind):
             "type": "object", "minProperties": 1, "maxProperties": 255,
             "propertyNames": {"pattern": r"\S"},
             "additionalProperties": _description_schema(nullable=True),
-            "description": "Choice labels mapped to their descriptions or structured criteria.",
+            "description": (
+                "Choice labels mapped to their descriptions or structured criteria. "
+                "Description string values support row and for_each template references; labels stay literal."
+            ),
         }
         required.append("criteria")
     else:
@@ -125,11 +187,15 @@ def _question_schema(kind):
             "additionalProperties": _description_schema(),
             "description": (
                 "Optional criteria keyed by the strings true and false; quote these YAML keys. "
-                "The true criterion is retained in the true_criteria output."
+                "Description string values support row and for_each template references. "
+                "The rendered true criterion is retained in the true_criteria output."
             ),
         }
     return {"type": "object", "additionalProperties": False,
-            "required": required, "properties": properties}
+            "required": required, "properties": properties,
+            "allOf": [{"if": {"required": ["for_each"]},
+                       "then": {"properties": {"output": grouped_output}},
+                       "else": {"properties": {"output": positional_output}}}]}
 
 
 def _schema(kind):
@@ -170,7 +236,10 @@ def _schema(kind):
         "properties": {
             "input": {"type": ["string", "integer", "array"],
                       "items": {"type": ["string", "integer"]},
-                      "description": "Input column(s); omit to supply all columns as a row record."},
+                      "description": (
+                          "Input column(s) sent as the shared provider state; omit to supply all columns. "
+                          "Question templates and for_each sources can reference other columns in the row."
+                      )},
             "questions": {"type": "object", "minProperties": 1,
                           "propertyNames": {"pattern": r"\S"},
                           "additionalProperties": question_definition,
@@ -187,7 +256,7 @@ def _schema(kind):
                         "description": "Per-attempt request timeout in seconds; defaults to the AI catalog."},
             "retries": {"type": "integer", "minimum": 0,
                         "description": "Additional attempts for retryable failures; defaults to the AI catalog."},
-            "cache": {"type": "boolean", "description": "Reuse identical successful requests through the shared AI cache."},
+            "cache": {"type": "boolean", "description": "Reuse identical successful requests through the shared AI cache. Off by default for Typesafe; set true to enable."},
             "cache_ttl": {"type": "number", "exclusiveMinimum": 0,
                           "description": "Override the cache result lifetime in seconds."},
         },
