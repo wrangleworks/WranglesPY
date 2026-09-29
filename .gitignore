@@ -128,6 +128,7 @@ docs/*
 !docs/extract_ai_user_guide.md
 !docs/github-app-deployment.md
 !docs/search_ai_mode.md
+!docs/search_retrieve_link_content.md
 !docs/search_ai_overview_research.md
 .DS_Store
 

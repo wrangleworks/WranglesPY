@@ -77,7 +77,26 @@ def retrieve_link_content(
     """
     Retrieve formatted content from web URLs using a specified client.
     Omitted model and concurrency settings are resolved from the AI configuration.
+    The prompt is shared literally across URLs; column templates are recipe-only.
     """
+    is_scalar = not isinstance(urls, list)
+    urls = [urls] if is_scalar else urls
+    results = _retrieve_link_content(
+        [(url, prompt) for url in urls], client=client, client_config=client_config,
+        model_id=model_id, output_format=output_format, threads=threads,
+    )
+    return results[0] if is_scalar else results
+
+
+def _retrieve_link_content(
+    requests: list[tuple[str, str | None]],
+    client: str = "google_url_context",
+    client_config: dict | None = None,
+    model_id: str = None,
+    output_format: str = "json",
+    threads: int = None,
+) -> list:
+    """Retrieve ordered URL/prompt pairs with one policy and bounded worker pool."""
     policy = _ai_config.resolve("search.retrieve_link_content", model=model_id)
     if policy["provider"] != "google":
         raise ValueError("URL content retrieval currently supports only the 'google' provider.")
@@ -90,20 +109,11 @@ def retrieve_link_content(
         
     retriever = _get_client(client, client_config)
     
-    is_scalar = False
-    if not isinstance(urls, list):
-        is_scalar = True
-        urls = [urls]
-
-    def retrieve(url):
+    def retrieve(request):
+        url, prompt = request
         if isinstance(retriever, _GeminiURLContextClient):
             return retriever._retrieve(url, prompt, output_format, policy)
         return retriever.retrieve(url=url, prompt=prompt, model_id=model_id, output_format=output_format)
 
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
-        results = list(executor.map(retrieve, urls))
-
-    if is_scalar:
-        return results[0]
-
-    return results
+        return list(executor.map(retrieve, requests))
