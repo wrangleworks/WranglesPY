@@ -1,6 +1,7 @@
 import logging as _logging
 import pandas as _pd
 from .. import _ai_mode
+from .. import _prompt_template
 
 # Import the combined core wrangles
 from .. import search as _search_core
@@ -344,7 +345,14 @@ def retrieve_link_content(
         description: API key for the provider. Can also be set as an environment variable (e.g., GOOGLE_API_KEY).
       prompt:
         type: string
-        description: Optional custom system prompt to guide the extraction behavior and output format.
+        description: >-
+          Optional custom system prompt. Use {{ column_name }} to insert values
+          from the full input row, including columns not selected by input.
+          Replace spaces and punctuation in column names with underscores;
+          aliases must be ASCII identifiers. Dictionaries and lists are inserted
+          as finite JSON text. Substitution is literal and single-pass, without
+          expressions or filters. Missing or ambiguous references fail before
+          retrieval. Omit to use the default prompt.
       model_id:
         type: string
         description: The specific model ID to use. Defaults to the AI configuration.
@@ -388,12 +396,28 @@ def retrieve_link_content(
         extracted = _extract_url(v)
         return [extracted] if extracted else []
 
-    # --- Standard Execution ---
-    for i, input_column in enumerate(input):
-        row_url_lists = [_to_url_list(v) for v in df[input_column].tolist()]
-        flat_urls = [u for urls in row_url_lists for u in urls]
+    # Render every original row before any provider call or output assignment.
+    row_prompts = [prompt] * len(df)
+    if isinstance(prompt, str) and "{{" in prompt:
+        # Positional labels retain duplicate column names for alias validation,
+        # while pandas converts nullable scalars to Python values (including None).
+        rows = df.set_axis(range(len(df.columns)), axis=1).to_dict("split")["data"]
+        row_prompts = [
+            _prompt_template.render(prompt, zip(df.columns, row)) for row in rows
+        ]
+    column_url_lists = [
+        [_to_url_list(v) for v in df[column].tolist()] for column in input
+    ]
 
-        if not flat_urls:
+    # --- Standard Execution ---
+    for i, row_url_lists in enumerate(column_url_lists):
+        requests = [
+            (url, row_prompt)
+            for urls, row_prompt in zip(row_url_lists, row_prompts)
+            for url in urls
+        ]
+
+        if not requests:
             if is_dual_output:
                 df[output[0]] = [[] for _ in row_url_lists]
                 df[output[1]] = ["" for _ in row_url_lists]
@@ -402,11 +426,10 @@ def retrieve_link_content(
             _logging.info(f": Wrangling :: retrieve_link_content summary :: 0 URLs >> 0 results")
             continue
 
-        flat_responses = _search_core.retrieve_link_content(
-            urls=flat_urls,
+        flat_responses = _search_core._retrieve_link_content(
+            requests=requests,
             client=client,
             client_config=client_config,
-            prompt=prompt,
             model_id=model_id,
             output_format=output_format,
             threads=threads
