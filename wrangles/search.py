@@ -1,4 +1,5 @@
 import concurrent.futures as _futures
+import math as _math
 
 # Import our client factory
 from .clients import get_client as _get_client
@@ -72,18 +73,24 @@ def retrieve_link_content(
     prompt: str | None = None,
     model_id: str = None,
     output_format: str = "json",
-    threads: int = None
+    threads: int = None,
+    thinking_level: str | None = None,
+    request_timeout_seconds: float | None = None,
+    **kwargs,
 ) -> dict | list:
     """
     Retrieve formatted content from web URLs using a specified client.
-    Omitted model and concurrency settings are resolved from the AI configuration.
+    Omitted model, thinking, concurrency, and deadline settings use AI configuration.
     The prompt is shared literally across URLs; column templates are recipe-only.
+    Additional keyword arguments are Gemini GenerateContentConfig options.
     """
     is_scalar = not isinstance(urls, list)
     urls = [urls] if is_scalar else urls
     results = _retrieve_link_content(
         [(url, prompt) for url in urls], client=client, client_config=client_config,
         model_id=model_id, output_format=output_format, threads=threads,
+        thinking_level=thinking_level, request_timeout_seconds=request_timeout_seconds,
+        **kwargs,
     )
     return results[0] if is_scalar else results
 
@@ -95,9 +102,28 @@ def _retrieve_link_content(
     model_id: str = None,
     output_format: str = "json",
     threads: int = None,
+    thinking_level: str | None = None,
+    request_timeout_seconds: float | None = None,
+    **kwargs,
 ) -> list:
     """Retrieve ordered URL/prompt pairs with one policy and bounded worker pool."""
+    if thinking_level is not None and thinking_level not in ("minimal", "low", "medium", "high"):
+        raise ValueError("thinking_level must be minimal, low, medium, or high.")
+    if request_timeout_seconds is not None and (
+        isinstance(request_timeout_seconds, bool)
+        or not isinstance(request_timeout_seconds, (int, float))
+        or not _math.isfinite(request_timeout_seconds)
+        or request_timeout_seconds <= 0
+    ):
+        raise ValueError("request_timeout_seconds must be a positive finite number.")
     policy = _ai_config.resolve("search.retrieve_link_content", model=model_id)
+    overrides = {
+        key: value for key, value in (
+            ("thinking_level", thinking_level),
+            ("request_timeout_seconds", request_timeout_seconds),
+        ) if value is not None
+    }
+    policy.update(overrides)
     if policy["provider"] != "google":
         raise ValueError("URL content retrieval currently supports only the 'google' provider.")
     if policy["protocol"] != "generate_content":
@@ -112,8 +138,11 @@ def _retrieve_link_content(
     def retrieve(request):
         url, prompt = request
         if isinstance(retriever, _GeminiURLContextClient):
-            return retriever._retrieve(url, prompt, output_format, policy)
-        return retriever.retrieve(url=url, prompt=prompt, model_id=model_id, output_format=output_format)
+            return retriever._retrieve(url, prompt, output_format, policy, **kwargs)
+        return retriever.retrieve(
+            url=url, prompt=prompt, model_id=model_id, output_format=output_format,
+            **overrides, **kwargs,
+        )
 
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
         return list(executor.map(retrieve, requests))

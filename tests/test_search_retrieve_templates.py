@@ -4,6 +4,7 @@ import json
 import threading
 from types import SimpleNamespace
 
+import jsonschema
 import pandas as pd
 import pytest
 import yaml
@@ -260,6 +261,87 @@ def test_direct_python_retrieval_preserves_literal_prompt_and_return_shape(retri
     }]
 
 
+@pytest.mark.parametrize("caller", ["python", "recipe"])
+def test_retrieval_options_reach_google_with_aligned_url_prompts(monkeypatch, caller):
+    calls = []
+
+    def retrieve(self, url, prompt, output_format, policy, **kwargs):
+        calls.append({"url": url, "prompt": prompt, "policy": policy, "options": kwargs})
+        return _response(url, prompt)
+
+    monkeypatch.setattr(gemini.GeminiURLContextClient, "_retrieve", retrieve)
+    urls = [f"https://product.example/{number}" for number in range(3)]
+    options = {
+        "thinking_level": "low",
+        "request_timeout_seconds": 1.5,
+        "max_output_tokens": 256,
+        "response_schema": {
+            "type": "object", "properties": {"title": {"type": "string"}},
+        },
+    }
+    if caller == "python":
+        results = search.retrieve_link_content(
+            urls, prompt="Keep {{ details }} literal", threads=1,
+            client_config={"api_key": "fake-key"}, **options,
+        )
+        prompts = ["Keep {{ details }} literal"] * 3
+    else:
+        result = _run(pd.DataFrame({
+            "URL": [urls[:2], [], urls[2:]],
+            "details": ["first row", "blank row", "last row"],
+        }), prompt="Verify {{ details }}", threads=1, **options)
+        assert [len(cell) for cell in result["results"]] == [2, 0, 1]
+        results = [item for cell in result["results"] for item in cell]
+        prompts = ["Verify first row", "Verify first row", "Verify last row"]
+
+    assert [item["retrieved_url"] for item in results] == urls
+    assert [item["extracted_content"]["prompt"] for item in results] == prompts
+    assert [call["url"] for call in calls] == urls
+    assert [call["prompt"] for call in calls] == prompts
+    for call in calls:
+        assert call["policy"]["thinking_level"] == "low"
+        assert call["policy"]["request_timeout_seconds"] == 1.5
+        assert call["options"] == {
+            "max_output_tokens": 256, "response_schema": options["response_schema"],
+        }
+
+
+@pytest.mark.parametrize("caller", ["python", "recipe"])
+@pytest.mark.parametrize("options", [
+    {},
+    {"thinking_level": None, "request_timeout_seconds": None},
+    {"thinking_level": "minimal"},
+    {"request_timeout_seconds": 2.5},
+    {"thinking_level": "low", "request_timeout_seconds": 4, "max_output_tokens": 128},
+])
+def test_custom_retrievers_receive_only_explicit_options(retrieval_calls, caller, options):
+    url = "https://product.example/one"
+    if caller == "python":
+        result = search.retrieve_link_content(
+            url, prompt="Page title", model_id="custom-model", **options,
+        )
+    else:
+        result = _run(pd.DataFrame({"URL": [url]}),
+                      prompt="Page title", model_id="custom-model", **options)["results"].iloc[0][0]
+    assert result["extracted_content"] == {"prompt": "Page title"}
+    assert retrieval_calls["requests"] == [{
+        "url": url, "prompt": "Page title", "model_id": "custom-model", "output_format": "json",
+        **{key: value for key, value in options.items() if value is not None},
+    }]
+
+
+def test_retrieval_schema_accepts_runtime_overrides_and_additional_sdk_options():
+    schema = yaml.safe_load(recipe_search.retrieve_link_content.__doc__)
+    jsonschema.Draft7Validator.check_schema(schema)
+    jsonschema.validate({
+        "input": "URL", "output": "results", "prompt": "Verify {{ details }}",
+        "thinking_level": "minimal", "request_timeout_seconds": 10,
+        "max_output_tokens": 256,
+        "response_schema": {"type": "object", "properties": {"title": {"type": "string"}}},
+    }, schema)
+    assert {"thinking_level", "request_timeout_seconds"} <= schema["properties"].keys()
+
+
 @pytest.mark.parametrize("threads", [None, 2])
 def test_row_prompts_share_one_bounded_parallel_batch(monkeypatch, threads):
     calls = []
@@ -334,13 +416,13 @@ def test_out_of_order_provider_completion_preserves_row_order(monkeypatch):
 def test_row_prompts_and_options_reach_real_google_sdk_without_network(monkeypatch, output_format, mime_type):
     import httpx
     from google import genai
-    from google.genai import errors, types
+    from google.genai import _api_client, errors, types
 
     requests = []
     client_options = []
     clients = []
 
-    def send(client, request, **kwargs):
+    async def send(client, request, **kwargs):
         requests.append(request)
         return httpx.Response(200, request=request, json={
             "candidates": [{"content": {"parts": [{"text": '{"name":"synthetic"}'}]}}],
@@ -352,14 +434,16 @@ def test_row_prompts_and_options_reach_real_google_sdk_without_network(monkeypat
         clients.append(instance)
         return instance
 
-    monkeypatch.setattr(httpx.Client, "send", send)
+    monkeypatch.setattr(_api_client, "has_aiohttp", False)
+    monkeypatch.setattr(httpx.AsyncClient, "send", send)
     monkeypatch.setattr(gemini, "_get_genai", lambda: (SimpleNamespace(Client=client), types, errors))
     try:
         result = _run(pd.DataFrame({
             "URL": ["https://product.example/one", "https://product.example/two"],
             "details": ["brass fitting", "steel bearing"],
         }), prompt="Verify {{ details }}", output_format=output_format, threads=1,
-                      model_id="models/private-google-model")
+                      model_id="models/private-google-model", thinking_level="low",
+                      request_timeout_seconds=1.5, max_output_tokens=256, seed=17)
         bodies = [json.loads(request.content) for request in requests]
         assert len(bodies) == 2
         for request, body, details in zip(requests, bodies, ["brass fitting", "steel bearing"]):
@@ -367,10 +451,14 @@ def test_row_prompts_and_options_reach_real_google_sdk_without_network(monkeypat
             assert body["systemInstruction"]["parts"][0]["text"].startswith(f"Verify {details}\n\n")
             assert body["generationConfig"]["responseMimeType"] == mime_type
             assert body["generationConfig"]["temperature"] == 0.17
+            thinking = body["generationConfig"]["thinkingConfig"]
+            assert thinking.get("thinkingLevel", thinking.get("thinking_level")) == "LOW"
+            assert body["generationConfig"]["maxOutputTokens"] == 256
+            assert body["generationConfig"]["seed"] == 17
             assert body["tools"] == [{"urlContext": {}}]
         assert "https://product.example/one" in bodies[0]["contents"][0]["parts"][0]["text"]
         assert "https://product.example/two" in bodies[1]["contents"][0]["parts"][0]["text"]
-        assert all(options["http_options"].timeout == 3250 for options in client_options)
+        assert all(options["http_options"].timeout == 1500 for options in client_options)
         assert all(options["http_options"].retry_options.attempts == 1 for options in client_options)
         assert all(cell[0]["error"] is None for cell in result["results"])
     finally:

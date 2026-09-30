@@ -90,8 +90,52 @@ dual output mode: `output: [page_data, page_text]` stores the result list in
 their existing meanings. See [AI configuration](ai_configuration.md) for model
 and runtime settings.
 
+## Model, thinking, and request options
+
+The packaged defaults are `gemini-3.5-flash`, `thinking_level: minimal`, a
+10-second deadline per URL, and no retries. Omitted options use the active AI
+configuration, so a replacement catalog can change these defaults. Override
+`model_id`, `thinking_level`, or `request_timeout_seconds` in the recipe when
+needed. For example:
+
+```yaml
+- search.retrieve_link_content:
+    input: URL
+    output: Page Content
+    api_key: ${GEMINI_API_KEY}
+    model_id: gemini-3.6-flash
+    thinking_level: minimal
+    request_timeout_seconds: 10
+    max_output_tokens: 2048
+    seed: 42
+```
+
+`thinking_level` accepts `minimal`, `low`, `medium`, or `high`; support depends
+on the selected model. Additional options such as `max_output_tokens`, `top_p`,
+and `temperature` are passed as top-level Gemini `GenerateContentConfig`
+settings. Explicit options override configured generation defaults. The
+installed Google SDK validates these options; their availability depends on
+the selected model and SDK version.
+
+Retrieval manages `system_instruction`, `tools`, `response_mime_type`,
+`response_modalities`, and `http_options`; those names and their SDK aliases
+cannot be passed as additional options. Use `prompt`, `output_format`, and
+`request_timeout_seconds` for the corresponding controls. For advanced thinking
+settings, an explicit `thinking_config` replaces the entire thinking
+configuration, including any `thinking_level`, rather than merging with it.
+
+The positive, finite `request_timeout_seconds` value limits the total provider
+request time for each URL, including any retries enabled in the AI catalog.
+When the deadline expires, that URL returns a `Failure` result with an error
+and no extracted content; its position in the output is preserved. Cancellation
+and client cleanup may add a little time after the deadline. The deadline
+applies separately to each URL after its worker starts, so batches that need
+several waves of concurrent requests can take longer than 10 seconds.
+
 ## Direct Python calls
 
 Column substitution applies to recipe execution, where a full row is available.
 Direct calls to `wrangles.search.retrieve_link_content(...)` continue to use
-the supplied prompt literally and do not resolve column placeholders.
+the supplied prompt literally and do not resolve column placeholders. The
+`thinking_level`, `request_timeout_seconds`, and additional Gemini generation
+options are also available as Python keyword arguments.

@@ -1,3 +1,6 @@
+import asyncio
+import concurrent.futures
+import math
 import os
 from typing import Optional, Dict, Any
 from ..utils import LazyLoader as _LazyLoader
@@ -7,6 +10,7 @@ from .. import ai_config as _ai_config
 genai = _LazyLoader("google.genai")
 types = _LazyLoader("google.genai.types")
 errors = _LazyLoader("google.genai.errors")
+_httpx = _LazyLoader("httpx")
 
 def _get_genai():
     """
@@ -48,7 +52,9 @@ class GeminiURLContextClient:
                 "Missing API Key: Provide `api_key` in the recipe config or set the GOOGLE_API_KEY environment variable."
             )
 
-    def retrieve(self, url: str, prompt: Optional[str] = None, model_id: str = None, output_format: str = "markdown") -> Dict[str, Any]:
+    def retrieve(self, url: str, prompt: Optional[str] = None, model_id: str = None,
+                 output_format: str = "markdown", thinking_level: str = None,
+                 request_timeout_seconds: float = None, **kwargs) -> Dict[str, Any]:
         """
         Retrieves context from a web URL using the Gemini API.
         Includes thread-safe initialization, strict timeouts, and optional JSON parsing.
@@ -56,10 +62,34 @@ class GeminiURLContextClient:
         policy = None
         if url and str(url).strip():
             policy = _ai_config.resolve("search.retrieve_link_content", model=model_id)
+            if thinking_level is not None:
+                policy["thinking_level"] = thinking_level
+            if request_timeout_seconds is not None:
+                policy["request_timeout_seconds"] = request_timeout_seconds
             _ai_config.warn_if_deprecated(policy["model"], policy["provider"])
-        return self._retrieve(url, prompt, output_format, policy)
+        return self._retrieve(url, prompt, output_format, policy, **kwargs)
 
-    def _retrieve(self, url, prompt, output_format, policy):
+    @staticmethod
+    def _generate_with_deadline(client, timeout, **request):
+        """Cancel the whole SDK request, including retries, before closing it."""
+        async def generate():
+            try:
+                return await asyncio.wait_for(
+                    client.aio.models.generate_content(**request), timeout=timeout,
+                )
+            finally:
+                await client.aio.aclose()
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(generate())
+        # The public client remains usable from synchronous code inside an
+        # existing event loop, without attempting to nest asyncio.run().
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            return executor.submit(lambda: asyncio.run(generate())).result()
+
+    def _retrieve(self, url, prompt, output_format, policy, **kwargs):
         """Retrieve one URL using the operation's already resolved policy."""
         result = {
             "retrieved_url": url, 
@@ -81,6 +111,20 @@ class GeminiURLContextClient:
         if policy["protocol"] != "generate_content":
             raise ValueError("Google URL content retrieval requires the 'generate_content' protocol.")
         model_id = policy["model"]
+        timeout = policy["request_timeout_seconds"]
+        if type(timeout) not in (int, float) or not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError("request_timeout_seconds must be a positive finite number.")
+        thinking_level = policy.get("thinking_level")
+        if thinking_level is not None and thinking_level not in ("minimal", "low", "medium", "high"):
+            raise ValueError("thinking_level must be minimal, low, medium, or high.")
+        reserved = {
+            "system_instruction", "systemInstruction", "tools",
+            "response_mime_type", "responseMimeType", "response_modalities", "responseModalities",
+            "http_options", "httpOptions",
+        }
+        if reserved.intersection(kwargs):
+            names = ", ".join(sorted(reserved.intersection(kwargs)))
+            raise ValueError(f"Retrieval manages {names}; use prompt, output_format, or request_timeout_seconds instead.")
             
         user_content = f"Please retrieve content from this explicitly bounded URL: <{url}>"
 
@@ -95,13 +139,38 @@ class GeminiURLContextClient:
             mime_type = "text/plain"
 
         try:
+            generation_config = {
+                "system_instruction": system_instruction,
+                "tools": [self.types.Tool(url_context=self.types.UrlContext())],
+                "response_modalities": ["TEXT"],
+                "response_mime_type": mime_type,
+                **{key: policy[key] for key in (
+                    "temperature", "top_p", "top_k", "max_output_tokens", "stop_sequences",
+                ) if key in policy},
+            }
+            if thinking_level is not None:
+                generation_config["thinking_config"] = {"thinking_level": thinking_level}
+            # SDK camelCase aliases override snake_case defaults too. Replace
+            # thinking_config as a whole to avoid combining a level and budget.
+            for key in tuple(generation_config):
+                first, *rest = key.split("_")
+                alias = first + "".join(word.capitalize() for word in rest)
+                if alias != key and alias in kwargs:
+                    generation_config.pop(key)
+            generation_config.update(kwargs)
+            generation_config = self.types.GenerateContentConfig(**generation_config)
+        except Exception as e:
+            result["error"] = f"Invalid Gemini generation options: {e}"
+            return result
+
+        try:
             # The SDK expects milliseconds; configuration stores seconds.
             client = self.genai.Client(
                 api_key=self.api_key, 
                 http_options=self.types.HttpOptions(
                     base_url=policy.get("endpoints", {}).get("base_url"),
                     api_version=policy.get("api_version", "v1beta"),
-                    timeout=policy["request_timeout_seconds"] * 1000,
+                    timeout=timeout * 1000,
                     retry_options=self.types.HttpRetryOptions(
                         attempts=policy["retries"] + 1,
                         http_status_codes=[408, 429, 500, 502, 503, 504],
@@ -113,18 +182,11 @@ class GeminiURLContextClient:
             return result
 
         try:
-            response = client.models.generate_content(
+            response = self._generate_with_deadline(
+                client, timeout,
                 model=model_id,
                 contents=user_content, 
-                config=self.types.GenerateContentConfig(
-                    system_instruction=system_instruction, 
-                    tools=[self.types.Tool(url_context=self.types.UrlContext())],
-                    response_modalities=["TEXT"],
-                    response_mime_type=mime_type,
-                    **{key: policy[key] for key in (
-                        "temperature", "top_p", "top_k", "max_output_tokens", "stop_sequences",
-                    ) if key in policy},
-                )
+                config=generation_config,
             )
 
             cand = response.candidates[0] if response.candidates else None
@@ -154,7 +216,10 @@ class GeminiURLContextClient:
                     result["error"] += f". {cand.finish_message}"
                 result["status"] = "Failure"
             else:
-                full_text = "\n".join([part.text for part in response.candidates[0].content.parts])
+                full_text = "\n".join(
+                    part.text for part in cand.content.parts
+                    if part.text and not getattr(part, "thought", False)
+                )
                 
                 if output_format.lower() == "json":
                     import json
@@ -174,6 +239,9 @@ class GeminiURLContextClient:
                 else:
                     result["extracted_content"] = full_text
 
+        except (asyncio.TimeoutError, TimeoutError, _httpx.TimeoutException):
+            result["status"] = "Failure"
+            result["error"] = f"Timeout: URL retrieval exceeded {timeout:g} seconds."
         except self.errors.ClientError as e:
             result["status"] = "Failure"
             error_str = str(e)
@@ -193,6 +261,10 @@ class GeminiURLContextClient:
             else:
                 result["error"] = f"Unexpected Error: {error_str}"
         finally:
-            client.close()
+            try:
+                client.close()
+            except Exception as e:
+                result["status"] = "Failure"
+                result["error"] = result["error"] or f"Failed to close retrieval client: {e}"
 
         return result

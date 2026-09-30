@@ -314,12 +314,15 @@ def retrieve_link_content(
     prompt: str | None = None,
     model_id: str = None,
     output_format: str = "json",
-    threads: int = None
+    threads: int = None,
+    thinking_level: str | None = None,
+    request_timeout_seconds: float | None = None,
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Retrieves targeted content from web pages using LLM URL extraction. Can optionally output a second column containing a clean, human-readable text summary of the retrieved data.
-    additionalProperties: false
+    description: Retrieves targeted content from web pages using LLM URL extraction. Can optionally output a second column containing a clean, human-readable text summary of the retrieved data. Additional options are passed to Gemini GenerateContentConfig.
+    additionalProperties: true
     required:
       - input
       - output
@@ -366,6 +369,18 @@ def retrieve_link_content(
       threads:
         type: integer
         description: Number of concurrent threads for parallel processing. Defaults to the AI configuration.
+      thinking_level:
+        type: string
+        enum:
+          - minimal
+          - low
+          - medium
+          - high
+        description: Gemini thinking level. Defaults to the configured value, packaged as minimal. Supported levels depend on the selected model.
+      request_timeout_seconds:
+        type: number
+        exclusiveMinimum: 0
+        description: Total deadline in seconds for each URL, including retries. Defaults to the configured value, packaged as 10 seconds. A batch may take longer when URLs run in several waves.
     """
     if output is None: output = input
 
@@ -432,7 +447,10 @@ def retrieve_link_content(
             client_config=client_config,
             model_id=model_id,
             output_format=output_format,
-            threads=threads
+            threads=threads,
+            thinking_level=thinking_level,
+            request_timeout_seconds=request_timeout_seconds,
+            **kwargs,
         )
 
         out_cells_dict, out_cells_text = [], []
