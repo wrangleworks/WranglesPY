@@ -2,6 +2,14 @@ import wrangles
 import pandas as pd
 
 
+def _assert_successful_search(response, limit):
+    """Live searches may return fewer organic results than the requested limit."""
+    metadata = response['search_metadata']
+    assert metadata.get('status') == 'Success', metadata
+    assert not metadata.get('error'), metadata
+    assert 0 < len(response['search_results']) <= limit
+
+
 class TestFindLinks:
     """
     Test search.find_links functionality
@@ -30,7 +38,7 @@ class TestFindLinks:
         df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert 'results' in df.columns
-        assert len(df.iloc[0]['results'][0]['search_results']) == 5
+        _assert_successful_search(df.iloc[0]['results'][0], 5)
         assert 'link' in df.iloc[0]['results'][0]['search_results'][0]
         assert 'snippet' in df.iloc[0]['results'][0]['search_results'][0]
         assert 'google_rank' in df.iloc[0]['results'][0]['search_results'][0]
@@ -57,7 +65,9 @@ class TestFindLinks:
         
         df = wrangles.recipe.run(recipe, dataframe=data)
         
-        assert len(df['results'][0][0]['search_results']) == 3 # This check should be updated once results for each query are returned. Possibly add more checks too
+        assert len(df['results'][0]) == 3
+        for response in df['results'][0]:
+            _assert_successful_search(response, 3)
     
     def test_search_with_n_results(self):
         """
@@ -81,7 +91,7 @@ class TestFindLinks:
         
         df = wrangles.recipe.run(recipe, dataframe=data)
         
-        assert len(df['results'][0][0]['search_results']) == 7
+        _assert_successful_search(df['results'][0][0], 7)
     
     ##### This currently does not work, must have the same number of inputs and outputs. #####
     ##### Does the function need to be updated to allow multiple in to single out? #####
@@ -141,8 +151,8 @@ class TestFindLinks:
         df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert 'results1' in df.columns and 'results2' in df.columns
-        assert len(df['results1'][0][0]['search_results']) == 3
-        assert len(df['results2'][0][0]['search_results']) == 3
+        _assert_successful_search(df['results1'][0][0], 3)
+        _assert_successful_search(df['results2'][0][0], 3)
     
     def test_search_where_clause(self):
         """
@@ -169,8 +179,8 @@ class TestFindLinks:
         df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert df.iloc[0]['results'] == ""  # priority = 1, not processed
-        assert len(df.iloc[1]['results'][0]['search_results']) == 2  # priority = 5, processed
-        assert len(df.iloc[2]['results'][0]['search_results']) == 2  # priority = 3, processed
+        _assert_successful_search(df.iloc[1]['results'][0], 2)  # priority = 5, processed
+        _assert_successful_search(df.iloc[2]['results'][0], 2)  # priority = 3, processed
     
     def test_search_empty_input(self):
         """
@@ -197,7 +207,7 @@ class TestFindLinks:
         ##### This is the current output which will soon be updated to output empty dicts #####
         # Empty and None queries should return empty results
         assert df.iloc[0]['results'] == []
-        assert len(df.iloc[1]['results'][0]['search_results']) == 3
+        _assert_successful_search(df.iloc[1]['results'][0], 3)
         assert df.iloc[2]['results'] == []
     
     ##### This parameter doesn't actually do anything #####
@@ -249,7 +259,7 @@ class TestFindLinks:
         
         df = wrangles.recipe.run(recipe, dataframe=data)
         
-        assert len(df.iloc[0]['results'][0]['search_results']) == 3
+        _assert_successful_search(df.iloc[0]['results'][0], 3)
 
     def test_search_with_language(self):
         """
@@ -274,7 +284,7 @@ class TestFindLinks:
         
         df = wrangles.recipe.run(recipe, dataframe=data)
         
-        assert len(df.iloc[0]['results'][0]['search_results']) == 3
+        _assert_successful_search(df.iloc[0]['results'][0], 3)
     
     ##### api_key is not actually required at the moment and is read in in serp_api.py #####
     # def test_search_missing_api_key(self):
@@ -346,7 +356,8 @@ class TestFindLinks:
         df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert len(df) == 50
-        assert all(len(row['results'][0]['search_results']) == 2 for _, row in df.iterrows())
+        for _, row in df.iterrows():
+            _assert_successful_search(row['results'][0], 2)
 
     def test_special_characters_in_query(self):
         """

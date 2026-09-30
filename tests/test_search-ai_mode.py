@@ -238,6 +238,33 @@ def test_classic_find_links_retains_results_pricing_and_formatter(ai_mode_provid
     assert all(call["num"] == 1 for call in ai_mode_provider[1])
 
 
+@pytest.mark.parametrize("provider_count,expected_count", [(0, 0), (6, 6), (7, 7), (9, 7)])
+def test_classic_find_links_returns_available_results_up_to_limit(ai_mode_provider, provider_count, expected_count):
+    ai_mode_provider[0]["classic"] = {
+        "search_metadata": {"status": "Success"},
+        "organic_results": [
+            {"title": f"Part {position}", "link": f"https://example.invalid/part-{position}",
+             "position": position}
+            for position in range(1, provider_count + 1)
+        ],
+    }
+    recipe = {"wrangles": [{"search.find_links": {
+        "queries": "query", "id": "ID", "output": "result", "n_results": 7,
+    }}]}
+    data = pd.DataFrame({"query": ["classic"], "ID": [42]})
+
+    response = wrangles.recipe.run(recipe, dataframe=data).iloc[0]["result"][0]
+
+    assert response["search_metadata"]["status"] == "Success"
+    assert "error" not in response["search_metadata"]
+    results = response["search_results"]
+    assert len(results) == expected_count
+    assert [result["google_rank"] for result in results] == list(range(1, expected_count + 1))
+    assert all(result["input_row_id"] == 42 for result in results)
+    assert len(ai_mode_provider[1]) == 1
+    assert ai_mode_provider[1][0]["num"] == 7
+
+
 def test_find_links_locale_conflict_is_unchanged():
     data = pd.DataFrame({"query": ["classic"], "ID": [1]})
     with pytest.raises(ValueError, match="google_domain cannot be combined"):
