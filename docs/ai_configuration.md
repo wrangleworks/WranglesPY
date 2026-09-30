@@ -90,8 +90,9 @@ operation defaults; operation defaults take precedence. Explicit caller
 arguments take precedence over resolved defaults, including `False` and `0`.
 Endpoint overrides remain available in APIs that already expose them.
 
-All packaged operations default to one additional retry after the first attempt.
-Set `retries: 0` to disable retries. Temperature is model-specific: modern OpenAI
+Packaged operations default to one additional retry after the first attempt,
+except Gemini URL retrieval, which defaults to no retries. Set `retries: 0`
+to disable retries. Temperature is model-specific: modern OpenAI
 models and Gemini URL retrieval leave it unset, while legacy GPT-4o Chat Completions
 keeps `0.2`. Unset temperature uses the provider's default (`1.0` for Gemini 3).
 
@@ -133,13 +134,15 @@ returned dictionary does not alter cached configuration.
 | `ai.choose`, `ai.score`, `ai.true_false`, `ai.answers` | Python and recipe structured answers | Provider, model, endpoint, concurrency, timeout, retries, cache |
 | `extract.ai` | Python and recipe extraction | Model, endpoints, model tuning, concurrency, timeout, retries, strictness, storage, cache, prompt |
 | `embeddings` | `openai.embeddings` and recipe `create.embeddings` | Provider, model, endpoint, batch size, concurrency, timeout, retries, precision, dimensions, Jina task/normalization/truncation |
-| `search.retrieve_link_content` | Python, recipe, and Gemini URL-context client | Model, endpoint/API version, concurrency, timeout, retries, temperature/top-p/top-k/token limits/stop sequences |
+| `search.retrieve_link_content` | Python, recipe, and Gemini URL-context client | Model, endpoint/API version, concurrency, per-URL deadline, retries, thinking level, temperature/top-p/top-k/token limits/stop sequences |
 | `generate.ai` | Python and recipe generation | Model, endpoint, reasoning/text tuning, concurrency, timeout, retries, strictness |
 | `huggingface` | Generic recipe task wrangle | Explicit model, endpoint, timeout, retries, task parameters |
 
-Provider request options use explicit allowlists so runtime settings and catalog
-metadata cannot leak into API payloads. Explicit request arguments still override
-configured options. Extraction retains `messages`/`examples` aliases and recipe
+Configured provider request options use explicit allowlists so runtime settings
+and catalog metadata cannot leak into API payloads. Explicit request arguments
+still override configured options. Gemini retrieval also accepts caller-supplied
+`GenerateContentConfig` options through keyword arguments. Extraction retains
+`messages`/`examples` aliases and recipe
 output-shape controls because existing callers use them. Private transport
 arguments and unused generation scaffolding have been removed where redundant.
 
@@ -190,15 +193,36 @@ validation, including v3's `separation` value. See the
 
 ### Google Gemini
 
-Gemini URL retrieval uses the configured model and Google's URL-context tools.
+Gemini URL retrieval defaults to `gemini-3.5-flash` and uses Google's
+URL-context tools. Its packaged settings explicitly select
+`thinking_level: minimal`, `request_timeout_seconds: 10`, and `retries: 0`.
+The Google SDK dependency requires version `1.64.0` or later for these controls.
+Use `model_id` to select another model, such as `gemini-3.6-flash`, and
+`thinking_level` to override the configured thinking level. The wrapper accepts
+`minimal`, `low`, `medium`, and `high`; actual support depends on the model.
+Explicit `request_timeout_seconds` overrides the configured deadline.
+
+The deadline covers one URL's provider request, including all configured retries.
+A timeout produces the existing per-URL `Failure` result and preserves output
+ordering. Cancellation and client cleanup may take a little longer. Queued URLs
+receive their own deadline when their worker starts, so a batch can exceed 10
+seconds when it needs multiple waves of requests.
+
+Additional caller keyword arguments are forwarded to the SDK's
+`GenerateContentConfig` and override configured generation defaults, including
+options such as `max_output_tokens`, `top_p`, and `temperature`. Retrieval's
+prompt, URL-context tool, response format, and HTTP settings remain managed by
+the wrapper. An explicit `thinking_config` replaces the thinking configuration
+as a whole, including any selected `thinking_level`. See the
+[retrieval guide](search_retrieve_link_content.md) for recipe and Python usage.
 `search.ai_mode` delegates its underlying model to SerpAPI/Google and has no
 selectable LLM model in this API.
 
 For Google, `endpoints.base_url` is the SDK service root
 `https://generativelanguage.googleapis.com`. The retrieval operation sets
-`api_version: v1beta`; the SDK appends the model and method. With the configured
-`gemini-3.8-flash`, the complete request URL is
-`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent`.
+`api_version: v1beta`; the SDK appends the model and method. With the default
+`gemini-3.5-flash`, the complete request URL is
+`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent`.
 Both the base URL and version are configurable. See the
 [Google API reference](https://ai.google.dev/api/generate-content).
 Google model names with or without the SDK's `models/` prefix share the same

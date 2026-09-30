@@ -39,10 +39,14 @@ def test_packaged_operation_defaults_and_model_lifecycle():
     assert extraction["request_timeout_seconds"] == 12
     assert extraction["cache"]["ttl_seconds"] == 3600
     assert ai_config.resolve("embeddings")["model"] == "text-embedding-3-small"
-    assert ai_config.resolve("search.retrieve_link_content")["model"] == "gemini-3.8-flash"
+    retrieval = ai_config.resolve("search.retrieve_link_content")
+    assert retrieval["model"] == "gemini-3.5-flash"
+    assert retrieval["thinking_level"] == "minimal"
+    assert retrieval["request_timeout_seconds"] == 10
+    assert retrieval["retries"] == 0
     for operation in config["operations"]:
         explicit_model = "org/task-model" if config["operations"][operation].get("requires_model") else None
-        assert ai_config.resolve(operation, model=explicit_model)["retries"] == 1
+        assert ai_config.resolve(operation, model=explicit_model)["retries"] == (0 if operation == "search.retrieve_link_content" else 1)
     assert config["providers"]["anthropic"]["models"] == {}
 
 

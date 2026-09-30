@@ -82,11 +82,38 @@ providers:
     documentation:
       model_cards: https://deepmind.google/models/model-cards/
     models:
-      gemini-3.8-flash:
+      gemini-3.5-flash:
         status: active
         applications: [url_retrieval]
         default_for: [search.retrieve_link_content]
-        defaults: {}
+        defaults:
+          thinking_level: minimal
+        supported_values:
+          thinking_level: [minimal, low, medium, high]
+      gemini-3.6-flash:
+        status: active
+        applications: [url_retrieval]
+        default_for: []
+        defaults:
+          thinking_level: minimal
+        supported_values:
+          thinking_level: [minimal, low, medium, high]
+      gemini-3-flash-preview:
+        status: active
+        applications: [url_retrieval]
+        default_for: []
+        defaults:
+          thinking_level: minimal
+        supported_values:
+          thinking_level: [minimal, low, medium, high]
+      gemini-3.8-flash:
+        status: active
+        applications: [url_retrieval]
+        default_for: []
+        defaults:
+          thinking_level: low
+        supported_values:
+          thinking_level: [low, medium, high]
   jina:
     endpoints:
       embeddings: https://api.jina.ai/v1/embeddings
@@ -235,8 +262,8 @@ operations:
     defaults:
       api_version: v1beta
       default_concurrency: 10
-      request_timeout_seconds: 45
-      retries: 1
+      request_timeout_seconds: 10
+      retries: 0
   huggingface:
     provider: huggingface
     protocol: hf_inference

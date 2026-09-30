@@ -1,6 +1,7 @@
 """Offline contracts for configuration-backed embeddings and URL retrieval."""
 
 import base64
+import asyncio
 import copy
 import json
 from types import SimpleNamespace
@@ -63,6 +64,7 @@ def configured_ai(monkeypatch, tmp_path):
         "default_concurrency": 1,
         "request_timeout_seconds": 3.25,
         "temperature": 0,
+        "retries": 1,
     })
     config["providers"]["openai"]["endpoints"]["embeddings"] = "https://openai.example/embeddings"
     config["providers"]["jina"]["endpoints"]["embeddings"] = "https://jina.example/embeddings"
@@ -445,10 +447,12 @@ def test_embeddings_rejects_unsupported_configured_provider(configured_ai, monke
 
 @pytest.fixture
 def google_transport(monkeypatch):
-    calls = {"clients": [], "requests": [], "closed": []}
+    calls = {"clients": [], "requests": [], "closed": [], "async_closed": []}
 
-    def generate_content(**kwargs):
+    async def generate_content(**kwargs):
         calls["requests"].append(kwargs)
+        if "handler" in calls:
+            return await calls["handler"](**kwargs)
         if "response" in calls:
             return calls["response"]
         return SimpleNamespace(candidates=[SimpleNamespace(
@@ -456,10 +460,13 @@ def google_transport(monkeypatch):
             content=SimpleNamespace(parts=[SimpleNamespace(text='{"name":"Synthetic"}')]),
         )])
 
+    async def aclose():
+        calls["async_closed"].append(True)
+
     def client(**kwargs):
         calls["clients"].append(kwargs)
         return SimpleNamespace(
-            models=SimpleNamespace(generate_content=generate_content),
+            aio=SimpleNamespace(models=SimpleNamespace(generate_content=generate_content), aclose=aclose),
             close=lambda: calls["closed"].append(True),
         )
 
@@ -469,6 +476,7 @@ def google_transport(monkeypatch):
         GenerateContentConfig=lambda **kwargs: kwargs,
         Tool=lambda **kwargs: kwargs,
         UrlContext=lambda: {},
+        UrlRetrievalStatus=SimpleNamespace(URL_RETRIEVAL_STATUS_SUCCESS="URL_RETRIEVAL_STATUS_SUCCESS"),
     )
     monkeypatch.setattr(gemini, "_get_genai", lambda: (
         SimpleNamespace(Client=client), types, SimpleNamespace(ClientError=type("ClientError", (Exception,), {})),
@@ -509,17 +517,27 @@ def test_google_retrieval_uses_config_at_sdk_boundary(configured_ai, google_tran
     assert len(google_transport["closed"]) == 1
 
 
-def test_google_packaged_defaults_omit_temperature(google_transport, monkeypatch):
+@pytest.mark.parametrize("model,expected_model,thinking_level", [
+    (None, "gemini-3.5-flash", "minimal"),
+    ("gemini-3.6-flash", "gemini-3.6-flash", "minimal"),
+    ("gemini-3.8-flash", "gemini-3.8-flash", "low"),
+])
+def test_google_packaged_defaults_omit_temperature(google_transport, monkeypatch, model, expected_model, thinking_level):
     monkeypatch.delenv("WRANGLES_AI_CONFIG", raising=False)
     ai_config.clear_cache()
     try:
         result = gemini.GeminiURLContextClient(api_key="fake-key").retrieve(
-            "https://product.example/one", output_format="json",
+            "https://product.example/one", output_format="json", model_id=model,
         )
+        assert google_transport["requests"][0]["model"] == expected_model
         assert "temperature" not in google_transport["requests"][0]["config"]
+        assert google_transport["requests"][0]["config"]["thinking_config"] == {"thinking_level": thinking_level}
+        assert google_transport["clients"][0]["http_options"]["timeout"] == 10000
+        assert google_transport["clients"][0]["http_options"]["retry_options"]["attempts"] == 1
         assert result["error"] is None
         assert result["extracted_content"] == {"name": "Synthetic"}
         assert google_transport["closed"] == [True]
+        assert google_transport["async_closed"] == [True]
     finally:
         ai_config.clear_cache()
 
@@ -604,11 +622,14 @@ def test_google_forwards_model_tuning_defaults(configured_ai, google_transport):
 def test_google_closes_client_when_request_fails(configured_ai, monkeypatch):
     closed = []
 
-    def generate_content(**kwargs):
+    async def generate_content(**kwargs):
         raise RuntimeError("synthetic request failure")
 
+    async def aclose():
+        closed.append("async")
+
     client = SimpleNamespace(
-        models=SimpleNamespace(generate_content=generate_content),
+        aio=SimpleNamespace(models=SimpleNamespace(generate_content=generate_content), aclose=aclose),
         close=lambda: closed.append(True),
     )
     types = SimpleNamespace(
@@ -622,7 +643,7 @@ def test_google_closes_client_when_request_fails(configured_ai, monkeypatch):
     result = gemini.GeminiURLContextClient(api_key="fake-key").retrieve("https://product.example/one")
     assert result["status"] == "Failure"
     assert "synthetic request failure" in result["error"]
-    assert closed == [True]
+    assert closed == ["async", True]
 
 
 @pytest.mark.parametrize("direct_client", [False, True])
@@ -691,6 +712,7 @@ def test_google_sdk_builds_configured_request_url(configured_ai, monkeypatch, mo
     import httpx
     from google import genai
     from google.genai import errors, types
+    from google.genai import _api_client
 
     config, save = configured_ai
     base_url = "https://proxy.example/google" if custom_endpoint else "https://generativelanguage.googleapis.com"
@@ -699,11 +721,12 @@ def test_google_sdk_builds_configured_request_url(configured_ai, monkeypatch, mo
     config["operations"]["search.retrieve_link_content"]["defaults"]["api_version"] = version
     config["operations"]["search.retrieve_link_content"]["defaults"].pop("temperature")
     config["providers"]["google"]["models"]["gemini-3.8-flash"]["defaults"]["temperature"] = 0.17
+    config["providers"]["google"]["models"]["gemini-3.8-flash"]["defaults"]["max_output_tokens"] = 500
     save()
     requests_sent = []
     clients = []
 
-    def send(client, request, **kwargs):
+    async def send(client, request, **kwargs):
         requests_sent.append(request)
         return httpx.Response(200, request=request, json={
             "candidates": [{"content": {"parts": [{"text": '{"name":"Synthetic"}'}]}}],
@@ -714,21 +737,167 @@ def test_google_sdk_builds_configured_request_url(configured_ai, monkeypatch, mo
         clients.append(result)
         return result
 
-    monkeypatch.setattr(httpx.Client, "send", send)
+    monkeypatch.setattr(httpx.AsyncClient, "send", send)
+    monkeypatch.setattr(_api_client, "has_aiohttp", False)
     monkeypatch.setattr(gemini, "_get_genai", lambda: (SimpleNamespace(Client=client), types, errors))
     try:
         result = gemini.GeminiURLContextClient(api_key="fake-key").retrieve(
             "https://product.example/one", model_id=model, output_format="json",
+            thinking_level="low", request_timeout_seconds=2, seed=19, maxOutputTokens=321,
         )
         assert result["error"] is None
         assert result["extracted_content"] == {"name": "Synthetic"}
         assert len(requests_sent) == 1
         assert requests_sent[0].method == "POST"
         assert str(requests_sent[0].url) == f"{base_url}/{version}/models/gemini-3.8-flash:generateContent"
-        assert json.loads(requests_sent[0].content)["generationConfig"]["temperature"] == 0.17
+        config_sent = json.loads(requests_sent[0].content)["generationConfig"]
+        assert config_sent["temperature"] == 0.17
+        thinking = config_sent["thinkingConfig"]
+        assert thinking.get("thinkingLevel", thinking.get("thinking_level")) == "LOW"
+        assert config_sent["seed"] == 19
+        assert config_sent["maxOutputTokens"] == 321
+        assert requests_sent[0].headers["X-Server-Timeout"] == "2"
     finally:
         for client in clients:
             client.close()
+
+
+@pytest.mark.parametrize("threads", [1, 2])
+def test_google_deadline_cancels_slow_url_without_losing_other_rows(configured_ai, google_transport, threads):
+    cancelled = []
+
+    async def generate_content(**request):
+        if "/slow>" in request["contents"]:
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.append(True)
+        return SimpleNamespace(candidates=[SimpleNamespace(
+            url_context_metadata=SimpleNamespace(url_metadata=[SimpleNamespace(
+                retrieved_url="https://product.example/fast",
+                url_retrieval_status="URL_RETRIEVAL_STATUS_SUCCESS",
+            )]),
+            content=SimpleNamespace(parts=[SimpleNamespace(text='{"name":"Fast"}')]),
+        )])
+
+    google_transport["handler"] = generate_content
+    results = search.retrieve_link_content(
+        ["https://product.example/slow", "https://product.example/fast"],
+        client_config={"api_key": "fake-key"}, threads=threads,
+        request_timeout_seconds=0.02,
+    )
+    assert results[0]["status"] == "Failure"
+    assert results[0]["error"] == "Timeout: URL retrieval exceeded 0.02 seconds."
+    assert results[0]["extracted_content"] is None
+    assert results[1]["status"] == "Success"
+    assert results[1]["extracted_content"] == {"name": "Fast"}
+    assert cancelled == [True]
+    assert google_transport["closed"] == google_transport["async_closed"] == [True, True]
+
+
+def test_google_direct_client_works_inside_running_event_loop(configured_ai, google_transport):
+    async def retrieve():
+        return gemini.GeminiURLContextClient(api_key="fake-key").retrieve(
+            "https://product.example/one", output_format="json", thinking_level="minimal",
+        )
+
+    assert asyncio.run(retrieve())["extracted_content"] == {"name": "Synthetic"}
+    assert google_transport["async_closed"] == [True]
+
+
+@pytest.mark.parametrize("key", ["thinking_config", "thinkingConfig"])
+def test_google_raw_thinking_configuration_replaces_level(configured_ai, google_transport, key):
+    gemini.GeminiURLContextClient(api_key="fake-key").retrieve(
+        "https://product.example/one", **{key: {"thinking_budget": 0}},
+    )
+    config = google_transport["requests"][0]["config"]
+    assert config[key] == {"thinking_budget": 0}
+    assert "thinking_level" not in config[key]
+    assert ("thinkingConfig" if key == "thinking_config" else "thinking_config") not in config
+
+
+@pytest.mark.parametrize("key", ["http_options", "httpOptions", "system_instruction", "systemInstruction", "tools",
+                                "response_mime_type", "responseMimeType", "response_modalities", "responseModalities"])
+def test_google_kwargs_cannot_override_retrieval_controls(configured_ai, google_transport, key):
+    with pytest.raises(ValueError, match="Retrieval manages"):
+        gemini.GeminiURLContextClient(api_key="fake-key").retrieve("https://product.example/one", **{key: {}})
+    assert google_transport["clients"] == []
+
+
+def test_google_http_timeout_has_useful_row_error(configured_ai, google_transport):
+    import httpx
+
+    async def timeout(**request):
+        raise httpx.ReadTimeout("")
+
+    google_transport["handler"] = timeout
+    result = gemini.GeminiURLContextClient(api_key="fake-key").retrieve("https://product.example/one")
+    assert result["status"] == "Failure"
+    assert result["error"].startswith("Timeout:")
+    assert google_transport["closed"] == google_transport["async_closed"] == [True]
+
+
+def test_google_deadline_includes_sdk_retry_backoff(configured_ai, monkeypatch):
+    import httpx
+    from google import genai
+    from google.genai import _api_client, errors, types
+
+    requests_sent = []
+    clients = []
+
+    async def send(client, request, **kwargs):
+        requests_sent.append(request)
+        return httpx.Response(503, request=request, json={
+            "error": {"code": 503, "message": "synthetic overload", "status": "UNAVAILABLE"},
+        })
+
+    def client(**kwargs):
+        result = genai.Client(vertexai=False, **kwargs)
+        clients.append(result)
+        return result
+
+    monkeypatch.setattr(_api_client, "has_aiohttp", False)
+    monkeypatch.setattr(httpx.AsyncClient, "send", send)
+    monkeypatch.setattr(gemini, "_get_genai", lambda: (SimpleNamespace(Client=client), types, errors))
+    result = gemini.GeminiURLContextClient(api_key="fake-key").retrieve(
+        "https://product.example/one", request_timeout_seconds=0.05,
+    )
+    assert result["error"] == "Timeout: URL retrieval exceeded 0.05 seconds."
+    assert result["status"] == "Failure"
+    assert len(requests_sent) == 1
+    assert all(client._api_client._async_httpx_client.is_closed for client in clients)
+    assert all(client._api_client._httpx_client.is_closed for client in clients)
+
+
+def test_google_invalid_kwargs_fail_before_creating_transport(configured_ai, google_transport, monkeypatch):
+    from google.genai import types
+
+    genai, _, errors = gemini._get_genai()
+    monkeypatch.setattr(gemini, "_get_genai", lambda: (genai, types, errors))
+    result = gemini.GeminiURLContextClient(api_key="fake-key").retrieve(
+        "https://product.example/one", misspelled_option=True,
+    )
+    assert result["status"] == "Failure"
+    assert "Invalid Gemini generation options" in result["error"]
+    assert "misspelled_option" in result["error"]
+    assert google_transport["clients"] == []
+
+
+def test_google_thought_summaries_do_not_pollute_extracted_json(configured_ai, google_transport):
+    google_transport["response"] = SimpleNamespace(candidates=[SimpleNamespace(
+        url_context_metadata=None,
+        content=SimpleNamespace(parts=[
+            SimpleNamespace(text="A thought summary", thought=True),
+            SimpleNamespace(text=None),
+            SimpleNamespace(text='{"name":"Synthetic"}', thought=False),
+        ]),
+    )])
+    result = gemini.GeminiURLContextClient(api_key="fake-key").retrieve(
+        "https://product.example/one", output_format="json",
+        thinking_config={"thinking_level": "minimal", "include_thoughts": True},
+    )
+    assert result["extracted_content"] == {"name": "Synthetic"}
+    assert result["error"] is None
 
 
 def test_google_retrieval_rejects_unsupported_provider(configured_ai, monkeypatch):
