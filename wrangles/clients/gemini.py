@@ -147,11 +147,12 @@ class GeminiURLContextClient:
             # Process Standard Text Response
             if not response.candidates:
                 result["error"] = "API returned zero candidates."
-            elif not response.candidates[0].content:
-                reason = response.candidates[0].finish_reason
+            elif not cand.content or not cand.content.parts:
+                reason = cand.finish_reason
                 result["error"] = f"Blocked/Empty. Finish Reason: {reason}"
-                if result["status"] != "Success":
-                    result["status"] = "Failure"
+                if cand.finish_message:
+                    result["error"] += f". {cand.finish_message}"
+                result["status"] = "Failure"
             else:
                 full_text = "\n".join([part.text for part in response.candidates[0].content.parts])
                 

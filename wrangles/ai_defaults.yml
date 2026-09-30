@@ -86,8 +86,7 @@ providers:
         status: active
         applications: [url_retrieval]
         default_for: [search.retrieve_link_content]
-        defaults:
-          temperature: 0.1
+        defaults: {}
   jina:
     endpoints:
       embeddings: https://api.jina.ai/v1/embeddings

@@ -92,8 +92,8 @@ Endpoint overrides remain available in APIs that already expose them.
 
 All packaged operations default to one additional retry after the first attempt.
 Set `retries: 0` to disable retries. Temperature is model-specific: modern OpenAI
-models leave it unset, legacy GPT-4o Chat Completions keeps `0.2`, and the configured
-Gemini URL-retrieval model keeps `0.1`. Unset temperature uses the provider's default.
+models and Gemini URL retrieval leave it unset, while legacy GPT-4o Chat Completions
+keeps `0.2`. Unset temperature uses the provider's default (`1.0` for Gemini 3).
 
 For extraction, a saved definition's model retains its existing precedence over
 the caller's `model`. Both tuning and runtime defaults are resolved for that

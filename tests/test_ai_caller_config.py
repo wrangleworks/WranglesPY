@@ -449,6 +449,8 @@ def google_transport(monkeypatch):
 
     def generate_content(**kwargs):
         calls["requests"].append(kwargs)
+        if "response" in calls:
+            return calls["response"]
         return SimpleNamespace(candidates=[SimpleNamespace(
             url_context_metadata=None,
             content=SimpleNamespace(parts=[SimpleNamespace(text='{"name":"Synthetic"}')]),
@@ -505,6 +507,65 @@ def test_google_retrieval_uses_config_at_sdk_boundary(configured_ai, google_tran
     assert request["config"]["tools"] == [{"url_context": {}}]
     assert request["config"]["response_mime_type"] == "application/json"
     assert len(google_transport["closed"]) == 1
+
+
+def test_google_packaged_defaults_omit_temperature(google_transport, monkeypatch):
+    monkeypatch.delenv("WRANGLES_AI_CONFIG", raising=False)
+    ai_config.clear_cache()
+    try:
+        result = gemini.GeminiURLContextClient(api_key="fake-key").retrieve(
+            "https://product.example/one", output_format="json",
+        )
+        assert "temperature" not in google_transport["requests"][0]["config"]
+        assert result["error"] is None
+        assert result["extracted_content"] == {"name": "Synthetic"}
+        assert google_transport["closed"] == [True]
+    finally:
+        ai_config.clear_cache()
+
+
+@pytest.mark.parametrize("content,finish_message", [
+    (None, "Model generated function call(s)."),
+    ({}, "Model generated function call(s)."),
+    ({"parts": []}, "Model generated function call(s)."),
+    ({}, None),
+], ids=["missing", "empty-object", "empty-parts", "no-finish-message"])
+@pytest.mark.parametrize("url_retrieved", [False, True], ids=["no-url-metadata", "url-retrieved"])
+@pytest.mark.filterwarnings("ignore:TOO_MANY_TOOL_CALLS is not a valid FinishReason:UserWarning")
+def test_google_empty_content_preserves_provider_failure(
+    configured_ai, google_transport, monkeypatch, content, finish_message, url_retrieved,
+):
+    from google.genai import types
+
+    candidate = {
+        "finishReason": "TOO_MANY_TOOL_CALLS",
+    }
+    if finish_message is not None:
+        candidate["finishMessage"] = finish_message
+    if content is not None:
+        candidate["content"] = content
+    if url_retrieved:
+        candidate["urlContextMetadata"] = {"urlMetadata": [{
+            "retrievedUrl": "https://product.example/one",
+            "urlRetrievalStatus": "URL_RETRIEVAL_STATUS_SUCCESS",
+        }]}
+    google_transport["response"] = types.GenerateContentResponse.model_validate({
+        "candidates": [candidate],
+    })
+    genai, _, errors = gemini._get_genai()
+    monkeypatch.setattr(gemini, "_get_genai", lambda: (genai, types, errors))
+
+    result = gemini.GeminiURLContextClient(api_key="fake-key").retrieve(
+        "https://product.example/one", output_format="json",
+    )
+
+    assert result["status"] == "Failure"
+    assert "TOO_MANY_TOOL_CALLS" in result["error"]
+    if finish_message is not None:
+        assert finish_message in result["error"]
+    assert result["extracted_content"] is None
+    assert len(google_transport["requests"]) == 1
+    assert google_transport["closed"] == [True]
 
 
 def test_google_direct_client_reads_changed_config_each_call(configured_ai, google_transport):
