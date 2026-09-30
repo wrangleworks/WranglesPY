@@ -126,6 +126,7 @@ docs/*
 !docs/ai_configuration.md
 !docs/ai_answers.md
 !docs/extract_ai_user_guide.md
+!docs/cli.md
 !docs/github-app-deployment.md
 !docs/search_ai_mode.md
 !docs/search_retrieve_link_content.md

@@ -1,3 +1,9 @@
+from contextlib import contextmanager as _contextmanager
+from contextvars import ContextVar as _ContextVar
+import math as _math
+import time as _time
+from concurrent.futures import Future as _Future, TimeoutError as _FutureTimeout
+from threading import Thread as _Thread, Event as _Event
 import re as _re
 import logging as _logging
 import types as _types
@@ -463,6 +469,35 @@ def evaluate_conditional(statement, variables: dict = None):
         raise ValueError(f"An error occurred when trying to evaluate if condition '{statement}'") from None
     
 
+_REQUEST_TIMEOUT = _ContextVar('wrangles_request_timeout', default=None)
+_REQUEST_DEADLINE = _ContextVar('wrangles_request_deadline', default=None)
+
+
+class RequestDeadlineExceeded(TimeoutError):
+    pass
+
+
+@_contextmanager
+def bounded_requests(timeout, *, deadline=None):
+    """Use one attempt per SDK request in this context, including authentication.
+
+    This opt-in policy leaves existing SDK retries unchanged outside its scope.
+    Socket timeouts bound connection/read inactivity. An optional monotonic
+    deadline bounds caller waiting using an isolated daemon transport worker.
+    """
+    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not _math.isfinite(timeout) or timeout <= 0:
+        raise ValueError('Request timeout must be a finite positive number of seconds.')
+    if deadline is not None and (isinstance(deadline, bool) or not isinstance(deadline, (int, float)) or not _math.isfinite(deadline)):
+        raise ValueError('Deadline must be a finite monotonic time.')
+    token = _REQUEST_TIMEOUT.set(timeout)
+    deadline_token = _REQUEST_DEADLINE.set(deadline)
+    try:
+        yield
+    finally:
+        _REQUEST_TIMEOUT.reset(token)
+        _REQUEST_DEADLINE.reset(deadline_token)
+
+
 def request_retries(request_type, url, **kwargs):
     """
     Make a request to the backend with retries for transient errors
@@ -472,6 +507,54 @@ def request_retries(request_type, url, **kwargs):
     :param kwargs: Arguments to pass to requests.request
     :returns: requests.Response object
     """
+    timeout = _REQUEST_TIMEOUT.get()
+    if timeout is not None:
+        # No retries or redirects: never repeat a possibly accepted model write.
+        deadline = _REQUEST_DEADLINE.get()
+        if deadline is not None:
+            remaining = deadline - _time.monotonic()
+            if remaining <= 0:
+                raise RequestDeadlineExceeded()
+            timeout = min(timeout, remaining)
+        kwargs['timeout'] = timeout
+        kwargs['allow_redirects'] = False
+        if deadline is None:
+            with _requests.Session() as session:
+                return session.request(request_type, url, **kwargs)
+        # A socket inactivity timeout alone cannot bound a trickling response.
+        # The daemon owns its Session; on deadline the caller stops waiting and
+        # the worker closes any late response. No additional request is issued.
+        future = _Future()
+        expired = _Event()
+        def discard_late(result):
+            if expired.is_set() and result.exception() is None:
+                result.result().close()
+        future.add_done_callback(discard_late)
+        def send():
+            try:
+                with _requests.Session() as session:
+                    response = session.request(request_type, url, **kwargs)
+                future.set_result(response)
+            except BaseException as error:
+                future.set_exception(error)
+        _Thread(target=send, daemon=True).start()
+        try:
+            response = future.result(timeout=max(0, deadline - _time.monotonic()))
+        except _FutureTimeout:
+            expired.set()
+            # If completion raced the timeout, dispose its response here too.
+            if future.done() and future.exception() is None:
+                future.result().close()
+            raise RequestDeadlineExceeded() from None
+        except BaseException:
+            expired.set()
+            if future.done() and future.exception() is None:
+                future.result().close()
+            raise
+        if _time.monotonic() >= deadline:
+            response.close()
+            raise RequestDeadlineExceeded()
+        return response
     _logging.debug(f": HTTP request :: method :: {request_type}, url :: {url}")
     session = _requests.Session()
     session.mount(

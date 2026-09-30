@@ -1,0 +1,19 @@
+read:
+  - file:
+      name: ${POWER_SUPPLY_INPUT}
+
+wrangles:
+  - extract.ai:
+      input: description
+      output: attributes
+      output_format: dictionary
+      model_id: ${POWER_SUPPLY_MODEL_ID}
+      api_key: ${OPENAI_API_KEY}
+      cache: false
+
+write:
+  - file:
+      name: ${POWER_SUPPLY_OUTPUT}
+      orient: records
+      indent: 2
+      force_ascii: false
