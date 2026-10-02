@@ -1784,7 +1784,8 @@ def regex(
   output_pattern: str = None,
   first_element: bool = False,
   output_format: str = None,
-  char: str = ", "
+  char: str = ", ",
+  capture_groups: bool = False
   ) -> _pd.DataFrame:
     r"""
     type: object
@@ -1815,6 +1816,9 @@ def regex(
           Specifies the format to output matches and specific capture groups using backreferences (e.g., `\1`, `\2`). Default is to return entire matches.
 
           **Example**: For a regex pattern `r'(\d+)\s(\w+)'` and `output_pattern = '\2 \1'`, with input `'120 volt'`, the output would be `'volt 120'`.
+
+          output_pattern reformats or reorders each match into a single value.
+          To split a match into separate values, use capture_groups instead.
       first_element:
         type: boolean
         description: Get the first element from results
@@ -1828,7 +1832,38 @@ def regex(
       char:
         type: string
         description: Character to use when output_format is concatenate
+      capture_groups:
+        type: boolean
+        description: |
+          Return each capture group of a match as a separate result, rather than
+          the entire match. Use this to parse a single column into its parts.
+          Cannot be combined with output_pattern.
+
+          **Example**: For a regex pattern `r'([A-Z]+)(\d+)'` with input `'LRB812'`
+          and `output = ['Model', 'Bore']`, Model would be `'LRB'` and Bore `'812'`.
+
+          capture_groups vs output_pattern:
+          - capture_groups splits a match into one value per group, e.g. one
+            output column per group.
+          - output_pattern keeps one value per match and only changes how it
+            is formatted, e.g. reordering groups with `\2 \1`.
+
+          Notes:
+          - Only capturing groups `( )` and named groups `(?P<name> )` produce
+            results. Non-capturing groups `(?: )` are ignored.
+          - If a pattern has no capture groups, the entire match is returned,
+            the same as when capture_groups is false. Define at least one
+            group when setting this option.
+          - A group that did not participate in a match returns an empty string.
+          - Results are in group order, match by match. When output is a list of
+            columns and there are multiple matches, groups from later matches
+            fill further columns.
     """
+    if capture_groups and output_pattern:
+        raise ValueError(
+            'Extract must use either capture_groups or output_pattern, not both.'
+        )
+
     # If output is not specified, overwrite input columns in place
     if output is None:
         output = input
@@ -1851,6 +1886,22 @@ def regex(
 
     def _matches(value):
         value = str(value) if value is not None else ""
+        if capture_groups:
+            # Return the capture groups of each match rather than the whole
+            # match. A pattern without any capture groups falls back to the
+            # whole match so the results are never empty. Groups that did not
+            # participate in the match return an empty string.
+            matches = []
+            for match in _re.finditer(find_pattern, value):
+                if match.groups():
+                    matches += [
+                        "" if group is None else group
+                        for group in match.groups()
+                    ]
+                else:
+                    matches.append(match.group(0))
+            return matches
+
         matches = [match.group(0) for match in _re.finditer(find_pattern, value)]
         if output_pattern:
             matches = [find_pattern.sub(output_pattern, match) for match in matches]
