@@ -1746,3 +1746,30 @@ def test_extract_chat_reasoning_effort_override(monkeypatch):
         reasoning_effort="medium",
     ) == {"length": "25mm"}
     assert calls[0]["json"]["reasoning_effort"] == "medium"
+
+
+@pytest.mark.parametrize("model_key", ["GPTModel", "AIModel", "Model"])
+def test_saved_schema_fixture_preserves_shared_definition(monkeypatch, request, model_key):
+    shared = {
+        "Settings": {model_key: "gpt-4o-mini", "AdditionalMessages": "Use source units."},
+        "Columns": ["Find", "Type", "Description"],
+        "Data": [["length", "string", "Length in source units"]],
+    }
+    calls = []
+    monkeypatch.setattr(extract._data, "model_content", lambda model_id: shared)
+    request.getfixturevalue("saved_extract_schema_model")
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(),
+    )
+    assert extract.ai(
+        "wrench 25mm", "key", model_id="shared-test-model", threads=1, cache=False,
+    ) == {"length": "25mm"}
+    payload = calls[0]["json"]
+    assert payload["model"] == "gpt-5.4-mini"
+    assert payload["reasoning"] == {"effort": "none"}
+    assert payload["text"]["format"]["schema"]["properties"]["length"]["description"] == "Length in source units"
+    assert "Use source units." in payload["instructions"]
+    assert shared["Settings"] == {model_key: "gpt-4o-mini", "AdditionalMessages": "Use source units."}
+    assert shared["Columns"] == ["Find", "Type", "Description"]
+    assert shared["Data"] == [["length", "string", "Length in source units"]]

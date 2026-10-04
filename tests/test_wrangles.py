@@ -346,7 +346,7 @@ def test_embedding_list():
     assert len(result[0]) == 1536
     assert [round(float(x), 3) for x in result[0][:3]] == [0.007, -0.045, 0.025]
 
-def test_extract_ai_model_id():
+def test_extract_ai_model_id(saved_extract_schema_model):
     """
     Test using python api for extract.ai
     using a pre-created model_id
@@ -363,7 +363,7 @@ def test_extract_ai_model_id():
         isinstance(results['Colors'], list)
     )
 
-def test_extract_ai_model_id_list():
+def test_extract_ai_model_id_list(saved_extract_schema_model):
     """
     Test using python api for extract.ai
     using a pre-created model_id with a list
