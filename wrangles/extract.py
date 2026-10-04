@@ -215,7 +215,8 @@ def ai(
     :param strict: (Optional) Enable structured output strict mode. Dynamic object schemas \
         automatically use non-strict mode and are validated locally.
     :param reasoning: (Optional) Responses API reasoning options. Defaults to {"effort": "none"} \
-        for models that support disabling reasoning; otherwise omitted so the provider default applies.
+        for every model. Explicit caller, saved-model, and configuration settings override this default. \
+        Reasoning is always sent; provider incompatibility is reported by the provider.
     :param verbosity: (Optional) Responses API text verbosity. Defaults to "low" \
         for models that support low verbosity.
     :param provider: (Optional) AI provider. Currently only "openai" is supported.
@@ -390,22 +391,9 @@ def ai(
             if reasoning is not None
             else saved_reasoning or policy.get("reasoning", {"effort": "none"})
         )
-        if _openai_responses.supports_reasoning(model):
-            effort = configured_reasoning.get("effort")
-            if _openai_responses.supports_reasoning_effort(model, effort):
-                payload["reasoning"] = configured_reasoning
-            else:
-                _LOG.warning(
-                    "Ignoring reasoning effort %r: not supported by model '%s'; "
-                    "the provider's default reasoning effort will apply.",
-                    effort,
-                    model,
-                )
-        elif reasoning is not None or saved_reasoning is not None:
-            _LOG.warning(
-                "Ignoring 'reasoning' parameter: not supported by model '%s'",
-                model,
-            )
+        # Do not infer reasoning support from a model name. New models must
+        # not silently fall back to the provider's reasoning default.
+        payload["reasoning"] = {"effort": "none", **configured_reasoning}
         if verbosity is not None:
             if _openai_responses.supports_low_verbosity(model):
                 payload["text"]["verbosity"] = verbosity
@@ -508,6 +496,16 @@ def ai(
         **default_settings.get(model, {}),
         **kwargs
     }
+
+    # Translate the named reasoning setting for the legacy endpoint. Explicit
+    # caller values take precedence over saved and configured reasoning.
+    explicit_effort = kwargs.pop("reasoning_effort", None)
+    configured_reasoning = (
+        reasoning if reasoning is not None
+        else {"effort": explicit_effort} if explicit_effort is not None
+        else saved_reasoning or policy.get("reasoning", {})
+    )
+    kwargs["reasoning_effort"] = configured_reasoning.get("effort", "none")
 
     settings = {
         "model": model,

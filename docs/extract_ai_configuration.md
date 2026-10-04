@@ -15,11 +15,14 @@ versioned replacement YAML file to override the complete configuration.
 - Default worker concurrency (`default_concurrency`): 32 per `extract.ai` call
 - Network timeout per HTTP attempt: 12 seconds
 - Retries: 1 additional attempt per row after a retryable failure
-- Reasoning effort: `none`
+- Reasoning effort: `none` for every model, including unlisted and future models
 - Response storage: enabled
 
-Recipes and Python calls can override these settings individually. Saved XL
-models and recipe outputs are compiled through the same definition compiler.
+Recipes and Python calls can override these settings individually. Reasoning
+is always sent to the provider, including explicit overrides. Unsupported
+reasoning settings produce a provider error instead of silently applying the
+provider default. Saved XL models and recipe outputs are compiled through the
+same definition compiler.
 
 When `threads` is omitted, the call uses `extract_ai.default_concurrency`.
 An explicit `threads` value can raise or lower concurrency for that call.

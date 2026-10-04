@@ -71,7 +71,7 @@ def test_extract_ai_uses_responses_structured_outputs(monkeypatch, caplog):
     assert result == {"length": "25mm"}
     assert calls[0]["url"] == "https://api.openai.com/v1/responses"
     assert payload["model"] == "gpt-5-mini"
-    assert "reasoning" not in payload
+    assert payload["reasoning"] == {"effort": "none"}
     assert payload["text"]["verbosity"] == "low"
     assert payload["text"]["format"]["strict"] is True
     assert payload["store"] is True
@@ -537,7 +537,7 @@ def test_field_examples_are_stable_system_content_for_legacy_protocol(monkeypatc
     assert "yellow grip" in stable_content
 
 
-def test_extract_ai_omits_default_reasoning_for_non_reasoning_models(monkeypatch):
+def test_extract_ai_sends_default_reasoning_for_non_reasoning_models(monkeypatch):
     calls = []
     body = {
         "output": [
@@ -574,7 +574,7 @@ def test_extract_ai_omits_default_reasoning_for_non_reasoning_models(monkeypatch
 
     payload = calls[0]["json"]
     assert result == {"fruits": ["bananas", "lemons"]}
-    assert "reasoning" not in payload
+    assert payload["reasoning"] == {"effort": "none"}
     assert "verbosity" not in payload["text"]
 
 
@@ -1652,3 +1652,97 @@ def test_legacy_chat_completions_uses_same_result_cache(monkeypatch):
 
     assert result == [{"length": "25mm"}, {"length": "25mm"}]
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize("model", [
+    "gpt-6-luna", "gpt-6-luna-2026-09-25", "future-model", "gpt-4o-mini",
+])
+@pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
+@pytest.mark.parametrize("via_recipe", [False, True])
+@pytest.mark.parametrize("reasoning", [None, {}, {"effort": "none"}, {"effort": "low"}])
+def test_extract_reasoning_always_reaches_provider(monkeypatch, model, protocol, via_recipe, reasoning):
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(protocol),
+    )
+    settings = {
+        "model": model, "protocol": protocol, "api_key": "key", "threads": 1,
+        "output": {"length": {"type": "string"}}, "cache": False,
+    }
+    if reasoning is not None:
+        settings["reasoning"] = reasoning
+    if via_recipe:
+        result = recipe.run(
+            {"wrangles": [{"extract.ai": {"input": "data", **settings}}]},
+            dataframe=pd.DataFrame({"data": ["wrench 25mm"]}),
+        )
+        assert result["length"].tolist() == ["25mm"]
+    else:
+        assert extract.ai("wrench 25mm", **settings) == {"length": "25mm"}
+    payload = calls[0]["json"]
+    expected = reasoning or {"effort": "none"}
+    if protocol == "responses":
+        assert payload["reasoning"] == expected
+    else:
+        assert payload["reasoning_effort"] == expected["effort"]
+
+
+@pytest.mark.parametrize("reasoning", [None, {"effort": "low"}])
+def test_extract_reports_reasoning_rejection_without_fallback(monkeypatch, reasoning):
+    calls = []
+    message = "Unsupported parameter: reasoning.effort"
+    def post(**kwargs):
+        calls.append(kwargs)
+        return _requests_response({"error": {"message": message}}, status_code=400)
+    monkeypatch.setattr(extract._openai_responses._requests, "post", post)
+    result = extract.ai(
+        "wrench 25mm", "key", model="future-model",
+        output={"length": {"type": "string"}}, reasoning=reasoning,
+        threads=1, retries=2, cache=False,
+    )
+    assert len(calls) == 1
+    assert calls[0]["json"]["reasoning"] == (reasoning or {"effort": "none"})
+    assert message in result["length"]
+
+
+@pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
+@pytest.mark.parametrize("explicit,expected_effort", [
+    ({}, "low"),
+    ({"reasoning": {"effort": "none"}}, "none"),
+    ({"reasoning": {"effort": "high"}}, "high"),
+])
+def test_extract_saved_reasoning_and_caller_precedence(monkeypatch, protocol, explicit, expected_effort):
+    monkeypatch.setattr(extract._data, "model_content", lambda model_id: {
+        "Settings": {"GPTModel": "future-model", "ReasoningEffort": "low"},
+        "Columns": ["Find", "Type"], "Data": [["length", "string"]],
+    })
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(protocol),
+    )
+    assert extract.ai(
+        "wrench 25mm", "key", model_id="saved-model", protocol=protocol,
+        threads=1, cache=False, **explicit,
+    ) == {"length": "25mm"}
+    payload = calls[0]["json"]
+    assert payload["model"] == "future-model"
+    if protocol == "responses":
+        assert payload["reasoning"] == {"effort": expected_effort}
+    else:
+        assert payload["reasoning_effort"] == expected_effort
+
+
+def test_extract_chat_reasoning_effort_override(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        extract._openai._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response("chat_completions"),
+    )
+    assert extract.ai(
+        "wrench 25mm", "key", model="future-model", protocol="chat_completions",
+        output={"length": {"type": "string"}}, threads=1, cache=False,
+        reasoning_effort="medium",
+    ) == {"length": "25mm"}
+    assert calls[0]["json"]["reasoning_effort"] == "medium"

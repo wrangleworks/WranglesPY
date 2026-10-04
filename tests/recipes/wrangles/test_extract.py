@@ -3672,7 +3672,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: gpt-5.4-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3709,7 +3709,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: gpt-5.4-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3744,7 +3744,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: gpt-5.4-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3779,7 +3779,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: gpt-5.4-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 temperature: 0.2
@@ -3814,7 +3814,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: gpt-5.4-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3846,7 +3846,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: gpt-5.4-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3891,7 +3891,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: gpt-5.4-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3934,7 +3934,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: gpt-5.4-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4004,7 +4004,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: gpt-5.4-mini
                 api_key: ${OPENAI_API_KEY}
                 cache: false
                 seed: 1
@@ -4047,7 +4047,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: gpt-5.4-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4087,7 +4087,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: gpt-5.4-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 2
                 temperature: 0.2
@@ -4118,7 +4118,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: gpt-5.4-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4231,7 +4231,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-5.4-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4269,7 +4269,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-5.4-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4296,6 +4296,8 @@ class TestExtractAI:
             wrangles:
             - extract.ai:
                 model: o3-mini
+                reasoning:
+                  effort: low
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4356,13 +4358,8 @@ class TestExtractAI:
         ])
         assert matches >= 1
 
-    def test_ai_pre_gpt5_reasoning_and_verbosity_ignored(self, caplog):
-        """
-        Test extract.ai with a pre-gpt5 model that does not support
-        reasoning/verbosity. The recipe should still complete
-        successfully, ignoring those settings with a warning
-        rather than failing the request.
-        """
+    def test_ai_pre_gpt5_reasoning_rejected_and_verbosity_ignored(self, caplog):
+        """The recipe reports provider errors instead of dropping reasoning."""
         with caplog.at_level(logging.WARNING, logger="wrangles.extract"):
             df = wrangles.recipe.run(
                 """
@@ -4387,12 +4384,8 @@ class TestExtractAI:
                     "data": ["wrench 25mm", "6m cable"],
                 })
             )
-        matches = sum([
-            df['length'][0] == '25mm',
-            df['length'][1] == '6m',
-        ])
-        assert matches >= 1
-        assert "Ignoring 'reasoning' parameter" in caplog.text
+        assert all('OpenAI API error' in value and 'reasoning' in value for value in df['length'])
+        assert "Ignoring 'reasoning' parameter" not in caplog.text
         assert "Ignoring 'verbosity' parameter" in caplog.text
 
     def test_ai_invalid_model_fails_recipe(self):
@@ -4613,7 +4606,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-5.4-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
