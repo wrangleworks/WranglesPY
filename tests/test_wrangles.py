@@ -456,7 +456,7 @@ def test_extract_ai_properties_list():
 def test_extract_ai_pre_gpt5_model():
     """
     Test using python api for extract.ai
-    with a model older than gpt-5 (no reasoning/verbosity support)
+    with a model that rejects the default reasoning setting
     """
     result = wrangles.extract.ai(
         "yellow square",
@@ -471,22 +471,11 @@ def test_extract_ai_pre_gpt5_model():
         retries=2
     )
 
-    assert (
-        'Colors' in result and
-        isinstance(result['Colors'], str)
-    )
+    assert 'OpenAI API error' in result['Colors']
+    assert 'reasoning' in result['Colors']
 
 def test_extract_ai_pre_gpt5_model_explicit_reasoning_and_verbosity(caplog):
-    """
-    Test using python api for extract.ai
-    with a model older than gpt-5, explicitly passing
-    reasoning and verbosity parameters that are only
-    supported by gpt-5+ models.
-
-    These parameters are unsupported by the OpenAI API for
-    older models, so they should be skipped (with a warning
-    logged) rather than causing the request to fail.
-    """
+    """The provider rejects unsupported reasoning; verbosity is still omitted."""
     with caplog.at_level(logging.WARNING, logger="wrangles.extract"):
         result = wrangles.extract.ai(
             "yellow square",
@@ -503,8 +492,9 @@ def test_extract_ai_pre_gpt5_model_explicit_reasoning_and_verbosity(caplog):
             retries=2
         )
 
-    assert result == {'Colors': 'yellow'}
-    assert "Ignoring 'reasoning' parameter" in caplog.text
+    assert 'OpenAI API error' in result['Colors']
+    assert 'reasoning' in result['Colors']
+    assert "Ignoring 'reasoning' parameter" not in caplog.text
     assert "Ignoring 'verbosity' parameter" in caplog.text
 
 ### Format Split Tests

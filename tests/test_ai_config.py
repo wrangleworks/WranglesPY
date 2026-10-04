@@ -315,7 +315,7 @@ def test_custom_model_and_endpoint_are_preserved(monkeypatch, tmp_path):
     assert policy["model"] == "unlisted-model"
     assert policy["endpoints"]["responses"] == "https://custom.example/responses"
     assert policy["default_concurrency"] == 32
-    assert "reasoning" not in policy
+    assert policy["reasoning"] == {"effort": "none"}
     assert "text" not in policy
 
 
@@ -329,7 +329,7 @@ def test_snapshot_inherits_model_options_with_exact_overrides(monkeypatch, tmp_p
     }
     use_config(config, monkeypatch, tmp_path)
     policy = ai_config.resolve("extract.ai", model="gpt-6-luna-2026-09-25")
-    assert policy["reasoning"] == {"effort": "high"}
+    assert policy["reasoning"] == {"effort": "none"}
     assert policy["text"]["verbosity"] == "low"
     assert ai_config.model_capabilities(policy["model"])["reasoning_none"] is False
     assert ai_config.model_capabilities("gpt-6-luna-2026-09-26")["reasoning_none"] is True

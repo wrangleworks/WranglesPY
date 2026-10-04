@@ -71,7 +71,7 @@ def test_extract_ai_uses_responses_structured_outputs(monkeypatch, caplog):
     assert result == {"length": "25mm"}
     assert calls[0]["url"] == "https://api.openai.com/v1/responses"
     assert payload["model"] == "gpt-5-mini"
-    assert "reasoning" not in payload
+    assert payload["reasoning"] == {"effort": "none"}
     assert payload["text"]["verbosity"] == "low"
     assert payload["text"]["format"]["strict"] is True
     assert payload["store"] is True
@@ -537,7 +537,7 @@ def test_field_examples_are_stable_system_content_for_legacy_protocol(monkeypatc
     assert "yellow grip" in stable_content
 
 
-def test_extract_ai_omits_default_reasoning_for_non_reasoning_models(monkeypatch):
+def test_extract_ai_sends_default_reasoning_for_non_reasoning_models(monkeypatch):
     calls = []
     body = {
         "output": [
@@ -574,7 +574,7 @@ def test_extract_ai_omits_default_reasoning_for_non_reasoning_models(monkeypatch
 
     payload = calls[0]["json"]
     assert result == {"fruits": ["bananas", "lemons"]}
-    assert "reasoning" not in payload
+    assert payload["reasoning"] == {"effort": "none"}
     assert "verbosity" not in payload["text"]
 
 
@@ -777,7 +777,7 @@ def test_extract_chat_tuning_uses_saved_model_and_caller_precedence(
     {"reasoning": {"effort": "none"}, "verbosity": "low"},
     {"reasoning_effort": "none", "verbosity": "low"},
 ])
-def test_extract_chat_omits_unsupported_tuning(monkeypatch, caplog, explicit):
+def test_extract_chat_sends_reasoning_and_omits_unsupported_verbosity(monkeypatch, caplog, explicit):
     calls = []
     monkeypatch.setattr(
         extract._openai._requests, "post",
@@ -789,9 +789,9 @@ def test_extract_chat_omits_unsupported_tuning(monkeypatch, caplog, explicit):
             output={"length": {"type": "string"}}, protocol="chat_completions",
             threads=1, cache=False, **explicit,
         ) == {"length": "25mm"}
-    assert "reasoning_effort" not in calls[0]["json"]
+    assert calls[0]["json"]["reasoning_effort"] == "none"
     assert "verbosity" not in calls[0]["json"]
-    assert "Ignoring reasoning effort" in caplog.text
+    assert "Ignoring reasoning effort" not in caplog.text
     assert "Ignoring 'verbosity' parameter" in caplog.text
 
 
@@ -1076,7 +1076,7 @@ def test_extract_uses_selected_catalog_model_defaults(
             assert extract.ai("wrench 25mm", **settings) == {"length": "25mm"}
         payload = calls[0]["json"]
         assert payload["model"] == "catalog-model"
-        assert payload["reasoning"] == {"effort": "low" if explicit_tuning else "medium"}
+        assert payload["reasoning"] == {"effort": "low" if explicit_tuning else "none"}
         assert payload["text"]["verbosity"] == ("medium" if explicit_tuning else "high")
         assert payload["max_output_tokens"] == (128 if explicit_tuning else 256)
     finally:
@@ -1100,10 +1100,10 @@ def extraction_config(monkeypatch, tmp_path):
 @pytest.mark.parametrize("reasoning,verbosity,expected_reasoning,expected_verbosity", [
     (None, None, {"effort": "none"}, "medium"),
     ({"effort": "low"}, "high", {"effort": "low"}, "high"),
-    ({"effort": "high"}, "medium", None, "medium"),
+    ({"effort": "high"}, "medium", {"effort": "high"}, "medium"),
     (None, "low", {"effort": "none"}, None),
 ])
-def test_extract_checks_each_requested_enum_value(
+def test_extract_sends_reasoning_and_checks_verbosity_enum(
     extraction_config, monkeypatch, reasoning, verbosity, expected_reasoning, expected_verbosity,
 ):
     config, save = extraction_config
@@ -2227,3 +2227,55 @@ def test_legacy_chat_completions_uses_same_result_cache(monkeypatch):
 
     assert result == [{"length": "25mm"}, {"length": "25mm"}]
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize("model", [
+    "gpt-6-luna", "gpt-6-luna-2026-09-25", "future-model", "gpt-4o-mini",
+])
+@pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
+@pytest.mark.parametrize("via_recipe", [False, True])
+@pytest.mark.parametrize("reasoning", [None, {"effort": "none"}, {"effort": "low"}])
+def test_extract_reasoning_always_reaches_provider(monkeypatch, model, protocol, via_recipe, reasoning):
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(protocol),
+    )
+    settings = {
+        "model": model, "protocol": protocol, "api_key": "key", "threads": 1,
+        "output": {"length": {"type": "string"}}, "cache": False,
+    }
+    if reasoning is not None:
+        settings["reasoning"] = reasoning
+    if via_recipe:
+        result = recipe.run(
+            {"wrangles": [{"extract.ai": {"input": "data", **settings}}]},
+            dataframe=pd.DataFrame({"data": ["wrench 25mm"]}),
+        )
+        assert result["length"].tolist() == ["25mm"]
+    else:
+        assert extract.ai("wrench 25mm", **settings) == {"length": "25mm"}
+    payload = calls[0]["json"]
+    expected = reasoning or {"effort": "none"}
+    if protocol == "responses":
+        assert payload["reasoning"] == expected
+    else:
+        assert payload["reasoning_effort"] == expected["effort"]
+
+
+@pytest.mark.parametrize("reasoning", [None, {"effort": "low"}])
+def test_extract_reports_reasoning_rejection_without_fallback(monkeypatch, reasoning):
+    calls = []
+    message = "Unsupported parameter: reasoning.effort"
+    def post(**kwargs):
+        calls.append(kwargs)
+        return _requests_response({"error": {"message": message}}, status_code=400)
+    monkeypatch.setattr(extract._openai_responses._requests, "post", post)
+    result = extract.ai(
+        "wrench 25mm", "key", model="future-model",
+        output={"length": {"type": "string"}}, reasoning=reasoning,
+        threads=1, retries=2, cache=False,
+    )
+    assert len(calls) == 1
+    assert calls[0]["json"]["reasoning"] == (reasoning or {"effort": "none"})
+    assert message in result["length"]

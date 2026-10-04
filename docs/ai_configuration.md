@@ -100,8 +100,11 @@ For extraction, a saved definition's model retains its existing precedence over
 the caller's `model`. Both tuning and runtime defaults are resolved for that
 selected model before applying explicit caller overrides.
 Explicit reasoning takes precedence over saved reasoning, which takes precedence
-over configured reasoning. Declared reasoning and verbosity enums are checked
-against the requested value; unsupported values are warned about and omitted.
+over configured reasoning. Extraction defaults to `none` for every model,
+including unlisted and future models. Reasoning is always sent to the provider;
+unsupported settings produce a provider error instead of silently applying the
+provider default. Declared verbosity enums are checked against the requested
+value; unsupported verbosity values are warned about and omitted.
 Recipe reasoning includes `max`. Saved `ReasoningEffort` remains `none|low` to
 preserve compatibility with existing editors that use that narrower contract.
 
@@ -168,7 +171,7 @@ resolves configuration once per operation and uses a private transport for its
 individual rows.
 
 Generation remains unreleased. Its operation keeps `low` reasoning; extraction
-keeps `none` where supported. Its existing direct-Python and recipe strictness
+keeps `none` for every model. Its existing direct-Python and recipe strictness
 defaults are represented by `strict` and `recipe_strict`, respectively.
 
 Extraction uses the operation's `defaults` directly. There is no profile registry

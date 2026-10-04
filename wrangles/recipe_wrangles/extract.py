@@ -618,9 +618,9 @@ def ai(
       reasoning:
         type: object
         description: >-
-          Responses API reasoning controls. Set effort for reasoning-capable
-          models. The configured default is none when that model supports it;
-          otherwise the provider default applies.
+          Reasoning controls. Defaults to effort none for every model. Explicit
+          settings override the default and are always sent to the provider;
+          unsupported settings produce a provider error.
         properties:
           effort:
             type: string
