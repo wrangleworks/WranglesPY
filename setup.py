@@ -33,7 +33,7 @@ setup(
         'Operating System :: OS Independent'
     ],
     python_requires = '>=3.11',
-    version = '1.20.5',
+    version = '1.20.4.1',
     url = 'https://github.com/wrangleworks/WranglesPy',
     author = 'WrangleWorks',
     author_email = 'eric@wrangleworks.com',
