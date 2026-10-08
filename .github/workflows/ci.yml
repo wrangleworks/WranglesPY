@@ -235,6 +235,7 @@ jobs:
           owner: wrangleworks
           repositories: Wrangles-Docs
           permission-contents: write
+          permission-pull-requests: write
 
       - name: Checkout Wrangles-Docs
         uses: actions/checkout@v5
@@ -244,15 +245,17 @@ jobs:
           token: ${{ steps.manifest-token.outputs.token }}
           path: runtime-docs
 
-      - name: Select runtime manifest preview branch
+      - name: Select runtime manifest PR branch
         working-directory: runtime-docs
+        env:
+          PREVIEW_BRANCH: automation/wranglespy-runtime-manifest-pr-${{ github.event.pull_request.number }}
         run: |
-          BRANCH_REF=$(git ls-remote --heads origin refs/heads/test_deploying_manifest)
+          BRANCH_REF=$(git ls-remote --heads origin "refs/heads/$PREVIEW_BRANCH")
           if [[ -n "$BRANCH_REF" ]]; then
-            git fetch origin refs/heads/test_deploying_manifest
-            git checkout -B test_deploying_manifest FETCH_HEAD
+            git fetch origin "refs/heads/$PREVIEW_BRANCH"
+            git checkout -B "$PREVIEW_BRANCH" FETCH_HEAD
           else
-            git checkout -b test_deploying_manifest
+            git checkout -b "$PREVIEW_BRANCH"
           fi
 
       - name: Copy runtime manifest preview to Wrangles-Docs
@@ -263,12 +266,15 @@ jobs:
           cd registry/runtime
           sha256sum wranglespy.json > wranglespy.json.sha256
 
-      - name: Commit and push runtime manifest preview
+      - name: Commit runtime manifest and open publishing PR
         working-directory: runtime-docs
         env:
+          GH_TOKEN: ${{ steps.manifest-token.outputs.token }}
           SOURCE_REVISION: ${{ github.sha }}
+          SOURCE_PR: ${{ github.event.pull_request.number }}
+          PREVIEW_BRANCH: automation/wranglespy-runtime-manifest-pr-${{ github.event.pull_request.number }}
         run: |
-          test "$(git branch --show-current)" = test_deploying_manifest
+          test "$(git branch --show-current)" = "$PREVIEW_BRANCH"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add registry/runtime/wranglespy.json registry/runtime/wranglespy.json.sha256
@@ -276,8 +282,24 @@ jobs:
             echo "No changes to the runtime manifest, skipping commit."
           else
             git commit -m "Update runtime manifest preview from WranglesPY ${SOURCE_REVISION}"
-            git push origin HEAD:refs/heads/test_deploying_manifest
+            git push origin "HEAD:refs/heads/$PREVIEW_BRANCH"
           fi
+          # No PR is needed if the manifest already matches the reviewed main snapshot.
+          git fetch origin main
+          if git diff --quiet origin/main HEAD -- registry/runtime/wranglespy.json registry/runtime/wranglespy.json.sha256; then
+            echo "Runtime manifest matches main, skipping PR."
+            exit 0
+          fi
+          PR_URL=$(gh pr list --repo wrangleworks/Wrangles-Docs --base main --head "$PREVIEW_BRANCH" --state open --json url --jq '.[0].url // empty')
+          if [[ -z "$PR_URL" ]]; then
+            printf 'Validated runtime manifest from WranglesPY PR #%s, revision `%s`.\n\nSource run: %s/%s/actions/runs/%s\n\nUpdates only the runtime manifest and SHA-256 sidecar. Review and merge through normal branch protection.\n' \
+              "$SOURCE_PR" "$SOURCE_REVISION" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$RUNNER_TEMP/runtime-manifest-pr.md"
+            PR_URL=$(gh pr create --repo wrangleworks/Wrangles-Docs --base main --head "$PREVIEW_BRANCH" \
+              --title "Update WranglesPY runtime manifest preview (PR #${SOURCE_PR})" \
+              --body-file "$RUNNER_TEMP/runtime-manifest-pr.md")
+          fi
+          echo "Runtime manifest PR: $PR_URL"
+          printf 'Runtime manifest publishing PR: %s\n' "$PR_URL" >> "$GITHUB_STEP_SUMMARY"
 
   build:
     runs-on: ubuntu-latest

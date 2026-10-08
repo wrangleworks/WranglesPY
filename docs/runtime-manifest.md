@@ -13,7 +13,7 @@ on `codex/runtime-wrangle-manifest`. Focused generator and provenance checks liv
 `tests/test_wrangle_runtime_manifest.py`; provenance fixtures use full revisions.
 There is one runtime exporter. CI stores its output as GitHub Actions artifacts;
 A temporary CI job copies the current feature branch's PR preview into the
-separate Wrangles-Docs `test_deploying_manifest` branch. Production import and
+separate Wrangles-Docs automation branch and opens a PR to `main`. Production import and
 catalog synchronization remain part of #35.
 
 The original `--output <file>` and `--source-revision <sha>` options remain.
@@ -192,35 +192,27 @@ on the pytest and pip-install matrices. Push runs, other PR branches, and fork P
 do not run this publishing job. No `pull_request_target` workflow is used.
 
 Add `Wrangles-Docs` to the deployment app's selected repositories with
-**Contents: Read and write** before the first run, and ensure its branch rules
-allow the app to update `test_deploying_manifest`; see
-[GitHub App configuration](github-app-deployment.md). The job reuses
+**Contents: Read and write** and **Pull requests: Read and write** before the first
+run; see [GitHub App configuration](github-app-deployment.md). The job reuses
 `DEPLOY_APP_CLIENT_ID` and `DEPLOY_APP_PRIVATE_KEY` without adding another secret.
 
-The job downloads the `runtime-manifest` artifact from the same CI run and checks
-its SHA-256 checksum before creating the publishing token. It updates only these
-files in `wrangleworks/Wrangles-Docs`, branch `test_deploying_manifest`:
+The job verifies the same run's artifact checksum and updates only:
 
-- `registry/runtime/wranglespy.json` (identical manifest bytes);
-- `registry/runtime/wranglespy.json.sha256` (checksum with the destination filename).
+- `registry/runtime/wranglespy.json`;
+- `registry/runtime/wranglespy.json.sha256`.
 
-If the branch does not exist, it is created from Docs `main`. Later runs build on
-the existing preview branch and skip the commit when both files are unchanged.
-The push names the preview branch explicitly and never force-pushes. Concurrent
-updates can reject a push; rerun the failed sync job to pick up the new branch
-head. Docs `main`, generated Registry files, and the central catalog are not
-updated. This is a source preview for testing delivery, not a reviewed Registry
-release; content reconciliation remains part of Docs #35.
+It creates `automation/wranglespy-runtime-manifest-pr-<source PR number>` from
+Docs `main`, commits and pushes without force, then opens a PR targeting `main`.
+Later runs reuse the branch and its open PR. Unchanged files skip the commit;
+if both files match `main`, no PR is created. Concurrent changes can reject a
+push; rerun the failed job to pick up the branch head. The app must be allowed
+to push to the automation branch, but needs no bypass for `main`. Normal review
+and branch protection govern merging. The workflow never merges the PR.
 
-To verify delivery before merging the WranglesPY PR:
-
-1. Commit and push the workflow change to the feature branch above. Open its new
-   CI run and check **Sync runtime manifest preview** after tests and build pass.
-2. Open the two files on the Docs `test_deploying_manifest` branch and compare the
-   manifest's `source.revision` with the WranglesPY run's checked-out merge SHA.
-3. Download that run's `runtime-manifest` artifact and compare its JSON bytes
-   with `registry/runtime/wranglespy.json`. In the Docs `registry/runtime`
-   directory, run `sha256sum --check wranglespy.json.sha256`.
+To verify delivery, check **Sync runtime manifest preview** after tests and build
+pass, then open the Docs PR linked in the job summary. Compare `source.revision`
+with the CI merge SHA and compare the JSON bytes with the run's `runtime-manifest`
+artifact. Run `sha256sum --check wranglespy.json.sha256` in `registry/runtime`.
 
 This PR path tests delivery without running `Deploy Dev`, publishing an RC, or
 triggering Lambda deployment. The branch filter is deliberately temporary; remove
@@ -238,7 +230,7 @@ Production lookup, download and import into Wrangles-Docs will be added separate
 under Docs #35. The importer must select the correct version and commit rather
 than whichever workflow ran most recently. No release-download URL is provided
 by this change. Docs `main` remains pinned to its reviewed snapshot; the CI
-preview is available only on `test_deploying_manifest`.
+preview is available on the automation branch until its Docs PR is merged.
 
 ## Wrangles-Docs readiness
 
@@ -264,7 +256,8 @@ Keep Docs pinned to its reviewed runtime until these content changes pass its
 normal reconciliation. Do not filter the new producer's operations, fabricate
 defaults, or relax validation to hide content drift. Automatic download/import
 and these Registry source updates remain in Docs #35. The CI copy updates only
-the preview branch's runtime input, not Docs `main` or the central catalog.
+the automation branch's runtime input; Docs `main` changes only after PR review
+and merge, and the central catalog is not updated.
 
 ## Recovery
 
