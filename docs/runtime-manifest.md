@@ -237,7 +237,10 @@ preview is available on the automation branch until its Docs PR is merged.
 The format remains `0.1`, with the required `source.version` used by Docs and the
 optional identity reference already proposed in Docs #35. Eight independently
 pinned complete Docs contracts live in `tests/fixtures/runtime_manifest/` and are
-compared against the real runtime during CI. They cover public/injected variables,
+compared against the real runtime during CI. The lookup comparison explicitly
+expects the current deprecation description recommending `lookup.key` and
+`lookup.semantic`; the historical Docs fixture remains unchanged and all other
+contract fields are compared exactly. They cover public/injected variables,
 legacy aliases, nested callables, reserved names, defaults, and capabilities.
 Before union spelling was normalized, the historical runtime reproduced all 98
 entries in the Docs snapshot. Normalization changes only union annotation text;
