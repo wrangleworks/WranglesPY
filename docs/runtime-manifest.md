@@ -13,7 +13,7 @@ on `codex/runtime-wrangle-manifest`. Focused generator and provenance checks liv
 `tests/test_wrangle_runtime_manifest.py`; provenance fixtures use full revisions.
 There is one runtime exporter. CI stores its output as GitHub Actions artifacts;
 A temporary CI job copies the current feature branch's PR preview into the
-separate Wrangles-Docs automation branch and opens a PR to `main`. Production import and
+Wrangles-Docs `main` branch. Production import and
 catalog synchronization remain part of #35.
 
 The original `--output <file>` and `--source-revision <sha>` options remain.
@@ -192,26 +192,28 @@ on the pytest and pip-install matrices. Push runs, other PR branches, and fork P
 do not run this publishing job. No `pull_request_target` workflow is used.
 
 Add `Wrangles-Docs` to the deployment app's selected repositories with
-**Contents: Read and write** and **Pull requests: Read and write** before the first
-run; see [GitHub App configuration](github-app-deployment.md). The job reuses
+**Contents: Read and write** before the first run; see
+[GitHub App configuration](github-app-deployment.md). The job reuses
 `DEPLOY_APP_CLIENT_ID` and `DEPLOY_APP_PRIVATE_KEY` without adding another secret.
 
-The job verifies the same run's artifact checksum and updates only:
+The job verifies the same run's artifact checksum and updates only these files
+on Docs `main`:
 
 - `registry/runtime/wranglespy.json`;
 - `registry/runtime/wranglespy.json.sha256`.
 
-It creates `automation/wranglespy-runtime-manifest-pr-<source PR number>` from
-Docs `main`, commits and pushes without force, then opens a PR targeting `main`.
-Later runs reuse the branch and its open PR. Unchanged files skip the commit;
-if both files match `main`, no PR is created. Concurrent changes can reject a
-push; rerun the failed job to pick up the branch head. The app must be allowed
-to push to the automation branch, but needs no bypass for `main`. Normal review
-and branch protection govern merging. The workflow never merges the PR.
+It checks out Docs `main`, commits changes and pushes directly to `main` without
+force. It does not create a PR or request Pull requests permissions. Unchanged
+files skip the commit. Branch protection must permit the app to update `main`;
+Contents write alone does not bypass repository rules. Concurrent updates can
+reject the push; rerun the failed job to start from the latest `main`.
+This temporary job publishes a source PR preview to Docs `main`, even before the
+WranglesPY PR is merged. Generated Registry files and the central catalog are
+not updated; content reconciliation remains part of Docs #35.
 
 To verify delivery, check **Sync runtime manifest preview** after tests and build
-pass, then open the Docs PR linked in the job summary. Compare `source.revision`
-with the CI merge SHA and compare the JSON bytes with the run's `runtime-manifest`
+pass, then inspect the commit on Docs `main`. Compare `source.revision` with the
+CI merge SHA and compare the JSON bytes with the run's `runtime-manifest`
 artifact. Run `sha256sum --check wranglespy.json.sha256` in `registry/runtime`.
 
 This PR path tests delivery without running `Deploy Dev`, publishing an RC, or
@@ -229,8 +231,8 @@ A PR preview is not a substitute for a tagged-release contract.
 Production lookup, download and import into Wrangles-Docs will be added separately
 under Docs #35. The importer must select the correct version and commit rather
 than whichever workflow ran most recently. No release-download URL is provided
-by this change. Docs `main` remains pinned to its reviewed snapshot; the CI
-preview is available on the automation branch until its Docs PR is merged.
+by this change. The temporary CI preview job directly replaces the runtime
+input on Docs `main`; it does not import the manifest into the Registry.
 
 ## Wrangles-Docs readiness
 
@@ -255,12 +257,11 @@ new runtime version. Before importing the 1.20.4 manifest, Docs #35 must:
 - add `search.find_links.google_domain`;
 - add `standardize.clean.latex_to_text` and `standardize.clean.unescape_unicode`.
 
-Keep Docs pinned to its reviewed runtime until these content changes pass its
-normal reconciliation. Do not filter the new producer's operations, fabricate
+The runtime input copied to Docs `main` is a preview. Import it into the Registry
+only after these content changes pass normal reconciliation. Do not filter the new producer's operations, fabricate
 defaults, or relax validation to hide content drift. Automatic download/import
 and these Registry source updates remain in Docs #35. The CI copy updates only
-the automation branch's runtime input; Docs `main` changes only after PR review
-and merge, and the central catalog is not updated.
+the runtime input on Docs `main`; the central catalog is not updated.
 
 ## Recovery
 
