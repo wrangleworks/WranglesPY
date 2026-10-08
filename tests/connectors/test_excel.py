@@ -35,6 +35,52 @@ def test_default_write():
     )
 
 
+def test_columns_and_sheet_writes_keep_complete_logical_dataframe():
+    memory.clear()
+    try:
+        original = pd.DataFrame({'ID': [1, 2], 'Value': ['a', 'b']})
+        result = wrangles.recipe.run(
+            {'write': [
+                {'excel.columns': {'columns': ['Value']}},
+                {'excel.sheet': {'name': 'Complete result'}},
+            ]}, dataframe=original,
+        )
+        pd.testing.assert_frame_equal(result, original)
+        payloads = list(memory.dataframes.values())
+        assert payloads[0]['connector'] == 'excel.columns.write'
+        assert payloads[0]['columns'] == ['Value']
+        assert payloads[0]['data'] == [['a'], ['b']]
+        assert payloads[1]['connector'] == 'excel.sheet.write'
+        assert payloads[1]['columns'] == ['ID', 'Value']
+        assert payloads[1]['data'] == [[1, 'a'], [2, 'b']]
+    finally:
+        memory.clear()
+
+
+def test_nested_excel_columns_does_not_emit_side_effecting_output():
+    memory.clear()
+    try:
+        result = wrangles.recipe.run(
+            {'wrangles': [{'recipe': {
+                'write': [{'excel.columns': {'columns': ['Value']}}]
+            }}]}, dataframe=pd.DataFrame({'ID': [1], 'Value': ['a']}),
+        )
+        assert result.columns.tolist() == ['ID', 'Value']
+        assert not memory.dataframes
+    finally:
+        memory.clear()
+
+
+def test_generic_dataframe_still_shapes_the_python_return_value():
+    memory.clear()
+    result = wrangles.recipe.run(
+        {'write': {'dataframe': {'columns': ['Value']}}},
+        dataframe=pd.DataFrame({'ID': [1], 'Value': ['a']}),
+    )
+    assert result.to_dict('list') == {'Value': ['a']}
+    assert not memory.dataframes
+
+
 def test_recipe_wrangle_in_batch_writes_all_rows_to_excel_sheet():
     """
     Test the WranglesXL output connector path when a recipe wrangle is used
