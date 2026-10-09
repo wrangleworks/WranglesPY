@@ -433,12 +433,13 @@ def test_table_composed_read_uses_multiple_named_tables(table_memory):
 
 
 def test_table_empty_read_and_replace_keep_headers(table_memory):
-    df = wrangles.connectors.excel.table.read("Empty", {
-        "__excel_tables": {"Empty": {"columns": ["ID"], "data": []}},
-    })
+    df = wrangles.recipe.run(
+        {"read": [{"excel.table": {"name": "Empty"}}],
+         "write": [{"excel.table": {"name": "Results"}}]},
+        variables={"__excel_tables": {"Empty": {"columns": ["ID"], "data": []}}},
+    )
     assert df.shape == (0, 1)
     assert df.columns.tolist() == ["ID"]
-    wrangles.connectors.excel.table.write(df, "Results")
     assert list(memory.dataframes.values())[0] == {
         "columns": ["ID"], "index": [], "data": [],
         "connector": "excel.table.write", "name": "Results", "action": "replace",
