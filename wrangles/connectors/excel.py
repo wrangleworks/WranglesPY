@@ -4,6 +4,7 @@ Only for use by the WranglesXL application
 import pandas as _pd
 from . import memory as _memory
 import logging as _logging
+import re as _re
 
 
 # Names/values follow the syntax already used by the Polars/XlsxWriter
@@ -253,3 +254,147 @@ class sheet():
                       type: boolean
                       description: Whether the column values should wrap text within the cell.
         """
+
+
+class table():
+    """Workbook tables, transported by WranglesXL through recipe variables."""
+    _schema = {}
+
+    def read(name: str, variables: dict = None):
+        _validate_table_name(name)
+        snapshots = (variables or {}).get("__excel_tables")
+        if not isinstance(snapshots, dict):
+            raise RuntimeError("excel.table requires workbook table data supplied by WranglesXL")
+        matches = [value for key, value in snapshots.items()
+                   if isinstance(key, str) and key.casefold() == name.casefold()]
+        if len(matches) != 1:
+            raise ValueError(f"Excel table '{name}' was not found or is ambiguous")
+        payload = matches[0]
+        if not isinstance(payload, dict):
+            raise ValueError(f"Excel table '{name}' has an invalid data payload")
+        columns, rows = payload.get("columns"), payload.get("data")
+        _validate_table_columns(columns)
+        if not isinstance(rows, list) or any(
+            not isinstance(row, list) or len(row) != len(columns) for row in rows
+        ):
+            raise ValueError(f"Excel table '{name}' rows must match its headers")
+        # The workbook snapshot is input only: never place it in memory outputs.
+        return _pd.DataFrame(rows, columns=columns)
+
+    def write(
+        df: _pd.DataFrame,
+        name: str,
+        action: str = "replace",
+        variables: dict = None,
+        sheet: str = None,
+        cell: str = None,
+    ):
+        _validate_table_name(name)
+        _validate_table_columns(df.columns.tolist())
+        if action not in ("replace", "append"):
+            raise ValueError("excel.table action must be replace or append")
+        variables = variables or {}
+        if sheet is None:
+            recipe_name = variables.get("recipe_name") or "Recipe"
+            sheet = _re.sub(r"[\\/*?:\[\]]", "_", f"{recipe_name}-{name}")[:10]
+            sheet = sheet.strip("'") or "Recipe"
+        if not isinstance(sheet, str) or not sheet or len(sheet) > 31 or (
+            _re.search(r"[\\/*?:\[\]]", sheet)
+            or sheet.startswith("'") or sheet.endswith("'")
+        ):
+            raise ValueError("excel.table sheet must be a valid worksheet name (1-31 characters)")
+        cell = "A1" if cell is None else cell
+        match = _re.fullmatch(r"\$?([A-Za-z]{1,3})\$?([1-9][0-9]*)", cell) if isinstance(cell, str) else None
+        if match is None:
+            raise ValueError("excel.table cell must be a single A1-style cell address")
+        column, row = match.groups()
+        column = column.upper()
+        column_number = 0
+        for letter in column:
+            column_number = column_number * 26 + ord(letter) - ord("A") + 1
+        if column_number > 16384 or int(row) > 1048576:
+            raise ValueError("excel.table cell exceeds Excel worksheet bounds")
+        cell = f"{column}{row}"
+        batch_number = variables.get("batch_number", 1)
+        batch_total = variables.get("batch_total", 1)
+        for value in (batch_number, batch_total):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ValueError("excel.table batch metadata must be positive integers")
+        if batch_number > batch_total:
+            raise ValueError("excel.table batch_number exceeds batch_total")
+        if action == "replace" and batch_number > 1:
+            action = "append"
+        # A composed read may introduce NaN/pd.NA/NaT. Emit valid JSON cells
+        # without changing the dataframe returned to the recipe caller.
+        output = df.astype(object).where(_pd.notna(df), None)
+        _memory.write(
+            output, connector="excel.table.write", orient="split",
+            name=name, action=action, sheet=sheet, cell=cell,
+        )
+
+    _schema["read"] = """
+        type: object
+        description: >-
+          Read all body rows and headers from an existing named table in the
+          calling Excel workbook. Requires WranglesXL; independent of selection.
+          Includes filtered rows and excludes the totals row.
+        additionalProperties: false
+        required: [name]
+        properties:
+          name:
+            type: string
+            minLength: 1
+            description: Workbook-wide table name, matched case-insensitively.
+        """
+    _schema["write"] = """
+        type: object
+        description: >-
+          Write to a named table in the calling Excel workbook, creating it
+          on the requested sheet and cell if missing. Headers must
+          match the existing column names; column order is aligned by name.
+          Calculated/formula columns are not supported in this initial version.
+        additionalProperties: false
+        required: [name]
+        properties:
+          name:
+            type: string
+            minLength: 1
+            description: Workbook-wide table name, matched case-insensitively.
+          sheet:
+            type: string
+            minLength: 1
+            maxLength: 31
+            description: >-
+              Worksheet for a new table. Defaults to the first 10 characters
+              of recipe_name-table_name (Recipe if recipe_name is unavailable).
+              Invalid generated worksheet characters are replaced with underscores.
+              Existing tables keep their current worksheet and location.
+          cell:
+            type: string
+            default: A1
+            description: >-
+              Top-left cell for a new table. Defaults to A1.
+              Existing tables keep their current location.
+          action:
+            type: string
+            enum: [replace, append]
+            default: replace
+            description: >-
+              replace clears and replaces body rows, including empty results;
+              append adds rows. The table resizes to fit the result.
+              Later external batches append after the first replacement.
+        """
+
+
+def _validate_table_name(name):
+    if not isinstance(name, str) or not name.strip() or name != name.strip():
+        raise ValueError("excel.table name must be a non-empty string without surrounding whitespace")
+
+
+def _validate_table_columns(columns):
+    if not isinstance(columns, list) or not columns or any(
+        not isinstance(column, str) or not column.strip() for column in columns
+    ):
+        raise ValueError("excel.table headers must be non-empty strings")
+    if len({column.casefold() for column in columns}) != len(columns):
+        raise ValueError("excel.table headers must be unique (case-insensitive)")
