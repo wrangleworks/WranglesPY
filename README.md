@@ -224,3 +224,6 @@ write:
   - file:
       name: file.xlsx
 ```
+
+Named workbook table recipes: see [excel.table](docs/excel-tables.md) for the
+WranglesXL companion contract, supported actions and integration requirements.
