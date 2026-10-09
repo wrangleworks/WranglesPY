@@ -414,6 +414,7 @@ def test_table_recipe_reads_named_snapshot_and_emits_only_output(table_memory):
     assert list(memory.dataframes.values()) == [{
         "index": [0, 1], "columns": ["ID", "Price"], "data": [[1, 20], [2, 40]],
         "connector": "excel.table.write", "name": "Results", "action": "replace",
+        "sheet": "Recipe-Res", "cell": "A1",
     }]
     assert snapshots == {"Products": {"columns": ["ID", "Price"], "data": [[1, 10], [2, 20]]}}
 
@@ -443,6 +444,7 @@ def test_table_empty_read_and_replace_keep_headers(table_memory):
     assert list(memory.dataframes.values())[0] == {
         "columns": ["ID"], "index": [], "data": [],
         "connector": "excel.table.write", "name": "Results", "action": "replace",
+        "sheet": "Recipe-Res", "cell": "A1",
     }
 
 
@@ -493,6 +495,7 @@ def test_table_write_normalizes_external_batch_action(action, number, total, exp
     assert list(memory.dataframes.values()) == [{
         "columns": ["ID"], "index": [0], "data": [[number]],
         "name": "T", "action": expected, "connector": "excel.table.write",
+        "sheet": "Recipe-T", "cell": "A1",
     }]
 
 
@@ -532,9 +535,10 @@ def test_table_schema_requires_name_and_only_supported_actions():
     write = yaml.safe_load(wrangles.connectors.excel.table._schema["write"])
     jsonschema.validate({"name": "Products"}, read)
     jsonschema.validate({"name": "Results", "action": "append"}, write)
+    jsonschema.validate({"name": "Results", "sheet": "Sheet1", "cell": "C3"}, write)
     for value, schema in [({}, read), ({"name": ""}, read),
                           ({"name": "T", "action": "create"}, write),
-                          ({"name": "T", "sheet": "Sheet1"}, write)]:
+                          ({"name": "T", "sheet": ""}, write)]:
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate(value, schema)
 
@@ -567,3 +571,102 @@ def test_table_is_discovered_in_generated_recipe_schema(monkeypatch, tmp_path):
     ]:
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate(recipe, schema)
+
+
+@pytest.mark.parametrize("recipe_name, expected", [
+    ("Clean", "Clean-Resu"), (None, "Recipe-Res"),
+    ("A", "A-Results"), ("1234567890X", "1234567890"),
+    ("A/B:C", "A_B_C-Resu"),
+])
+def test_table_write_default_sheet_and_cell(recipe_name, expected, table_memory):
+    variables = {"recipe_name": recipe_name}
+    wrangles.recipe.run(
+        {"read": [{"test": {"rows": 1, "values": {"ID": 7}}}],
+         "write": [{"excel.table": {"name": "Results"}}]},
+        variables=variables,
+    )
+    payload, = memory.dataframes.values()
+    assert payload == {"columns": ["ID"], "index": [0], "data": [[7]],
+                       "connector": "excel.table.write", "name": "Results",
+                       "action": "replace", "sheet": expected, "cell": "A1"}
+
+
+def test_table_write_preserves_explicit_sheet_and_normalizes_cell(table_memory):
+    wrangles.recipe.run(
+        {"read": [{"test": {"rows": 1, "values": {"ID": 7}}}],
+         "write": [{"excel.table": {"name": "Results", "sheet": "Manual output", "cell": "$c$3"}}]},
+        variables={"recipe_name": "Other"},
+    )
+    payload, = memory.dataframes.values()
+    assert (payload["sheet"], payload["cell"], payload["data"]) == ("Manual output", "C3", [[7]])
+
+
+@pytest.mark.parametrize("options", [
+    {"sheet": ""}, {"sheet": "a" * 32}, {"sheet": "bad/name"},
+    {"sheet": "'quoted"}, {"sheet": 7}, {"cell": "A0"},
+    {"cell": "A1:B2"}, {"cell": "Sheet1!A1"}, {"cell": "XFE1"},
+    {"cell": "A1048577"}, {"cell": ""}, {"cell": 7},
+])
+def test_table_write_rejects_invalid_locations_before_output(options, table_memory):
+    with pytest.raises(ValueError, match="excel.table (sheet|cell)"):
+        wrangles.connectors.excel.table.write(pd.DataFrame({"ID": [1]}), "Results", **options)
+    assert memory.dataframes == {}
+
+
+def test_table_write_accepts_last_excel_cell(table_memory):
+    wrangles.connectors.excel.table.write(pd.DataFrame(columns=["ID"]), "Results", cell="XFD1048576")
+    payload, = memory.dataframes.values()
+    assert payload["cell"] == "XFD1048576" and payload["data"] == []
+
+
+@pytest.mark.parametrize("composition, columns, rows", [
+    ({"union": {"sources": [{"excel.table": {"name": "Products"}}, {"excel.table": {"name": "Extra"}}]}},
+     ["ID", "Value", "Category"], [[1, "alpha", None], [2, "bravo", None], [3, None, "external"]]),
+    ({"join": {"how": "left", "left_on": "ID", "right_on": "ID", "sources": [{"excel.table": {"name": "Products"}}, {"excel.table": {"name": "Lookup"}}]}},
+     ["ID", "Value", "Category"], [[1, "alpha", None], [2, "bravo", "tools"]]),
+    ({"concatenate": {"sources": [{"excel.table": {"name": "Products"}}, {"excel.table": {"name": "Marker"}}]}},
+     ["ID", "Value", "Marker"], [[1, "alpha", "a"], [2, "bravo", "b"]]),
+    ([{"excel.table": {"name": "Products"}}, {"excel.table": {"name": "Extra"}}],
+     ["ID", "Value", "Category"], [[1, "alpha", None], [2, "bravo", None], [3, None, "external"]]),
+])
+def test_table_composed_reads_emit_json_safe_output_and_location(composition, columns, rows, table_memory):
+    import copy
+    import json
+    snapshots = {
+        "Products": {"columns": ["ID", "Value"], "data": [[1, "alpha"], [2, "bravo"]]},
+        "Extra": {"columns": ["ID", "Category"], "data": [[3, "external"]]},
+        "Lookup": {"columns": ["ID", "Category"], "data": [[2, "tools"]]},
+        "Marker": {"columns": ["Marker"], "data": [["a"], ["b"]]},
+    }
+    original = copy.deepcopy(snapshots)
+    result = wrangles.recipe.run(
+        {"read": composition, "write": [{"excel.table": {"name": "Results", "cell": "D4"}}]},
+        variables={"__excel_tables": snapshots, "recipe_name": "Clean"},
+    )
+    payload, = memory.dataframes.values()
+    assert json.loads(json.dumps(payload, allow_nan=False))["data"] == rows
+    assert payload["columns"] == columns
+    assert (payload["sheet"], payload["cell"]) == ("Clean-Resu", "D4")
+    assert result.columns.tolist() == columns and len(result) == len(rows)
+    assert snapshots == original
+
+
+def test_table_write_normalizes_nullable_values_without_mutating_input(table_memory):
+    import json
+    frame = pd.DataFrame({"ID": [1, 2, 3], "Value": [float("nan"), pd.NA, pd.NaT]})
+    original = frame.copy(deep=True)
+    wrangles.connectors.excel.table.write(frame, "Results")
+    payload, = memory.dataframes.values()
+    assert json.loads(json.dumps(payload, allow_nan=False))["data"] == [[1, None], [2, None], [3, None]]
+    pd.testing.assert_frame_equal(frame, original)
+
+
+def test_table_write_keeps_default_location_across_external_batches(table_memory):
+    for number in (1, 2):
+        wrangles.connectors.excel.table.write(
+            pd.DataFrame({"ID": [number]}), "Results",
+            variables={"recipe_name": "Clean", "batch_number": number, "batch_total": 2},
+        )
+    assert [(p["sheet"], p["cell"], p["action"], p["data"]) for p in memory.dataframes.values()] == [
+        ("Clean-Resu", "A1", "replace", [[1]]), ("Clean-Resu", "A1", "append", [[2]]),
+    ]

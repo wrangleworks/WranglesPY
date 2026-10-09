@@ -20,21 +20,46 @@ write:
       action: replace
 ```
 
-Both tables must already exist. Creating missing tables is outside the first
-version of [#1220](https://github.com/wrangleworks/WranglesPY/issues/1220).
-Missing names and unknown tables fail explicitly; there is no fallback to the
-active sheet or current selection. Selection input retains its separate contract
+Read tables must already exist. A missing write table is created by WranglesXL
+with the output headers on its destination worksheet. Missing read tables and
+missing names fail explicitly; there is no fallback to the active selection.
+Selection input retains its separate contract
 (`grid.selected_data` / `excel.selected_data` when those companion connectors are
 available). This feature does not expand #943 or implement `excel.sql`.
 
 ## Reads and writes
+
+For a missing output table, specify its worksheet and top-left cell:
+
+```yaml
+write:
+  - excel.table:
+      name: Results
+      sheet: Output
+      cell: C3
+      action: replace
+```
+
+`cell` defaults to `A1`. Omitted `sheet` uses the first 10 characters of
+`<recipe_name>-<table_name>`, using the recipe variable `recipe_name` supplied by
+XL (`Recipe` when unavailable). For example, `Clean` + `Results` gives
+`Clean-Resu`. Invalid generated worksheet characters are replaced by `_`.
+Explicit worksheet names are not truncated. Absolute cell references such as
+`$C$3` are accepted and normalized to `C3`.
+
+Existing workbook-wide tables retain their worksheet and location; `sheet` and
+`cell` only select the location for a missing table. XL creates a missing worksheet,
+but refuses occupied cells, table overlaps, invalid table names and out-of-bounds
+results before any table mutation. Empty output creates a header-only table.
+The 10-character prefix can collide for multiple output tables: provide distinct
+`sheet`/`cell` destinations when needed. Batched outputs reuse the new table.
 
 - Read headers and every body row, including filtered/hidden rows, excluding
   the totals row. A table with no body rows yields an empty dataframe with its
   headers. Ordinary recipe read options (`columns`, `where`, etc.) still apply.
 - `replace` (default) clears/replaces the body, including empty results, and
   adjusts the table's row count. Existing table name, headers and table identity
-  remain. It does not replace or create a worksheet.
+  remain. It does not replace a worksheet.
 - `append` adds rows; empty results add nothing. Existing and output column
   names must match exactly, but their order may differ: XL aligns values by name.
   Header names must be non-empty strings and unique ignoring case. New/missing
@@ -64,7 +89,10 @@ WranglesXL injects the reserved recipe variable `__excel_tables`:
 Python reads this mapping through its existing recipe-variable injection. Input
 snapshots are never added to `memory.dataframes`, since the Lambda returns that
 collection as write results. Python writes a split dataframe payload with
-`connector: excel.table.write`, `name`, and `action`. The existing Lambda variable
+`connector: excel.table.write`, `name`, `action`, `sheet`, and `cell`. Missing
+dataframe values introduced by `union`, join, or other reads are emitted as JSON
+`null` in table output without changing the logical dataframe or input snapshots.
+The existing Lambda variable
 and output transport can carry this contract without a new top-level API field.
 Do not set `__excel_tables` as a user runtime variable in XL; XL owns it.
 
