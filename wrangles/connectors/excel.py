@@ -3,6 +3,7 @@ Only for use by the WranglesXL application
 """
 import pandas as _pd
 from . import memory as _memory
+from . import grid as _grid
 import logging as _logging
 
 
@@ -119,6 +120,37 @@ def _append_rows_by_column(saved: dict, df: _pd.DataFrame) -> bool:
     return True
 
 
+class selected_data:
+    """Excel-facing wrapper for the shared grid selection contract."""
+
+    def read(dataframe: _pd.DataFrame = None):
+        return _grid.selected_data.read(dataframe)
+
+    _schema = {"read": _grid.selected_data._schema["read"].replace(
+        "Read the selected data", "Read the selected Excel data"
+    )}
+
+
+class columns:
+    """Spreadsheet write mode: columns alongside the selected rows."""
+
+    def write(df: _pd.DataFrame):
+        # Keep every requested column here. The grid writer compares the full
+        # result with its batch input and suppresses unchanged columns only
+        # in the columns-mode projection.
+        _memory.write(df, connector="excel.columns.write", orient="split")
+
+    _schema = {"write": """
+type: object
+description: >-
+  Spreadsheet write mode: columns. Insert new or changed output columns
+  alongside the selected rows in Excel. The output must retain row alignment
+  with the selection. Unchanged input columns are not duplicated.
+additionalProperties: false
+properties: {}
+"""}
+
+
 class sheet():
     _schema = {}
 
@@ -179,7 +211,9 @@ class sheet():
 
     _schema["write"] = """
         type: object
-        description: Write to an excel sheet
+        description: >-
+          Spreadsheet write mode: sheet. Write all requested columns to an
+          Excel sheet/range, including unchanged input columns.
         additionalProperties: false
         properties:
           name:

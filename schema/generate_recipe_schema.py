@@ -3,7 +3,6 @@ import os
 import json
 import logging
 import yaml
-import requests
 import jsonschema
 
 # Get the parent directory of the current file
@@ -125,7 +124,10 @@ schema['read']['concatenate'] = yaml.safe_load(
 schema['write']['dataframe'] = yaml.safe_load(
     """
     type: object
-    description: Define the dataframe that is returned from the recipe.run() function
+    description: >-
+      Define the dataframe returned from recipe.run(). Retains its generic
+      Python return-value behavior. In Excel this is also legacy columns-mode
+      syntax; prefer excel.columns for an explicit spreadsheet write mode.
     properties: {}
     """
 )
@@ -234,7 +236,7 @@ recipe_schema['$defs']['run']['items']['properties'] = schema['run']
 recipe_schema['$defs']['wrangles']['items']['properties'] = schema['wrangles']
 
 # Validate the generated schema
-jsonschema.validate(recipe_schema, requests.get('http://json-schema.org/draft-07/schema#').json())
+jsonschema.Draft7Validator.check_schema(recipe_schema)
 
 # Write final schema
 with open('schema.json', 'w') as f:

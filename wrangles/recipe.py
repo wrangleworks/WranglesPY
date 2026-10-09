@@ -448,7 +448,8 @@ def _read_data(
     recipe: _Union[dict, list],
     functions: dict = None,
     variables: dict = None,
-    input_dataframe: _pandas.DataFrame = None
+    input_dataframe: _pandas.DataFrame = None,
+    _composite_source: bool = False
 ) -> _pandas.DataFrame:
     """
     Import data from requested datasources as defined by the recipe
@@ -466,6 +467,8 @@ def _read_data(
         recipe = [recipe]
     
     results = []
+    # A list of reads is also combined by the recipe runner.
+    _composite_source = _composite_source or len(recipe) > 1
     for read in recipe:
         if not isinstance(read, dict):
             if isinstance(read, str):
@@ -499,12 +502,23 @@ def _read_data(
                 # Reference the recipe execution input dataframe
                 if read_type == "input":
                     df = input_dataframe
+                    if _composite_source and (df is None or df.empty):
+                        raise ValueError(
+                            "Selected input data is missing or empty in a composed read. "
+                            "Supply data rows for every declared input source."
+                        )
+                elif read_type in ('grid.selected_data', 'excel.selected_data'):
+                    func = _get_nested_function(read_type, _connectors, functions, 'read')
+                    df = func(input_dataframe, **params_specific)
                 # Allow blended imports
                 elif read_type in ['join', 'concatenate', 'union']:
                     dfs = []
                     # Recursively call sub-reads
                     for source in params_specific['sources']:
-                        result = _read_data(source, functions, variables, input_dataframe)
+                        result = _read_data(
+                            source, functions, variables, input_dataframe,
+                            _composite_source=True
+                        )
                         if result is None:
                             # Skip if None returned
                             # e.g. in the case of a false if condition
@@ -544,7 +558,17 @@ def _read_data(
 
                 if isinstance(df, _pandas.DataFrame):
                     # Response is a single dataframe, filter appropriately
-                    results.append(_filter_dataframe(df, **params_general))
+                    filtered = _filter_dataframe(df, **params_general)
+                    if (
+                        filtered.empty and
+                        (read_type in ('grid.selected_data', 'excel.selected_data') or
+                         (read_type == 'input' and _composite_source))
+                    ):
+                        raise ValueError(
+                            "Selected input data is empty after filtering. "
+                            "Supply data rows for every declared input source."
+                        )
+                    results.append(filtered)
                 elif isinstance(df, list) and all([isinstance(x, _pandas.DataFrame) for x in df]):
                     # Response is a list of dataframes, filter each appropriately
                     results.extend([_filter_dataframe(x, **params_general) for x in df])
