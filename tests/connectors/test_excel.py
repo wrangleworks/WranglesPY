@@ -392,3 +392,177 @@ def test_excel_sheet_overwrite_uses_append_after_first_external_batch():
 
     assert first_batch["action"] == "overwrite"
     assert second_batch["action"] == "append"
+
+
+@pytest.fixture
+def table_memory():
+    memory.clear()
+    yield
+    memory.clear()
+
+
+def test_table_recipe_reads_named_snapshot_and_emits_only_output(table_memory):
+    snapshots = {"Products": {"columns": ["ID", "Price"], "data": [[1, 10], [2, 20]]}}
+    result = wrangles.recipe.run(
+        {"read": [{"excel.table": {"name": "products"}}],
+         "wrangles": [{"math": {"output": "Price", "input": "Price * 2"}}],
+         "write": [{"excel.table": {"name": "Results"}}]},
+        variables={"__excel_tables": snapshots},
+        dataframe=pd.DataFrame({"UnrelatedSelection": [999]}),
+    )
+    assert result.to_dict("list") == {"ID": [1, 2], "Price": [20, 40]}
+    assert list(memory.dataframes.values()) == [{
+        "index": [0, 1], "columns": ["ID", "Price"], "data": [[1, 20], [2, 40]],
+        "connector": "excel.table.write", "name": "Results", "action": "replace",
+    }]
+    assert snapshots == {"Products": {"columns": ["ID", "Price"], "data": [[1, 10], [2, 20]]}}
+
+
+def test_table_composed_read_uses_multiple_named_tables(table_memory):
+    result = wrangles.recipe.run(
+        {"read": [{"union": {"sources": [
+            {"excel.table": {"name": "A"}}, {"excel.table": {"name": "B"}},
+        ]}}]},
+        variables={"__excel_tables": {
+            "A": {"columns": ["ID"], "data": [[1]]},
+            "B": {"columns": ["ID"], "data": [[2], [3]]},
+        }},
+    )
+    assert result.to_dict("list") == {"ID": [1, 2, 3]}
+    assert memory.dataframes == {}
+
+
+def test_table_empty_read_and_replace_keep_headers(table_memory):
+    df = wrangles.connectors.excel.table.read("Empty", {
+        "__excel_tables": {"Empty": {"columns": ["ID"], "data": []}},
+    })
+    assert df.shape == (0, 1)
+    assert df.columns.tolist() == ["ID"]
+    wrangles.connectors.excel.table.write(df, "Results")
+    assert list(memory.dataframes.values())[0] == {
+        "columns": ["ID"], "index": [], "data": [],
+        "connector": "excel.table.write", "name": "Results", "action": "replace",
+    }
+
+
+@pytest.mark.parametrize("variables, message", [
+    ({}, "supplied by WranglesXL"),
+    ({"__excel_tables": {}}, "not found"),
+    ({"__excel_tables": {"T": {}, "t": {}}}, "ambiguous"),
+    ({"__excel_tables": {"T": []}}, "invalid data payload"),
+    ({"__excel_tables": {"T": {"columns": ["ID"], "data": [[1, 2]]}}}, "match its headers"),
+    ({"__excel_tables": {"T": {"columns": ["ID"], "data": None}}}, "match its headers"),
+])
+def test_table_read_rejects_missing_or_malformed_workbook_data(variables, message, table_memory):
+    with pytest.raises((ValueError, RuntimeError), match=message):
+        wrangles.connectors.excel.table.read("T", variables)
+    assert memory.dataframes == {}
+
+
+@pytest.mark.parametrize("name", [None, "", " ", " T", 5])
+def test_table_rejects_invalid_names(name, table_memory):
+    with pytest.raises(ValueError, match="name must"):
+        wrangles.connectors.excel.table.read(name)
+    with pytest.raises(ValueError, match="name must"):
+        wrangles.connectors.excel.table.write(pd.DataFrame({"ID": [1]}), name)
+    assert memory.dataframes == {}
+
+
+@pytest.mark.parametrize("columns", [[], [""], [1], ["ID", "id"]])
+def test_table_rejects_invalid_headers(columns, table_memory):
+    with pytest.raises(ValueError, match="headers must"):
+        wrangles.connectors.excel.table.read("T", {"__excel_tables": {
+            "T": {"columns": columns, "data": []},
+        }})
+    with pytest.raises(ValueError, match="headers must"):
+        wrangles.connectors.excel.table.write(pd.DataFrame(columns=columns), "T")
+    assert memory.dataframes == {}
+
+
+@pytest.mark.parametrize("action, number, total, expected", [
+    ("replace", 1, 1, "replace"), ("append", 1, 1, "append"),
+    ("replace", 1, 3, "replace"), ("replace", 2, 3, "append"),
+    ("replace", 3, 3, "append"), ("append", 2, 3, "append"),
+])
+def test_table_write_normalizes_external_batch_action(action, number, total, expected, table_memory):
+    wrangles.connectors.excel.table.write(
+        pd.DataFrame({"ID": [number]}), "T", action,
+        {"batch_number": number, "batch_total": total},
+    )
+    assert list(memory.dataframes.values()) == [{
+        "columns": ["ID"], "index": [0], "data": [[number]],
+        "name": "T", "action": expected, "connector": "excel.table.write",
+    }]
+
+
+@pytest.mark.parametrize("action, variables, message", [
+    ("create", {}, "action must"), ("overwrite", {}, "action must"),
+    ("replace", {"batch_number": 0}, "positive integers"),
+    ("replace", {"batch_total": "2"}, "positive integers"),
+    ("replace", {"batch_number": True}, "positive integers"),
+    ("replace", {"batch_number": 2, "batch_total": 1}, "exceeds"),
+])
+def test_table_write_rejects_invalid_action_or_batch_metadata(action, variables, message, table_memory):
+    with pytest.raises(ValueError, match=message):
+        wrangles.connectors.excel.table.write(pd.DataFrame({"ID": [1]}), "T", action, variables)
+    assert memory.dataframes == {}
+
+
+def test_table_multiple_writes_preserve_order_and_target_metadata(table_memory):
+    wrangles.recipe.run(
+        {"read": [{"excel.table": {"name": "${source}"}}],
+         "write": [{"excel.table": {"name": "T", "action": "replace"}},
+                   {"excel.table": {"name": "T", "action": "append"}},
+                   {"excel.sheet": {"name": "Sheet"}}]},
+        variables={"source": "A", "__excel_tables": {"A": {"columns": ["ID"], "data": [[1]]}}},
+    )
+    payloads = list(memory.dataframes.values())
+    assert [(p["connector"], p["name"], p.get("action")) for p in payloads] == [
+        ("excel.table.write", "T", "replace"), ("excel.table.write", "T", "append"),
+        ("excel.sheet.write", "Sheet", None),
+    ]
+    assert [p["data"] for p in payloads] == [[[1]], [[1]], [[1]]]
+
+
+def test_table_schema_requires_name_and_only_supported_actions():
+    import yaml
+    import jsonschema
+    read = yaml.safe_load(wrangles.connectors.excel.table._schema["read"])
+    write = yaml.safe_load(wrangles.connectors.excel.table._schema["write"])
+    jsonschema.validate({"name": "Products"}, read)
+    jsonschema.validate({"name": "Results", "action": "append"}, write)
+    for value, schema in [({}, read), ({"name": ""}, read),
+                          ({"name": "T", "action": "create"}, write),
+                          ({"name": "T", "sheet": "Sheet1"}, write)]:
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(value, schema)
+
+
+
+def test_table_is_discovered_in_generated_recipe_schema(monkeypatch, tmp_path):
+    import json
+    import runpy
+    import shutil
+    import requests
+    import jsonschema
+    from pathlib import Path
+    from types import SimpleNamespace
+    root = Path(__file__).resolve().parents[2]
+    shutil.copy(root / "schema/recipe_base_schema.json", tmp_path / "recipe_base_schema.json")
+    monkeypatch.chdir(tmp_path)
+    def get_meta_schema(url):
+        assert url == "http://json-schema.org/draft-07/schema#"
+        return SimpleNamespace(json=lambda: jsonschema.Draft7Validator.META_SCHEMA)
+    monkeypatch.setattr(requests, "get", get_meta_schema)
+    runpy.run_path(str(root / "schema/generate_recipe_schema.py"))
+    schema = json.loads((tmp_path / "schema.json").read_text())
+    jsonschema.validate({
+        "read": [{"excel.table": {"name": "Products", "columns": ["ID"]}}],
+        "write": [{"excel.table": {"name": "Results", "action": "append", "columns": ["ID"]}}],
+    }, schema)
+    for recipe in [
+        {"read": [{"excel.table": {}}]},
+        {"write": [{"excel.table": {"name": "T", "action": "create"}}]},
+    ]:
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(recipe, schema)
