@@ -93,6 +93,10 @@
         "if": {
           "type": "string",
           "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement."
+        },
+        "result_variable": {
+          "type": "string",
+          "description": "Save the action return value into a mutable runtime variable."
         }
       }
     },

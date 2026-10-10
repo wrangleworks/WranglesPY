@@ -28,5 +28,6 @@ from . import recipe
 from . import s3
 from . import train
 from . import jinja
+from . import variables
 from . import _formatting
 from . import input
