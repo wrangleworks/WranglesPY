@@ -31,7 +31,7 @@ providers:
         default_for: []
         defaults:
           reasoning:
-            effort: low
+            effort: none
           text:
             verbosity: low
         supported_values:
@@ -215,8 +215,6 @@ operations:
     provider: openai
     protocol: responses
     defaults:
-      reasoning:
-        effort: none
       default_concurrency: 32
       request_timeout_seconds: 12
       retries: 1
@@ -247,8 +245,6 @@ operations:
       retries: 1
       strict: true
       recipe_strict: false
-      reasoning:
-        effort: low
   embeddings:
     provider: openai
     protocol: embeddings

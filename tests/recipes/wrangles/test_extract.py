@@ -4411,7 +4411,7 @@ class TestExtractAI:
         ])
         assert matches >= 1
 
-    def test_model_id(self):
+    def test_model_id(self, saved_extract_schema_model):
         """
         Test using extract.ai with a saved model
         """
@@ -4437,7 +4437,7 @@ class TestExtractAI:
             ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values or 'diamond' in df['Shapes'].values)
         )
 
-    def test_model_id_additional_properties(self):
+    def test_model_id_additional_properties(self, saved_extract_schema_model):
         """
         Test non-explicitly passed properties, i.e. kwargs
         This is set to specify a type of integer for the items in the array
@@ -4458,7 +4458,7 @@ class TestExtractAI:
         )
         assert 3 in df['Numbers'][0] or 2 in df['Numbers'][0]
 
-    def test_model_id_named_output_single_column(self):
+    def test_model_id_named_output_single_column(self, saved_extract_schema_model):
         """
         Test using a predefined model that specifies
         one output for all extracted data
@@ -4486,7 +4486,7 @@ class TestExtractAI:
             'Colors' in df['result'][0]
         )
 
-    def test_model_id_named_output_multi_column(self):
+    def test_model_id_named_output_multi_column(self, saved_extract_schema_model):
         """
         Test using a predefined model that specifies
         one output per model row
@@ -4516,7 +4516,7 @@ class TestExtractAI:
             ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values)
         )
 
-    def test_model_id_object_with_properties(self):
+    def test_model_id_object_with_properties(self, saved_extract_schema_model):
         """
         Test a model_id that contains an output of type object
         that contains properties defined as JSON
@@ -4538,7 +4538,7 @@ class TestExtractAI:
         )
         assert 'unit' in df['attributes'][0] and 'value' in df['attributes'][1]
 
-    def test_model_id_array_of_objects(self):
+    def test_model_id_array_of_objects(self, saved_extract_schema_model):
         """
         Test a model_id that contains an output of type array
         that contains items as objects with properties defined as JSON

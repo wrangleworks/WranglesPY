@@ -50,6 +50,24 @@ def generation_calls(monkeypatch):
 
 
 @pytest.mark.parametrize("via_recipe", [False, True])
+@pytest.mark.parametrize("model", ["gpt-6-luna", "gpt-6-sol"])
+@pytest.mark.parametrize("configured_effort", [None, "high"])
+def test_generate_preserves_packaged_and_configured_model_reasoning(
+    generate_config, generation_calls, via_recipe, model, configured_effort
+):
+    config, install = generate_config
+    if configured_effort is not None:
+        config["providers"]["openai"]["models"][model]["defaults"]["reasoning"] = {
+            "effort": configured_effort,
+        }
+        install()
+    _run_generate(via_recipe, model=model)
+    assert len(generation_calls) == 2
+    for payload, _ in generation_calls:
+        assert payload["reasoning"] == {"effort": configured_effort or "none"}
+
+
+@pytest.mark.parametrize("via_recipe", [False, True])
 @pytest.mark.parametrize("explicit_model", [None, "explicit-model"])
 @pytest.mark.parametrize("configured_model", [None, "configured-model"])
 def test_generate_ai_resolves_model_at_call_time(

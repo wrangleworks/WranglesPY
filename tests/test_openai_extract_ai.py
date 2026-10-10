@@ -1076,7 +1076,7 @@ def test_extract_uses_selected_catalog_model_defaults(
             assert extract.ai("wrench 25mm", **settings) == {"length": "25mm"}
         payload = calls[0]["json"]
         assert payload["model"] == "catalog-model"
-        assert payload["reasoning"] == {"effort": "low" if explicit_tuning else "none"}
+        assert payload["reasoning"] == {"effort": "low" if explicit_tuning else "medium"}
         assert payload["text"]["verbosity"] == ("medium" if explicit_tuning else "high")
         assert payload["max_output_tokens"] == (128 if explicit_tuning else 256)
     finally:
@@ -2230,11 +2230,11 @@ def test_legacy_chat_completions_uses_same_result_cache(monkeypatch):
 
 
 @pytest.mark.parametrize("model", [
-    "gpt-6-luna", "gpt-6-luna-2026-09-25", "future-model", "gpt-4o-mini",
+    "gpt-6-luna", "gpt-6-sol", "gpt-6-luna-2026-09-25", "future-model", "gpt-4o-mini",
 ])
 @pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
 @pytest.mark.parametrize("via_recipe", [False, True])
-@pytest.mark.parametrize("reasoning", [None, {"effort": "none"}, {"effort": "low"}])
+@pytest.mark.parametrize("reasoning", [None, {}, {"effort": "none"}, {"effort": "low"}])
 def test_extract_reasoning_always_reaches_provider(monkeypatch, model, protocol, via_recipe, reasoning):
     calls = []
     monkeypatch.setattr(
@@ -2264,18 +2264,61 @@ def test_extract_reasoning_always_reaches_provider(monkeypatch, model, protocol,
 
 
 @pytest.mark.parametrize("reasoning", [None, {"effort": "low"}])
-def test_extract_reports_reasoning_rejection_without_fallback(monkeypatch, reasoning):
+@pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
+@pytest.mark.parametrize("via_recipe", [False, True])
+def test_extract_reports_reasoning_rejection_without_fallback(monkeypatch, reasoning, protocol, via_recipe):
     calls = []
-    message = "Unsupported parameter: reasoning.effort"
+    parameter = "reasoning.effort" if protocol == "responses" else "reasoning_effort"
+    message = f"Unsupported parameter: {parameter}"
     def post(**kwargs):
         calls.append(kwargs)
         return _requests_response({"error": {"message": message}}, status_code=400)
     monkeypatch.setattr(extract._openai_responses._requests, "post", post)
-    result = extract.ai(
-        "wrench 25mm", "key", model="future-model",
-        output={"length": {"type": "string"}}, reasoning=reasoning,
-        threads=1, retries=2, cache=False,
-    )
+    settings = {
+        "api_key": "key", "model": "future-model", "protocol": protocol,
+        "output": {"length": {"type": "string"}},
+        "threads": 1, "retries": 2, "cache": False,
+    }
+    if reasoning is not None:
+        settings["reasoning"] = reasoning
+    if via_recipe:
+        result = recipe.run(
+            {"wrangles": [{"extract.ai": {"input": "data", **settings}}]},
+            dataframe=pd.DataFrame({"data": ["wrench 25mm"]}),
+        ).iloc[0].to_dict()
+    else:
+        result = extract.ai("wrench 25mm", **settings)
     assert len(calls) == 1
-    assert calls[0]["json"]["reasoning"] == (reasoning or {"effort": "none"})
+    expected = reasoning or {"effort": "none"}
+    if protocol == "responses":
+        assert calls[0]["json"]["reasoning"] == expected
+    else:
+        assert calls[0]["json"]["reasoning_effort"] == expected["effort"]
     assert message in result["length"]
+
+
+@pytest.mark.parametrize("model_key", ["GPTModel", "AIModel", "Model"])
+def test_saved_schema_fixture_preserves_shared_definition(monkeypatch, request, model_key):
+    shared = {
+        "Settings": {model_key: "gpt-4o-mini", "AdditionalMessages": "Use source units."},
+        "Columns": ["Find", "Type", "Description"],
+        "Data": [["length", "string", "Length in source units"]],
+    }
+    calls = []
+    monkeypatch.setattr(extract._data, "model_content", lambda model_id: shared)
+    request.getfixturevalue("saved_extract_schema_model")
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(),
+    )
+    assert extract.ai(
+        "wrench 25mm", "key", model_id="shared-test-model", threads=1, cache=False,
+    ) == {"length": "25mm"}
+    payload = calls[0]["json"]
+    assert payload["model"] == ai_config.resolve("extract.ai", role="test")["model"]
+    assert payload["reasoning"] == {"effort": "none"}
+    assert payload["text"]["format"]["schema"]["properties"]["length"]["description"] == "Length in source units"
+    assert "Use source units." in payload["instructions"]
+    assert shared["Settings"] == {model_key: "gpt-4o-mini", "AdditionalMessages": "Use source units."}
+    assert shared["Columns"] == ["Find", "Type", "Description"]
+    assert shared["Data"] == [["length", "string", "Length in source units"]]

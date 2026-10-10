@@ -170,8 +170,13 @@ remains available through `extract.ai(protocol="chat_completions")`. Extraction
 resolves configuration once per operation and uses a private transport for its
 individual rows.
 
-Generation remains unreleased. Its operation keeps `low` reasoning; extraction
-keeps `none` for every model. Its existing direct-Python and recipe strictness
+The packaged OpenAI model reasoning defaults are `none`. Extraction and
+generation inherit those model settings without an operation-level reasoning
+override, so configured model defaults remain effective. Extraction also sends
+`none` when an unlisted model has no configured effort. Explicit caller and
+saved-definition settings retain their precedence.
+
+Generation remains unreleased. Its existing direct-Python and recipe strictness
 defaults are represented by `strict` and `recipe_strict`, respectively.
 
 Extraction uses the operation's `defaults` directly. There is no profile registry

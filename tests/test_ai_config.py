@@ -33,7 +33,7 @@ def test_packaged_operation_defaults_and_model_lifecycle():
     generation = ai_config.resolve("generate.ai")
     assert extraction["model"] == generation["model"] == "gpt-6-luna"
     assert extraction["reasoning"] == {"effort": "none"}
-    assert generation["reasoning"] == {"effort": "low"}
+    assert generation["reasoning"] == {"effort": "none"}
     assert generation["strict"] is True
     assert generation["recipe_strict"] is False
     assert extraction["request_timeout_seconds"] == 12
@@ -315,7 +315,7 @@ def test_custom_model_and_endpoint_are_preserved(monkeypatch, tmp_path):
     assert policy["model"] == "unlisted-model"
     assert policy["endpoints"]["responses"] == "https://custom.example/responses"
     assert policy["default_concurrency"] == 32
-    assert policy["reasoning"] == {"effort": "none"}
+    assert "reasoning" not in policy
     assert "text" not in policy
 
 
@@ -329,7 +329,7 @@ def test_snapshot_inherits_model_options_with_exact_overrides(monkeypatch, tmp_p
     }
     use_config(config, monkeypatch, tmp_path)
     policy = ai_config.resolve("extract.ai", model="gpt-6-luna-2026-09-25")
-    assert policy["reasoning"] == {"effort": "none"}
+    assert policy["reasoning"] == {"effort": "high"}
     assert policy["text"]["verbosity"] == "low"
     assert ai_config.model_capabilities(policy["model"])["reasoning_none"] is False
     assert ai_config.model_capabilities("gpt-6-luna-2026-09-26")["reasoning_none"] is True
@@ -407,7 +407,7 @@ def test_inherited_snapshot_defaults_are_validated(monkeypatch, tmp_path):
     (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"]["supported_values"].update({"reasoning.effort": True}), "list of enum values"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"]["supported_values"].update({"reasoning.effort": [True]}), "list of enum values"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"]["defaults"]["reasoning"].update(effort="invalid"), "must be one of"),
-    (lambda c: c["operations"]["generate.ai"]["defaults"]["reasoning"].update(effort="invalid"), "must be one of"),
+    (lambda c: c["operations"]["generate.ai"]["defaults"].update(reasoning={"effort": "invalid"}), "must be one of"),
     (lambda c: c["operations"]["generate.ai"]["defaults"].update(reasoning="low"), "reasoning must be an object"),
     (lambda c: c["operations"]["extract.ai"]["defaults"].update(default_concurrency=True), "must be an integer"),
     (lambda c: c["operations"]["extract.ai"]["defaults"].update(request_timeout_seconds=float("nan")), "positive finite"),
