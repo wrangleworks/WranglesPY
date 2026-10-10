@@ -99,6 +99,11 @@ keeps `0.2`. Unset temperature uses the provider's default (`1.0` for Gemini 3).
 For extraction, a saved definition's model retains its existing precedence over
 the caller's `model`. Both tuning and runtime defaults are resolved for that
 selected model before applying explicit caller overrides.
+Extraction accepts the simple recipe form `reasoning: none` and the equivalent
+nested form `reasoning: {effort: none}`. Direct Python calls likewise accept
+`reasoning="none"` or `reasoning={"effort": "none"}`. A scalar is normalized to
+the object form before resolving overrides; nested objects retain their other
+reasoning options.
 Explicit reasoning takes precedence over saved reasoning, which takes precedence
 over configured reasoning. Extraction defaults to `none` for every model,
 including unlisted and future models. Reasoning is always sent to the provider;

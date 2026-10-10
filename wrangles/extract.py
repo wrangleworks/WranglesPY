@@ -172,7 +172,7 @@ def ai(
     record_examples: _Union[dict, list] = None,
     url: str = None,
     strict: bool = None,
-    reasoning: dict = None,
+    reasoning: _Union[str, dict] = None,
     verbosity: str = None,
     provider: str = None,
     protocol: str = None,
@@ -215,8 +215,9 @@ def ai(
     :param url: (Optional) Override the configured endpoint.
     :param strict: (Optional) Enable structured output strict mode. Dynamic object schemas \
         automatically use non-strict mode and are validated locally.
-    :param reasoning: (Optional) Responses API reasoning options. Defaults to {"effort": "none"} \
-        for every model. Explicit caller, saved-model, and configuration settings override this default. \
+    :param reasoning: (Optional) Reasoning effort, such as "none" or "low", or an options object \
+        such as {"effort": "none"}. Defaults to "none" for every model. \
+        Explicit caller, saved-model, and configuration settings override this default. \
         Reasoning is always sent; provider incompatibility is reported by the provider.
     :param verbosity: (Optional) Responses API text verbosity. Defaults to "low" \
         for models that support low verbosity.
@@ -279,8 +280,13 @@ def ai(
         raise ValueError("store must be true or false.")
     if verbosity is not None and verbosity not in {"low", "medium", "high"}:
         raise ValueError("verbosity must be 'low', 'medium', or 'high'.")
+    if isinstance(reasoning, str):
+        reasoning = {"effort": reasoning}
     if reasoning is not None and not isinstance(reasoning, dict):
-        raise ValueError("reasoning must be an object such as {'effort': 'none'}.")
+        raise ValueError(
+            "reasoning must be an effort string such as 'none' "
+            "or an object such as {'effort': 'none'}."
+        )
     # Reject invalid explicit options before any saved-definition lookup.
     # Omitted values are resolved after the effective model is known.
     _validate_ai_runtime_settings(

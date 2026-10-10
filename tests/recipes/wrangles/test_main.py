@@ -9374,6 +9374,7 @@ class TestWrangleSchema:
 
     def test_extract_ai_schema_documents_public_parameters_and_example_shape(self):
         import inspect
+        import jsonschema
         import yaml
 
         method = wrangles.recipe._recipe_wrangles.extract.ai
@@ -9435,7 +9436,8 @@ class TestWrangleSchema:
             definition["description"].strip()
             for definition in field_schema["properties"].values()
         )
-        assert "effort" in properties["reasoning"]["properties"]
+        jsonschema.validate("none", properties["reasoning"])
+        jsonschema.validate({"effort": "none"}, properties["reasoning"])
 
     def test_extract_codes_schema_matches_microservice_params(self):
         import yaml

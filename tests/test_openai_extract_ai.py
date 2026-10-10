@@ -732,6 +732,7 @@ def test_extract_chat_sends_catalog_tuning_defaults(monkeypatch, via_recipe, inf
     ("low", {"reasoning": {"effort": "high"}, "verbosity": "high"}, "high", "high"),
     ("low", {"reasoning_effort": "medium"}, "medium", "low"),
     ("low", {"reasoning": {"effort": "none"}, "reasoning_effort": "high"}, "none", "low"),
+    ("low", {"reasoning": "none", "reasoning_effort": "high"}, "none", "low"),
 ])
 def test_extract_chat_tuning_uses_saved_model_and_caller_precedence(
     extraction_config, monkeypatch, saved_effort, explicit, expected_effort, expected_verbosity,
@@ -1158,13 +1159,114 @@ def test_extract_rejects_invalid_text_and_schema_override(extraction_config, mon
     assert calls == []
 
 
-def test_extract_recipe_schema_accepts_max_reasoning():
+@pytest.mark.parametrize("effort", ["none", "minimal", "low", "medium", "high", "xhigh", "max"])
+def test_extract_recipe_schema_accepts_flat_and_nested_reasoning(effort):
     import jsonschema
     import yaml
 
     schema = yaml.safe_load(recipe._recipe_wrangles.extract.ai.__doc__)
-    jsonschema.validate({"effort": "max"}, schema["properties"]["reasoning"])
+    jsonschema.validate(effort, schema["properties"]["reasoning"])
+    jsonschema.validate({"effort": effort}, schema["properties"]["reasoning"])
     assert extract._openai_responses.supports_reasoning_effort("gpt-6-luna", "max")
+
+
+def test_generated_recipe_schema_preserves_reasoning_forms(tmp_path, monkeypatch):
+    import runpy
+    from pathlib import Path
+    import jsonschema
+    import yaml
+
+    root = Path(__file__).resolve().parents[1]
+    (tmp_path / "recipe_base_schema.json").write_text(
+        (root / "schema/recipe_base_schema.json").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    runpy.run_path(str(root / "schema/generate_recipe_schema.py"))
+    schema = json.loads((tmp_path / "schema.json").read_text(encoding="utf-8"))
+    validator = jsonschema.Draft7Validator(schema)
+    settings = {"api_key": "test-key", "input": "data", "output": "length"}
+    for value in ("none", "low", {"effort": "none"}, {"effort": "low", "summary": "auto"}):
+        document = {"wrangles": [{"extract.ai": {**settings, "reasoning": value}}]}
+        validator.validate(yaml.safe_load(yaml.safe_dump(document)))
+    for value in (True, 1, [], "invalid", {"effort": "invalid"}):
+        with pytest.raises(jsonschema.ValidationError) as error:
+            validator.validate({"wrangles": [{"extract.ai": {**settings, "reasoning": value}}]})
+        assert list(error.value.path) == ["wrangles", 0, "extract.ai", "reasoning"]
+
+
+@pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
+@pytest.mark.parametrize("via_recipe", [False, True])
+@pytest.mark.parametrize("effort", ["none", "low", "max"])
+@pytest.mark.parametrize("saved_effort", [None, "low"])
+def test_extract_flat_and_nested_reasoning_have_identical_precedence(
+    extraction_config, monkeypatch, protocol, via_recipe, effort, saved_effort,
+):
+    config, save = extraction_config
+    config["operations"]["extract.ai"]["defaults"]["reasoning"] = {"effort": "high"}
+    save()
+    saved_settings = {"GPTModel": "gpt-6-luna"}
+    if saved_effort is not None:
+        saved_settings["ReasoningEffort"] = saved_effort
+    monkeypatch.setattr(extract._data, "model_content", lambda model_id: {
+        "Settings": saved_settings,
+        "Columns": ["Find", "Type"], "Data": [["length", "string"]],
+    })
+    calls = []
+    monkeypatch.setattr(
+        extract._openai_responses._requests, "post",
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(protocol),
+    )
+    for reasoning in (effort, {"effort": effort}):
+        if via_recipe:
+            reasoning_yaml = (
+                f"reasoning: {effort}" if isinstance(reasoning, str)
+                else f"reasoning:\n      effort: {effort}"
+            )
+            result = recipe.run(
+                f"""wrangles:
+- extract.ai:
+    input: data
+    model_id: saved-definition
+    api_key: key
+    protocol: {protocol}
+    threads: 1
+    cache: false
+    {reasoning_yaml}
+""",
+                dataframe=pd.DataFrame({"data": ["wrench 25mm"]}),
+            )
+            assert result["length"].tolist() == ["25mm"]
+        else:
+            assert extract.ai(
+                "wrench 25mm", "key", model_id="saved-definition", protocol=protocol,
+                reasoning=reasoning, threads=1, cache=False,
+            ) == {"length": "25mm"}
+    assert len(calls) == 2
+    assert calls[0]["json"] == calls[1]["json"]
+    payload = calls[0]["json"]
+    if protocol == "responses":
+        assert payload["reasoning"] == {"effort": effort}
+    else:
+        assert payload["reasoning_effort"] == effort
+
+
+@pytest.mark.parametrize("reasoning", [True, 1, []])
+@pytest.mark.parametrize("via_recipe", [False, True])
+def test_extract_rejects_invalid_reasoning_before_saved_model_lookup(monkeypatch, reasoning, via_recipe):
+    def unexpected_call(*args, **kwargs):
+        pytest.fail("Invalid reasoning must fail before a model lookup or provider call")
+    monkeypatch.setattr(extract._data, "model_content", unexpected_call)
+    monkeypatch.setattr(extract._openai_responses._requests, "post", unexpected_call)
+    settings = {"api_key": "key", "model_id": "saved-definition", "reasoning": reasoning}
+    with pytest.raises(ValueError, match="reasoning must be an effort string .* or an object"):
+        if via_recipe:
+            recipe.run(
+                {"wrangles": [{"extract.ai": {"input": "data", **settings}}]},
+                dataframe=pd.DataFrame({"data": ["wrench 25mm"]}),
+            )
+        else:
+            extract.ai("wrench 25mm", **settings)
 
 
 @pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
@@ -2263,7 +2365,7 @@ def test_extract_reasoning_always_reaches_provider(monkeypatch, model, protocol,
         assert payload["reasoning_effort"] == expected["effort"]
 
 
-@pytest.mark.parametrize("reasoning", [None, {"effort": "low"}])
+@pytest.mark.parametrize("reasoning", [None, "low", {"effort": "low"}])
 @pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
 @pytest.mark.parametrize("via_recipe", [False, True])
 def test_extract_reports_reasoning_rejection_without_fallback(monkeypatch, reasoning, protocol, via_recipe):
@@ -2289,7 +2391,7 @@ def test_extract_reports_reasoning_rejection_without_fallback(monkeypatch, reaso
     else:
         result = extract.ai("wrench 25mm", **settings)
     assert len(calls) == 1
-    expected = reasoning or {"effort": "none"}
+    expected = {"effort": reasoning} if isinstance(reasoning, str) else reasoning or {"effort": "none"}
     if protocol == "responses":
         assert calls[0]["json"]["reasoning"] == expected
     else:

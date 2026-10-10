@@ -616,15 +616,13 @@ def ai(
         type: string
         description: Separator used only when output_format is concatenate. Defaults to comma-space.
       reasoning:
-        type: object
         description: >-
-          Reasoning controls. Defaults to effort none for every model. Explicit
-          settings override the default and are always sent to the provider;
-          unsupported settings produce a provider error.
-        properties:
-          effort:
-            type: string
-            description: Amount of reasoning work requested from a compatible model.
+          Reasoning effort, such as none or low, or an object with effort and
+          other reasoning options. Both forms are equivalent for setting effort.
+          Defaults to none for every model. Explicit settings are always sent to
+          the provider; unsupported settings produce a provider error.
+        oneOf:
+          - type: string
             enum:
               - none
               - minimal
@@ -633,6 +631,19 @@ def ai(
               - high
               - xhigh
               - max
+          - type: object
+            properties:
+              effort:
+                type: string
+                description: Amount of reasoning work requested from a compatible model.
+                enum:
+                  - none
+                  - minimal
+                  - low
+                  - medium
+                  - high
+                  - xhigh
+                  - max
       verbosity:
         type: string
         description: >-
