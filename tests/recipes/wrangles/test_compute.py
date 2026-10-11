@@ -1,7 +1,14 @@
+import inspect
+import json
+from pathlib import Path
+import re
+
+import jsonschema
 import wrangles
 import wrangles.compute as compute
 import pandas as pd
 import pytest
+import yaml
 
 
 class TestCaseWhen:
@@ -755,3 +762,73 @@ class TestScoreSearchResults:
             } for result in results]
 
         assert without_diagnostics(with_evidence) == without_diagnostics(without_evidence)
+
+    def test_scoring_schema_documents_every_argument_and_default(self):
+        function = wrangles.recipe._recipe_wrangles.compute.score_search_results
+        schema = yaml.safe_load(function.__doc__)
+        jsonschema.Draft7Validator.check_schema(schema)
+        parameters = inspect.signature(function).parameters
+
+        assert set(schema["properties"]) == set(parameters) - {"df"}
+        for name, parameter in parameters.items():
+            if name == "df":
+                continue
+            assert schema["properties"][name]["description"]
+            if parameter.default is inspect.Parameter.empty:
+                assert name in schema["required"]
+            else:
+                assert schema["properties"][name]["default"] == parameter.default
+
+    def test_scoring_schema_matches_supported_input_and_output_shapes(self):
+        schema = yaml.safe_load(
+            wrangles.recipe._recipe_wrangles.compute.score_search_results.__doc__
+        )
+        validator = jsonschema.Draft7Validator(schema)
+        inputs = ["results", "suppliers", "part_codes", "MPN", "Description"]
+
+        for count in (3, 4, 5):
+            for output in ("scored_results", ["scored_results"], ["scored_results", "Score Summary"]):
+                validator.validate({"input": inputs[:count], "output": output})
+
+        invalid_configurations = [
+            {"input": inputs[:2], "output": "scored_results"},
+            {"input": inputs + ["extra"], "output": "scored_results"},
+            {"input": inputs, "output": []},
+            {"input": inputs, "output": ["scored_results", "Score Summary", "extra"]},
+        ]
+        for configuration in invalid_configurations:
+            with pytest.raises(jsonschema.ValidationError):
+                validator.validate(configuration)
+
+    def test_documented_scoring_example_matches_actual_outputs(self):
+        guide = (
+            Path(__file__).resolve().parents[3] / "docs" / "search_result_scoring.md"
+        ).read_text(encoding="utf-8")
+        json_examples = re.findall(r"```json\n(.*?)\n```", guide, re.DOTALL)
+        recipe = re.findall(r"```yaml\n(.*?)\n```", guide, re.DOTALL)[0]
+        payloads = json.loads(json_examples[0])
+        expected_excerpt = json.loads(json_examples[1])
+        expected_summary = re.findall(r"```text\n(.*?)\n```", guide, re.DOTALL)[-1]
+
+        configuration = yaml.safe_load(recipe)["wrangles"][0]["compute.score_search_results"]
+        schema = yaml.safe_load(
+            wrangles.recipe._recipe_wrangles.compute.score_search_results.__doc__
+        )
+        jsonschema.Draft7Validator(schema).validate(configuration)
+
+        result = wrangles.recipe.run(recipe, dataframe=pd.DataFrame([{
+            "results": payloads,
+            "suppliers": ["INA"],
+            "part_codes": ["NATV6-PP-A", "NATV6"],
+            "MPN": "NATV6-PP-A",
+            "Description": "NATV6 track roller",
+        }]))
+
+        scored = result.iloc[0]["scored_results"][0]
+        for field, expected in expected_excerpt.items():
+            if isinstance(expected, dict):
+                for key, value in expected.items():
+                    assert scored[field][key] == value
+            else:
+                assert scored[field] == expected
+        assert result.iloc[0]["Score Summary"][0] == expected_summary

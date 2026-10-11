@@ -376,12 +376,21 @@ def score_search_results(
     context_match_base: float = 2.0,
     fuzzy_match_threshold: float = 0.8
 ) -> list:
-    """Score search payloads and attach reduced part-code matching evidence.
+    """Deduplicate and score structured search payloads without visiting pages.
+
+    Return unfiltered results before filtered results, each group in descending
+    score order. Each dictionary contains summary, scoring_details, pricing,
+    metadata, and part-code diagnostics. Scores sum the strongest identity match,
+    supplier text, context, rank, query order, supplier domain, and URL signals.
 
     Each result includes ``part_code_matches`` and ``part_code_match_count``.
     The count covers distinct candidate/type/field matches before reduction,
     including the MPN's duplicate in ``part_codes``. It is not an occurrence
     count within a field and does not affect scores or filtering.
+
+    Here summary.part_code_found is a scoring-category string. The recipe wrapper
+    instead exposes that string as part_match_type and uses part_code_found for
+    allowed-category eligibility. See docs/search_result_scoring.md for details.
     """
     suppliers = suppliers or []
     part_codes = part_codes or []
