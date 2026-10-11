@@ -83,7 +83,7 @@ def score_search_results(
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Scores and filters search results based on progressive partial/exact matching. Can return dictionaries or a parallel list of formatted strings.
+    description: Scores and filters search results based on progressive partial/exact matching. Each result includes reduced part_code_matches evidence and part_code_match_count before reduction. Can return dictionaries or a parallel list of formatted strings.
     additionalProperties: false
     required:
       - input

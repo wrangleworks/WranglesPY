@@ -131,6 +131,7 @@ docs/*
 !docs/search_ai_mode.md
 !docs/search_retrieve_link_content.md
 !docs/search_ai_overview_research.md
+!docs/search_result_scoring.md
 .DS_Store
 
 # Spyder project settings
