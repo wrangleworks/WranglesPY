@@ -1104,12 +1104,37 @@ def _filter_dataframe(
         columns = _wildcard_expansion(df.columns.tolist(), columns)
         df = df[columns]
 
-    # Remove any columns specified by the user
+    # Remove any columns specified by the user. Missing names are ignored so
+    # not_columns behaves like a no-op for absent fields instead of raising.
     if not_columns:
-        not_columns = _wildcard_expansion(df.columns.tolist(), not_columns)
-        # List comprehension is used below to preserve order of columns 
-        remaining_columns = [column for column in list(df.columns) if column not in not_columns]
-        df = df[remaining_columns]
+        if isinstance(not_columns, (str, int)):
+            not_columns = [not_columns]
+        else:
+            not_columns = list(not_columns)
+
+        valid_not_columns = []
+        for column in not_columns:
+            if column is None:
+                continue
+
+            # Negative selectors are valid even when they don't match any current
+            # columns, because they are meant to remove matching columns if present.
+            if isinstance(column, str) and column.startswith('-'):
+                valid_not_columns.append(column)
+                continue
+
+            try:
+                _wildcard_expansion(df.columns.tolist(), [column])
+            except KeyError:
+                continue
+
+            valid_not_columns.append(column)
+
+        if valid_not_columns:
+            not_columns = _wildcard_expansion(df.columns.tolist(), valid_not_columns)
+            # List comprehension is used below to preserve order of columns
+            remaining_columns = [column for column in list(df.columns) if column not in not_columns]
+            df = df[remaining_columns]
 
     return df
 
