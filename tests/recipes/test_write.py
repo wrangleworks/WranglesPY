@@ -110,6 +110,26 @@ def test_specify_not_columns_regex():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.columns == ['3col']
 
+
+def test_specify_not_columns_missing_ignored():
+    """
+    Test writing and excluding a subset of columns while ignoring names that don't exist
+    """
+    data = pd.DataFrame({
+        'col1': ['val1'],
+        'col2': ['val2']
+    })
+    recipe = """
+    write:
+      - dataframe:
+          not_columns:
+            - missing_col
+            - col2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.columns.tolist() == ['col1']
+
+
 def test_specify_where():
     """
     Test writing and applying a WHERE sql criteria
