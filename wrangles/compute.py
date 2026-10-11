@@ -107,16 +107,17 @@ def _find_part_code_matches(
     Return each field-level part-code match without reducing the result to a score.
 
     Match levels are mutually exclusive for a candidate and field:
-    - exact: the original candidate appears with alphanumeric boundaries
+    - exact: the original candidate matches a complete code, ignoring case
     - stripped: the candidate matches after removing non-alphanumeric characters
     - partial: the normalized candidate is embedded in a larger normalized string
     """
     def _find_partial_source_code(source_text: str, norm_cand: str) -> str:
-        for token_match in re.finditer(
+        code_tokens = list(re.finditer(
             r"[a-z0-9]+(?:[-._][a-z0-9]+)*",
             source_text,
             re.IGNORECASE
-        ):
+        ))
+        for token_match in code_tokens:
             token = token_match.group()
             if norm_cand in _compare.normalize_alphanum(token):
                 return token
@@ -134,7 +135,16 @@ def _find_part_code_matches(
             return ""
 
         match_end = match_start + len(norm_cand) - 1
-        return source_text[source_indexes[match_start]:source_indexes[match_end] + 1]
+        source_start = source_indexes[match_start]
+        source_end = source_indexes[match_end] + 1
+        # Include the whole source code when the overlap crosses whitespace.
+        # Otherwise M10 inside M100 would look like an exact match.
+        for token_match in code_tokens:
+            if token_match.start() <= source_start < token_match.end():
+                source_start = token_match.start()
+            if token_match.start() < source_end <= token_match.end():
+                source_end = token_match.end()
+        return source_text[source_start:source_end]
 
     matches = []
     seen = set()
@@ -145,15 +155,18 @@ def _find_part_code_matches(
         if not norm_cand:
             continue
 
-        code_characters = r"a-z0-9._-"
+        # A period is internal to a code only when it connects alphanumerics.
+        # Sentence punctuation must not hide exact evidence behind a variant.
+        left_boundary = r"(?<![a-z0-9_-])(?<![a-z0-9]\.)"
+        right_boundary = r"(?![a-z0-9_-]|\.[a-z0-9])"
         exact_pattern = re.compile(
-            rf"(?<![{code_characters}]){re.escape(candidate_text)}(?![{code_characters}])",
+            rf"{left_boundary}{re.escape(candidate_text)}{right_boundary}",
             re.IGNORECASE
         )
         stripped_pattern = re.compile(
-            rf"(?<![{code_characters}])"
+            rf"{left_boundary}"
             rf"{'[^a-z0-9]*'.join(map(re.escape, norm_cand))}"
-            rf"(?![{code_characters}])",
+            rf"{right_boundary}",
             re.IGNORECASE
         )
 
@@ -171,7 +184,7 @@ def _find_part_code_matches(
             elif stripped_match:
                 match_level = "stripped"
                 matched_code = stripped_match.group()
-            elif len(norm_cand) >= min_length_for_substring:
+            else:
                 squashed_text = _compare.normalize_alphanum(source_text)
                 if norm_cand in squashed_text:
                     matched_code = _find_partial_source_code(source_text, norm_cand)
@@ -179,7 +192,7 @@ def _find_part_code_matches(
                         match_level = "exact"
                     elif _compare.normalize_alphanum(matched_code) == norm_cand:
                         match_level = "stripped"
-                    else:
+                    elif len(norm_cand) >= min_length_for_substring:
                         match_level = "partial"
 
             if not match_level:
@@ -363,7 +376,13 @@ def score_search_results(
     context_match_base: float = 2.0,
     fuzzy_match_threshold: float = 0.8
 ) -> list:
-    """Core function that scores a single list of search payloads."""
+    """Score search payloads and attach reduced part-code matching evidence.
+
+    Each result includes ``part_code_matches`` and ``part_code_match_count``.
+    The count covers distinct candidate/type/field matches before reduction,
+    including the MPN's duplicate in ``part_codes``. It is not an occurrence
+    count within a field and does not affect scores or filtering.
+    """
     suppliers = suppliers or []
     part_codes = part_codes or []
     mpns = mpns or []
