@@ -1,0 +1,507 @@
+{
+  "Settings": {
+    "GeneralInstructions": "Extract only facts explicitly present in the supplied synthetic product description. Preserve part numbers. Use null when a fact is absent; false and zero are meaningful stated values. Do not calculate missing ratings or infer safety approvals. Keep nested units and property names as defined.",
+    "ReasoningEffort": "none"
+  },
+  "Columns": [
+    "Find",
+    "Description",
+    "Type",
+    "Default",
+    "Examples",
+    "Enum",
+    "Notes",
+    "Properties",
+    "Items",
+    "Required",
+    "Additional Properties",
+    "Nullable",
+    "Example - Input",
+    "Example - Output"
+  ],
+  "Data": [
+    [
+      "Manufacturer",
+      "Manufacturer explicitly named in the description.",
+      "string",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "ModelNumber",
+      "Exact manufacturer model number, including punctuation.",
+      "string",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "SupplyType",
+      "Conversion type explicitly stated.",
+      "string",
+      null,
+      null,
+      [
+        "AC/DC",
+        "DC/DC"
+      ],
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "InputVoltage",
+      "Rated input voltage range; do not infer a range from a single voltage.",
+      "object",
+      null,
+      null,
+      null,
+      null,
+      {
+        "min": {
+          "type": "number",
+          "description": "Minimum rated input voltage.",
+          "nullable": true
+        },
+        "max": {
+          "type": "number",
+          "description": "Maximum rated input voltage.",
+          "nullable": true
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "VAC",
+            "VDC"
+          ],
+          "nullable": true
+        }
+      },
+      null,
+      [
+        "min",
+        "max",
+        "unit"
+      ],
+      false,
+      true,
+      null,
+      null
+    ],
+    [
+      "InputFrequencyHz",
+      "Rated AC input frequency range in Hz.",
+      "object",
+      null,
+      null,
+      null,
+      null,
+      {
+        "min": {
+          "type": "number",
+          "description": "Minimum frequency in Hz.",
+          "nullable": true
+        },
+        "max": {
+          "type": "number",
+          "description": "Maximum frequency in Hz.",
+          "nullable": true
+        }
+      },
+      null,
+      [
+        "min",
+        "max"
+      ],
+      false,
+      true,
+      null,
+      null
+    ],
+    [
+      "OutputVoltage",
+      "Nominal output voltage and whether adjustment is explicitly supported.",
+      "object",
+      null,
+      null,
+      null,
+      null,
+      {
+        "value": {
+          "type": "number",
+          "description": "Nominal output voltage.",
+          "nullable": true
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "VAC",
+            "VDC"
+          ],
+          "nullable": true
+        },
+        "adjustable": {
+          "type": "boolean",
+          "description": "False for explicitly fixed output; true for explicitly adjustable output.",
+          "nullable": true
+        }
+      },
+      null,
+      [
+        "value",
+        "unit",
+        "adjustable"
+      ],
+      false,
+      true,
+      "12 VDC fixed output",
+      {
+        "value": 12,
+        "unit": "VDC",
+        "adjustable": false
+      }
+    ],
+    [
+      "OutputCurrentA",
+      "Rated maximum output current in amperes.",
+      "number",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "OutputPowerW",
+      "Rated output power in watts; do not calculate it from other fields.",
+      "number",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "OutputCount",
+      "Explicit number of output channels.",
+      "integer",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "PlugType",
+      "Input plug type explicitly stated; use Bare-wire only for explicitly hardwired input.",
+      "string",
+      null,
+      null,
+      [
+        "EU",
+        "UK",
+        "US",
+        "IEC-C14",
+        "Bare-wire",
+        "USB-C"
+      ],
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "ConnectorType",
+      "Output connector description, including dimensions when supplied.",
+      "string",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "MountingType",
+      "Mounting style explicitly stated.",
+      "string",
+      null,
+      null,
+      [
+        "desktop",
+        "wall-mount",
+        "DIN-rail",
+        "panel"
+      ],
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "EnclosureType",
+      "Enclosure material or construction explicitly stated.",
+      "string",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "EfficiencyPercent",
+      "Specified efficiency as a percentage, for example 90 rather than 0.90.",
+      "number",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "OperatingTemperatureC",
+      "Rated operating temperature range in degrees Celsius.",
+      "object",
+      null,
+      null,
+      null,
+      null,
+      {
+        "min": {
+          "type": "number",
+          "description": "Minimum operating temperature.",
+          "nullable": true
+        },
+        "max": {
+          "type": "number",
+          "description": "Maximum operating temperature.",
+          "nullable": true
+        }
+      },
+      null,
+      [
+        "min",
+        "max"
+      ],
+      false,
+      true,
+      null,
+      null
+    ],
+    [
+      "DimensionsMm",
+      "Explicit length, width, and height in millimetres; do not infer the axis order.",
+      "object",
+      null,
+      null,
+      null,
+      null,
+      {
+        "length": {
+          "type": "number",
+          "description": "Length in millimetres.",
+          "nullable": true
+        },
+        "width": {
+          "type": "number",
+          "description": "Width in millimetres.",
+          "nullable": true
+        },
+        "height": {
+          "type": "number",
+          "description": "Height in millimetres.",
+          "nullable": true
+        }
+      },
+      null,
+      [
+        "length",
+        "width",
+        "height"
+      ],
+      false,
+      true,
+      null,
+      null
+    ],
+    [
+      "WeightG",
+      "Specified weight in grams.",
+      "number",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "Isolation",
+      "Whether galvanic isolation is explicitly stated; do not infer it.",
+      "boolean",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "ShortCircuitProtection",
+      "Whether short-circuit protection is explicitly present or absent.",
+      "boolean",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "OverVoltageProtection",
+      "Whether over-voltage protection is explicitly present or absent.",
+      "boolean",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "IngressProtection",
+      "Explicit IP rating, preserving its exact code.",
+      "string",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "Certifications",
+      "Only certification markings explicitly listed in the description.",
+      "array",
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "type": "string"
+      },
+      null,
+      null,
+      true,
+      null,
+      null
+    ],
+    [
+      "Notes",
+      "Other explicit product details relevant to this power supply; no inferred advice.",
+      "string",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      null,
+      null
+    ]
+  ]
+}

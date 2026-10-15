@@ -1,0 +1,14 @@
+[
+  {
+    "record_id": "PS-001",
+    "description": "Synthetic Example Labs model DEMO-12D AC/DC desktop power supply. Input 100-240 VAC, 50-60 Hz. One fixed 12 VDC output, rated 2 A and 24 W. EU input plug; 5.5 x 2.1 mm barrel output connector. Plastic enclosure. Efficiency 90%. Operating 0 to 40 C. Length 90 mm, width 45 mm, height 30 mm; weight 180 g. Galvanically isolated. Short-circuit and over-voltage protection present. IP20. Markings: CE. Demonstration product, not for sale."
+  },
+  {
+    "record_id": "PS-002",
+    "description": "Synthetic Demo Énergie DEMO-24R AC/DC DIN-rail supply. Input 100-240 VAC at 50-60 Hz. One adjustable output, nominal 24 VDC, rated 5 A, rated power 120 W. Bare-wire input and screw-terminal output. Metal enclosure; efficiency 92%. Operating -10 to 60 C. Length 110 mm, width 40 mm, height 125 mm. Weight 500 g. Galvanic isolation, short-circuit protection and over-voltage protection are specified. IP20. Markings: CE, UKCA. Demonstration product, not for sale."
+  },
+  {
+    "record_id": "PS-003",
+    "description": "Synthetic Example Labs DEMO-5P DC/DC panel module. Input 9-18 VDC. One fixed 5 VDC output; rated 1 A and 5 W. Bare-wire input; pin-header output. Open-frame enclosure. Explicitly non-isolated. Short-circuit protection present; over-voltage protection absent. No other ratings supplied. Demonstration product, not for sale."
+  }
+]
