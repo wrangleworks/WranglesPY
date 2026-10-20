@@ -318,15 +318,20 @@ class table():
     def write(
         df: _pd.DataFrame,
         name: str,
-        action: str = "replace",
+        action: str = "error",
         variables: dict = None,
         sheet: str = None,
         cell: str = None,
     ):
         _validate_table_name(name)
         _validate_table_columns(df.columns.tolist())
-        if action not in ("replace", "append"):
-            raise ValueError("excel.table action must be replace or append")
+        if action not in ("error", "replace", "append"):
+            raise ValueError("excel.table action must be error, replace or append")
+        if "*" in name:
+            if name.count("*") != 1 or not name.endswith("*") or len(name) == 1:
+                raise ValueError("excel.table wildcard must be a single trailing * after a name prefix")
+            if action != "error":
+                raise ValueError("excel.table wildcard names require action error (create a new table)")
         variables = variables or {}
         if sheet is None:
             recipe_name = variables.get("recipe_name") or "Recipe"
@@ -393,7 +398,11 @@ class table():
           name:
             type: string
             minLength: 1
-            description: Workbook-wide table name, matched case-insensitively.
+            description: >-
+              Workbook-wide table name, matched case-insensitively. A single
+              trailing * creates a numbered name, e.g. my_table_* becomes
+              my_table_1, then my_table_2. Requires action error. WranglesXL
+              allocates the name once per run, reusing it across batches.
           sheet:
             type: string
             minLength: 1
@@ -411,12 +420,13 @@ class table():
               Existing tables keep their current location.
           action:
             type: string
-            enum: [replace, append]
-            default: replace
+            enum: [error, replace, append]
+            default: error
             description: >-
-              replace clears and replaces body rows, including empty results;
-              append adds rows. The table resizes to fit the result.
-              Later external batches append after the first replacement.
+              error (default) creates a missing table and rejects an existing
+              workbook-wide name. Explicit replace clears and replaces body
+              rows, including empty results; explicit append adds rows.
+              Later external batches continue the same output table.
         """
 
 

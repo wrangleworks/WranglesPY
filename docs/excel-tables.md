@@ -57,10 +57,12 @@ The 10-character prefix can collide for multiple output tables: provide distinct
 - Read headers and every body row, including filtered/hidden rows, excluding
   the totals row. A table with no body rows yields an empty dataframe with its
   headers. Ordinary recipe read options (`columns`, `where`, etc.) still apply.
-- `replace` (default) clears/replaces the body, including empty results, and
+- `error` (default) creates a missing table but rejects an existing workbook-wide
+  name before any workbook mutation. This prevents accidental updates.
+- Explicit `replace` clears/replaces the body, including empty results, and
   adjusts the table's row count. Existing table name, headers and table identity
   remain. It does not replace a worksheet.
-- `append` adds rows; empty results add nothing. Existing and output column
+- Explicit `append` adds rows; empty results add nothing. Existing and output column
   names must match exactly, but their order may differ: XL aligns values by name.
   Header names must be non-empty strings and unique ignoring case. New/missing
   columns fail; no columns are silently dropped or invented.
@@ -77,6 +79,32 @@ including when the same table is also a destination. A recipe may compose table
 reads through `union`, `join` or `concatenate`. A table-only recipe runs once,
 independently of the user's unrelated selection. If combined with selected-data
 reads, each selected-data batch uses the same full table snapshot.
+
+## Numbered output tables
+
+```yaml
+write:
+  - excel.table:
+      name: my_table_*
+      sheet: FreshOutput
+      cell: A1
+```
+
+A single trailing `*` requests a new workbook-wide name. XL chooses one greater
+than the highest numeric suffix, ignoring case: with `my_table_2` and
+`MY_TABLE_9`, it creates `my_table_10`. With no matches it starts at 1; gaps
+are not reused. Literal output names in the same run are also reserved. All
+batches of this wildcard output use the same resolved name; another run
+allocates the next suffix. Read names must be literal existing table names.
+
+Wildcard writes require `action: error` (the default); combining a wildcard
+with `append` or `replace` is rejected. Numbering allocates only the table name,
+not a free worksheet or cell. The usual sheet/cell defaults and occupied-cell
+checks apply. Choose a free destination on later runs, otherwise the write
+fails rather than overwriting the previous table. Malformed patterns, invalid
+Excel names, excessive numeric suffixes and overlapping destinations fail
+before mutation. Number allocation is not a lock against simultaneous writers;
+Office errors are reported if another writer claims the name first.
 
 ## Workbook transport
 

@@ -4,6 +4,34 @@ import pytest
 from wrangles.connectors import memory
 
 
+@pytest.mark.parametrize("number", [1, 2, 3])
+def test_table_default_error_is_preserved_for_all_batches(number, table_memory):
+    wrangles.connectors.excel.table.write(
+        pd.DataFrame({"ID": [number]}), "Results",
+        variables={"batch_number": number, "batch_total": 3},
+    )
+    frame = list(memory.dataframes.values())[0]
+    assert frame["action"] == "error"
+    assert frame["name"] == "Results"
+    assert frame["data"] == [[number]]
+
+
+def test_table_wildcard_is_transported_for_workbook_allocation(table_memory):
+    wrangles.connectors.excel.table.write(pd.DataFrame({"ID": [1]}), "my_table_*", sheet="Fresh")
+    frame = list(memory.dataframes.values())[0]
+    assert frame["name"] == "my_table_*"
+    assert frame["action"] == "error"
+    assert frame["sheet"] == "Fresh"
+    assert frame["data"] == [[1]]
+
+
+@pytest.mark.parametrize("name,action", [("*", "error"), ("my*table", "error"), ("my_table_**", "error"), ("my_table_*", "append"), ("my_table_*", "replace")])
+def test_table_invalid_wildcard_fails_before_output(name, action, table_memory):
+    with pytest.raises(ValueError, match="wildcard"):
+        wrangles.connectors.excel.table.write(pd.DataFrame({"ID": [1]}), name, action=action)
+    assert memory.dataframes == {}
+
+
 def test_default_write():
     """
     Test memory connector
@@ -459,7 +487,7 @@ def test_table_recipe_reads_named_snapshot_and_emits_only_output(table_memory):
     assert result.to_dict("list") == {"ID": [1, 2], "Price": [20, 40]}
     assert list(memory.dataframes.values()) == [{
         "index": [0, 1], "columns": ["ID", "Price"], "data": [[1, 20], [2, 40]],
-        "connector": "excel.table.write", "name": "Results", "action": "replace",
+        "connector": "excel.table.write", "name": "Results", "action": "error",
         "sheet": "Recipe-Res", "cell": "A1",
     }]
     assert snapshots == {"Products": {"columns": ["ID", "Price"], "data": [[1, 10], [2, 20]]}}
@@ -482,7 +510,7 @@ def test_table_composed_read_uses_multiple_named_tables(table_memory):
 def test_table_empty_read_and_replace_keep_headers(table_memory):
     df = wrangles.recipe.run(
         {"read": [{"excel.table": {"name": "Empty"}}],
-         "write": [{"excel.table": {"name": "Results"}}]},
+         "write": [{"excel.table": {"name": "Results", "action": "replace"}}]},
         variables={"__excel_tables": {"Empty": {"columns": ["ID"], "data": []}}},
     )
     assert df.shape == (0, 1)
@@ -581,6 +609,8 @@ def test_table_schema_requires_name_and_only_supported_actions():
     write = yaml.safe_load(wrangles.connectors.excel.table._schema["write"])
     jsonschema.validate({"name": "Products"}, read)
     jsonschema.validate({"name": "Results", "action": "append"}, write)
+    jsonschema.validate({"name": "my_table_*", "action": "error"}, write)
+    assert write["properties"]["action"]["default"] == "error"
     jsonschema.validate({"name": "Results", "sheet": "Sheet1", "cell": "C3"}, write)
     for value, schema in [({}, read), ({"name": ""}, read),
                           ({"name": "T", "action": "create"}, write),
@@ -634,7 +664,7 @@ def test_table_write_default_sheet_and_cell(recipe_name, expected, table_memory)
     payload, = memory.dataframes.values()
     assert payload == {"columns": ["ID"], "index": [0], "data": [[7]],
                        "connector": "excel.table.write", "name": "Results",
-                       "action": "replace", "sheet": expected, "cell": "A1"}
+                       "action": "error", "sheet": expected, "cell": "A1"}
 
 
 def test_table_write_preserves_explicit_sheet_and_normalizes_cell(table_memory):
@@ -714,5 +744,5 @@ def test_table_write_keeps_default_location_across_external_batches(table_memory
             variables={"recipe_name": "Clean", "batch_number": number, "batch_total": 2},
         )
     assert [(p["sheet"], p["cell"], p["action"], p["data"]) for p in memory.dataframes.values()] == [
-        ("Clean-Resu", "A1", "replace", [[1]]), ("Clean-Resu", "A1", "append", [[2]]),
+        ("Clean-Resu", "A1", "error", [[1]]), ("Clean-Resu", "A1", "error", [[2]]),
     ]
