@@ -58,11 +58,13 @@ deployment continue through their existing workflows. `ci.yml` also exports
 preview manifests for its PR/push runs. A temporary CI job copies the successful
 same-repository PR preview from
 `generate-and-publish-a-versioned-runtime-manifest-for-every-WranglesPY-release`
-to the Wrangles-Docs `test_deploying_manifest` branch after tests and build pass.
-The deployment app must have Contents write access to Wrangles-Docs and permission
-under the target branch's rules. The branch is created from Docs `main` if absent;
-only the runtime manifest and checksum are committed, and unchanged files produce
-no commit. This preview records the checked-out merge SHA and stable `setup.py`
+to a Wrangles-Docs PR targeting `main` after tests and build pass.
+The deployment app must have Contents and Pull requests write access to
+Wrangles-Docs. The job opens or updates
+`automation/wranglespy-runtime-preview-<PR number>` from Docs `main`; only the
+runtime manifest and checksum are committed, and unchanged files produce no
+commit. Normal review and branch protection apply before merging the Docs PR.
+This preview records the checked-out merge SHA and stable `setup.py`
 version. It is not a versioned RC contract or a production Registry update.
 `deploy-dev.yml` has no runtime-manifest export or Docs sync. Artifact expiry
 follows repository settings because uploads do not override `retention-days`.

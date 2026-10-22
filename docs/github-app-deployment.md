@@ -3,7 +3,7 @@
 The DEV and PROD deployment workflows use an organization-owned GitHub App for
 operations in other repositories. WranglesPY CI uses `GITHUB_TOKEN` for checkout
 and GHCR publishing; its temporary manifest-preview job also uses this app to
-update the runtime input on Wrangles-Docs main. AWS publishing and Lambda updates continue
+open or update a runtime-input PR targeting Wrangles-Docs main. AWS publishing and Lambda updates continue
 to use GitHub OIDC. No personal access token is required by these workflows.
 
 The registered organization app is
@@ -23,7 +23,7 @@ An administrator of `wrangleworks` performs this setup once:
    `wrangleworks` account. Disable webhooks; no callback URL, user authorization,
    or event subscriptions are needed.
 2. Grant these **repository permissions**: **Contents: Read and write** and
-   **Actions: Read and write**. GitHub includes **Metadata: Read-only**. Leave
+   **Actions: Read and write**, and **Pull requests: Read and write**. GitHub includes **Metadata: Read-only**. Leave
    other repository, organization, and account permissions unset.
 3. Install the app on **Only select repositories** and select exactly
    `wrangleworks.github.io`, `Lambda-Recipes`, and `Wrangles-Docs`. It does not
@@ -49,7 +49,7 @@ repositories. Each workflow requests a narrower installation token:
 | Operation | Token repository | Token permission |
 | --- | --- | --- |
 | Publish `schema/recipes/schema_dev.json` | `wrangleworks.github.io` | Contents: write |
-| Push runtime manifest to `main` | `Wrangles-Docs` | Contents: write |
+| Open/update runtime manifest PR to `main` | `Wrangles-Docs` | Contents: write; Pull requests: write |
 | Dispatch and wait for DEV or PROD deployment | `Lambda-Recipes` | Actions: write |
 
 The first DEV job validates the schema and Lambda scopes; the first PROD job
@@ -60,10 +60,11 @@ repositories or start a deployment. The separate CI preview job requests its Doc
 token after tests and build pass. Invalid configuration fails that job. Repository
 branch rules can still reject a later schema or manifest preview push.
 
-The Docs preview job pushes directly to `main`. Branch rules must permit the
-app to update `main`; installation access and Contents write alone do not bypass
-repository protection. The workflow does not change these rules or request
-Pull requests permissions.
+The Docs preview job pushes to `automation/wranglespy-runtime-preview-<PR number>`
+and opens or updates a PR targeting `main`. It does not bypass main branch rules
+or merge the PR. Enable **Pull requests: Read and write** on the app and approve
+the updated installation permissions before running this job; requesting a token
+permission the installation has not granted fails with HTTP 422.
 
 Each publishing or dispatch job creates a fresh token immediately before use.
 Tokens are limited to one repository and automatically revoked when their job
@@ -102,12 +103,12 @@ The app and Client ID can remain unchanged.
 
 ## Validate the temporary CI preview
 
-After configuring the app's Wrangles-Docs access and permission to update main, push
+After configuring the app's Wrangles-Docs access and Contents/Pull requests write permissions, push
 the CI change to
 `generate-and-publish-a-versioned-runtime-manifest-for-every-WranglesPY-release`.
 Its same-repository PR run starts **Sync runtime manifest preview** after the
 schema job and build (including the pytest and pip-install gates) pass. Check the
-commit on Docs `main` and compare the JSON with that run's
+Docs preview PR targeting `main` and compare the JSON with that run's
 `runtime-manifest` artifact. This job is skipped for push events, other PR
 branches, and forks. It does not invoke the DEV deployment workflow.
 
