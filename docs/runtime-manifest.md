@@ -192,29 +192,29 @@ on the pytest and pip-install matrices. Push runs, other PR branches, and fork P
 do not run this publishing job. No `pull_request_target` workflow is used.
 
 Add `Wrangles-Docs` to the deployment app's selected repositories with
-**Contents: Read and write** and **Pull requests: Read and write** before the first run; see
+**Contents: Read and write** before the first run; see
 [GitHub App configuration](github-app-deployment.md). The job reuses
 `DEPLOY_APP_CLIENT_ID` and `DEPLOY_APP_PRIVATE_KEY` without adding another secret.
 
 The job verifies the same run's artifact checksum and updates only these files
-in a Docs PR targeting `main`:
+on Docs `main`:
 
 - `registry/runtime/wranglespy.json`;
 - `registry/runtime/wranglespy.json.sha256`.
 
-It checks out Docs `main` and opens or updates a PR from
-`automation/wranglespy-runtime-preview-<PR number>` targeting `main`. Subsequent
-runs update the same preview branch and open PR; unchanged files produce no new
-commit. Only the manifest and checksum are included. The PR is not automatically
-merged, so normal Docs review and main branch protection apply. Generated
-Registry files and the central catalog are not updated; content reconciliation
-remains part of Docs #35.
+It checks out Docs `main`, commits changes and pushes directly to `main` without
+force. It does not create a PR or request Pull requests permissions. Unchanged
+files skip the commit. Branch protection must permit the app to update `main`;
+Contents write alone does not bypass repository rules. Concurrent updates can
+reject the push; rerun the failed job to start from the latest `main`.
+This temporary job publishes a source PR preview to Docs `main`, even before the
+WranglesPY PR is merged. Generated Registry files and the central catalog are
+not updated; content reconciliation remains part of Docs #35.
 
 To verify delivery, check **Sync runtime manifest preview** after tests and build
-pass, then inspect the Docs preview PR. Compare `source.revision` with the
+pass, then inspect the commit on Docs `main`. Compare `source.revision` with the
 CI merge SHA and compare the JSON bytes with the run's `runtime-manifest`
-artifact. Run `sha256sum --check wranglespy.json.sha256` in `registry/runtime`
-on the preview branch.
+artifact. Run `sha256sum --check wranglespy.json.sha256` in `registry/runtime`.
 
 This PR path tests delivery without running `Deploy Dev`, publishing an RC, or
 triggering Lambda deployment. The branch filter is deliberately temporary; remove
@@ -231,8 +231,8 @@ A PR preview is not a substitute for a tagged-release contract.
 Production lookup, download and import into Wrangles-Docs will be added separately
 under Docs #35. The importer must select the correct version and commit rather
 than whichever workflow ran most recently. No release-download URL is provided
-by this change. The temporary CI preview job proposes replacing the runtime
-input through a Docs PR targeting `main`; it does not import the manifest into the Registry.
+by this change. The temporary CI preview job directly replaces the runtime
+input on Docs `main`; it does not import the manifest into the Registry.
 
 ## Wrangles-Docs readiness
 
@@ -257,11 +257,11 @@ new runtime version. Before importing the 1.20.4 manifest, Docs #35 must:
 - add `search.find_links.google_domain`;
 - add `standardize.clean.latex_to_text` and `standardize.clean.unescape_unicode`.
 
-The runtime input proposed in the Docs PR is a preview. Import it into the Registry
+The runtime input copied to Docs `main` is a preview. Import it into the Registry
 only after these content changes pass normal reconciliation. Do not filter the new producer's operations, fabricate
 defaults, or relax validation to hide content drift. Automatic download/import
-and these Registry source updates remain in Docs #35. The CI PR updates only
-the runtime input after merge into Docs `main`; the central catalog is not updated.
+and these Registry source updates remain in Docs #35. The CI copy updates only
+the runtime input on Docs `main`; the central catalog is not updated.
 
 ## Recovery
 

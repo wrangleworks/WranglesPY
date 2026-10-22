@@ -235,7 +235,6 @@ jobs:
           owner: wrangleworks
           repositories: Wrangles-Docs
           permission-contents: write
-          permission-pull-requests: write
 
       - name: Checkout Wrangles-Docs
         uses: actions/checkout@v5
@@ -253,26 +252,21 @@ jobs:
           cd registry/runtime
           sha256sum wranglespy.json > wranglespy.json.sha256
 
-      - name: Open or update runtime manifest preview PR
-        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
-        with:
-          token: ${{ steps.manifest-token.outputs.token }}
-          path: runtime-docs
-          base: main
-          branch: automation/wranglespy-runtime-preview-${{ github.event.pull_request.number }}
-          add-paths: |
-            registry/runtime/wranglespy.json
-            registry/runtime/wranglespy.json.sha256
-          commit-message: Update runtime manifest preview from WranglesPY ${{ github.sha }}
-          title: "Update WranglesPY runtime manifest preview (PR #${{ github.event.pull_request.number }})"
-          body: |
-            Update the runtime manifest preview from https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}.
-
-            Source revision: `${{ github.sha }}`
-            Validated artifact: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-            This is a source PR preview, not a tagged-release contract. Review and merge this PR to update the Docs runtime input.
-            Generated Registry files and the central catalog are unchanged.
+      - name: Commit and push runtime manifest to Docs main
+        working-directory: runtime-docs
+        env:
+          SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          test "$(git branch --show-current)" = main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add registry/runtime/wranglespy.json registry/runtime/wranglespy.json.sha256
+          if git diff --cached --quiet; then
+            echo "No changes to the runtime manifest, skipping commit."
+          else
+            git commit -m "Update runtime manifest preview from WranglesPY ${SOURCE_REVISION}"
+            git push origin HEAD:refs/heads/main
+          fi
 
   build:
     runs-on: ubuntu-latest
