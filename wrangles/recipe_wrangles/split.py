@@ -3,6 +3,7 @@ Split a single column to multiple columns
 """
 # Rename List to _list to be able to use function name list without clashing
 from typing import Union as _Union, List as _list
+from copy import deepcopy as _deepcopy
 import logging as _logging
 import pandas as _pd
 from .. import format as _format
@@ -25,7 +26,8 @@ def dictionary(
     description: |-
       Split one or more dictionaries into columns.
       The dictionary keys will be returned as the new column headers.
-      If the dictionaries contain overlapping values, the last value will be returned.
+      Dictionary keys are case-sensitive. With multiple input columns,
+      later dictionaries overwrite earlier keys before defaults are applied.
     additionalProperties: false
     required:
       - input
@@ -36,9 +38,9 @@ def dictionary(
           - integer
           - array
         description: |-
-          Name or lists of the column(s) containing dictionaries to be split.
-          If providing multiple dictionaries and the dictionaries
-          contain overlapping values, the last value will be returned.
+          Name or list of columns containing dictionaries or JSON object strings to split.
+          For overlapping keys, later input columns take precedence
+          before defaults are applied.
       output:
         type:
           - string
@@ -55,8 +57,15 @@ def dictionary(
       default:
         type: object
         description: >-
-          Provide a set of default headings and values
-          if they are not found within the input
+          Provide defaults for missing top-level keys or keys with null values
+          after merging the input dictionaries. Keys use their original names
+          before output renaming. Non-null values, including 0, false, empty
+          strings, lists, and dictionaries, are preserved. Nested values are
+          not filled recursively.
+          When default is supplied (including {}), invalid or non-dictionary
+          input cells are treated as empty dictionaries, so valid values from
+          other input columns are retained. Without default, invalid input
+          raises an error.
       output_format:
         type: string
         enum:
@@ -65,11 +74,14 @@ def dictionary(
         description: |-
           How to split the dictionary.
           columns creates one output column for each dictionary key.
+          In recipes, remaining null cells are normalized to empty strings.
           to_lists creates two output columns containing lists of keys and values.
+          Remaining null values inside these lists are preserved.
     """
     if output_format not in ["columns", "to_lists"]:
         raise ValueError("output_format must be one of: columns, to_lists")
 
+    has_default = default is not None
     if default is None:
         default = {}
     _logging.debug(f": Splitting dictionaries :: input :: {input}")
@@ -88,12 +100,24 @@ def dictionary(
         raise ValueError(f'{val} is not a valid Dictionary') from None
         
 
-    # Merge each row's dictionaries so duplicate keys follow existing behavior:
-    # later input columns overwrite earlier input columns.
-    dicts = [
-        dict(_itertools.chain.from_iterable(_parse_dict_or_json(d) for d in ([default] + row.tolist())))
-        for row in df[input].values
-    ]
+    # Validate defaults separately so invalid configuration cannot use fallback.
+    default = dict(_parse_dict_or_json(default))
+    dicts = []
+    for row in df[input].values:
+        # Keep default keys first, preserving the existing output column order.
+        merged = dict.fromkeys(default)
+        for value in row:
+            try:
+                merged.update(_parse_dict_or_json(value))
+            except ValueError:
+                if not has_default:
+                    raise
+
+        # Apply defaults after merging so later input columns still take precedence.
+        for key, value in default.items():
+            if merged[key] is None:
+                merged[key] = _deepcopy(value)
+        dicts.append(merged)
 
     if output_format == "to_lists":
         if output is None:

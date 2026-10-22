@@ -124,6 +124,7 @@ env.bak/
 venv.bak/
 docs/*
 !docs/ai_configuration.md
+!docs/spreadsheet_recipes.md
 !docs/ai_answers.md
 !docs/extract_ai_user_guide.md
 !docs/github-app-deployment.md
@@ -131,6 +132,7 @@ docs/*
 !docs/search_retrieve_link_content.md
 !docs/search_ai_overview_research.md
 !docs/runtime-manifest.md
+!docs/search_result_scoring.md
 .DS_Store
 
 # Spyder project settings

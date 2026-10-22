@@ -905,6 +905,164 @@ class TestSplitDictionary:
             df['Col4'][0] == 'D'
         )
 
+    @pytest.mark.parametrize("output_format", ["columns", "to_lists"])
+    @pytest.mark.parametrize("invalid", [
+        "Timed Out", "", None, float("nan"), 123, False, [],
+        "{invalid JSON}", '["not a dictionary"]', "null",
+    ])
+    def test_split_dictionary_invalid_input_uses_default(self, invalid, output_format):
+        df = wrangles.recipe.run(
+            {"wrangles": [{"split.dictionary": {
+                "input": "atts",
+                "default": {"Voltage": {}},
+                "output_format": output_format,
+            }}]},
+            dataframe=pd.DataFrame({"atts": [
+                {"Voltage": {"value": 120, "uom": "VAC"}},
+                invalid,
+                '{"Voltage": {"value": 12, "uom": "VDC"}}',
+            ]}),
+        )
+        expected = [{"value": 120, "uom": "VAC"}, {}, {"value": 12, "uom": "VDC"}]
+        if output_format == "columns":
+            assert df["Voltage"].tolist() == expected
+        else:
+            assert df["Keys"].tolist() == [["Voltage"]] * 3
+            assert df["Values"].tolist() == [[value] for value in expected]
+
+    @pytest.mark.parametrize("output_format", ["columns", "to_lists"])
+    @pytest.mark.parametrize("invalid", ["Timed Out", None, "{invalid JSON}", []])
+    def test_split_dictionary_invalid_input_without_default_raises(self, invalid, output_format):
+        with pytest.raises(ValueError, match="is not a valid Dictionary"):
+            wrangles.recipe.run(
+                {"wrangles": [{"split.dictionary": {
+                    "input": "atts", "output_format": output_format,
+                }}]},
+                dataframe=pd.DataFrame({"atts": [{"Voltage": 120}, invalid]}),
+            )
+
+    @pytest.mark.parametrize("output_format", ["columns", "to_lists"])
+    def test_split_dictionary_explicit_empty_default(self, output_format):
+        df = wrangles.recipe.run(
+            {"wrangles": [{"split.dictionary": {
+                "input": "atts", "default": {}, "output_format": output_format,
+            }}]},
+            dataframe=pd.DataFrame({"atts": ["Timed Out", None]}),
+        )
+        if output_format == "columns":
+            assert df.columns.tolist() == ["atts"]
+        else:
+            assert df["Keys"].tolist() == [[], []]
+            assert df["Values"].tolist() == [[], []]
+
+    @pytest.mark.parametrize("invalid_default", ["Timed Out", 123, []])
+    def test_split_dictionary_invalid_default_raises(self, invalid_default):
+        with pytest.raises(ValueError, match="is not a valid Dictionary"):
+            wrangles.recipe.run(
+                {"wrangles": [{"split.dictionary": {
+                    "input": "atts", "default": invalid_default,
+                }}]},
+                dataframe=pd.DataFrame({"atts": [{"Voltage": 120}]}),
+            )
+
+    @pytest.mark.parametrize("output_format", ["columns", "to_lists"])
+    @pytest.mark.parametrize("default", [{}, "", [], "fallback", 0, False])
+    def test_split_dictionary_json_null_uses_default(self, default, output_format):
+        df = wrangles.recipe.run(
+            {"wrangles": [
+                {"convert.from_json": {"input": "Source", "output": "atts"}},
+                {"split.dictionary": {
+                    "input": "atts", "default": {"Voltage": default},
+                    "output_format": output_format,
+                }},
+            ]},
+            dataframe=pd.DataFrame({"Source": [
+                '{"Voltage": {"value": 120, "uom": "VAC"}}',
+                '{"Voltage": {"value": 120, "uom": "VAC"}}',
+                '{"Voltage": null}',
+                '{}',
+            ]}),
+        )
+        expected = [{"value": 120, "uom": "VAC"}] * 2 + [default, default]
+        if output_format == "columns":
+            assert df["Voltage"].tolist() == expected
+        else:
+            assert df["Keys"].tolist() == [["Voltage"]] * 4
+            assert df["Values"].tolist() == [[value] for value in expected]
+        assert df.at[2, "atts"] == {"Voltage": None}
+
+    @pytest.mark.parametrize("output_format", ["columns", "to_lists"])
+    def test_split_dictionary_defaults_preserve_existing_values(self, output_format):
+        values = {
+            "Zero": 0, "False": False, "Blank": "", "List": [], "Dictionary": {},
+            "Nested": {"child": None}, "Unconfigured": None, "Voltage": 120,
+        }
+        defaults = {key: "fallback" for key in values if key not in ("Unconfigured", "Voltage")}
+        defaults["voltage"] = {}
+        df = wrangles.recipe.run(
+            {"wrangles": [{"split.dictionary": {
+                "input": "atts", "default": defaults, "output_format": output_format,
+            }}]},
+            dataframe=pd.DataFrame({"atts": [values]}),
+        )
+        expected = {**values, "voltage": {}}
+        if output_format == "columns":
+            expected["Unconfigured"] = ""
+            assert df[list(expected)].to_dict("records") == [expected]
+        else:
+            assert dict(zip(df.at[0, "Keys"], df.at[0, "Values"])) == expected
+
+    @pytest.mark.parametrize("output_format", ["columns", "to_lists"])
+    def test_split_dictionary_defaults_after_multiple_inputs(self, output_format):
+        df = wrangles.recipe.run(
+            {"wrangles": [{"split.dictionary": {
+                "input": ["First", "Second"],
+                "default": {"Voltage": {}, "Missing": "fallback"},
+                "output_format": output_format,
+            }}]},
+            dataframe=pd.DataFrame({
+                "First": [{"Voltage": 1}, "Timed Out", {"Voltage": 1}, {"Voltage": None}],
+                "Second": ["Timed Out", {"Voltage": 2}, {"Voltage": None}, {"Voltage": 3}],
+            }),
+        )
+        expected = [1, 2, {}, 3]
+        if output_format == "columns":
+            assert df["Voltage"].tolist() == expected
+            assert df["Missing"].tolist() == ["fallback"] * 4
+        else:
+            assert df["Keys"].tolist() == [["Voltage", "Missing"]] * 4
+            assert df["Values"].tolist() == [[value, "fallback"] for value in expected]
+
+    @pytest.mark.parametrize("output_format", ["columns", "to_lists"])
+    def test_split_dictionary_mutable_defaults_are_independent(self, output_format):
+        default = {"Voltage": {"values": []}}
+        df = wrangles.recipe.run(
+            {"wrangles": [{"split.dictionary": {
+                "input": "atts", "default": default, "output_format": output_format,
+            }}]},
+            dataframe=pd.DataFrame({"atts": [{"Voltage": None}, {}, "Timed Out"]}),
+        )
+        cells = df["Voltage"].tolist() if output_format == "columns" else [
+            row[0] for row in df["Values"]
+        ]
+        cells[0]["values"].append(120)
+        assert cells[1:] == [{"values": []}, {"values": []}]
+        assert default == {"Voltage": {"values": []}}
+
+    def test_split_dictionary_defaults_with_where_and_renaming(self):
+        df = wrangles.recipe.run(
+            {"wrangles": [{"split.dictionary": {
+                "input": "atts", "output": [{"Voltage": "Supply Voltage"}],
+                "default": {"Voltage": {}}, "where": "Process > 0",
+            }}]},
+            dataframe=pd.DataFrame({
+                "atts": [{"Voltage": None}, "Timed Out", {"Voltage": None}],
+                "Supply Voltage": ["old null", "old error", "keep"],
+                "Process": [1, 1, 0],
+            }),
+        )
+        assert df["Supply Voltage"].tolist() == [{}, {}, "keep"]
+
     def test_split_dictionary_multiple(self):
         """
         Test splitting a list of dictionaries

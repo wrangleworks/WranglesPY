@@ -17,10 +17,13 @@ settings such as concurrency, cache, and the base prompt belong to the operation
 See [AI model configuration](ai_configuration.md) for the schema, caller coverage,
 override precedence, test-role selection, and version-1 compatibility.
 
-The public parameters remain `reasoning: {effort: ...}` and
-`verbosity: low | medium | high`. Supported values in the catalog describe the
-model; they are separate from the value requested by a recipe. Existing saved
-model validation and legacy model-family compatibility behavior are preserved.
+Use `reasoning: none` or `reasoning: low` for a simple effort setting. The nested
+form, such as `reasoning: {effort: none}`, remains supported and can include other
+reasoning options. Both forms have the same precedence over saved and configured
+defaults. Extraction always sends the effective reasoning setting; unsupported
+settings produce a provider error. `verbosity: low | medium | high` remains
+separate. Supported values in the catalog describe the model; they are separate
+from the value requested by a recipe. Existing saved-model validation is preserved.
 
 For each model upgrade, verify capabilities against
 [OpenAI's model documentation](https://developers.openai.com/api/docs/models)
@@ -336,8 +339,7 @@ wrangles:
         - Title
         - Technical Data
       api_key: ${OPENAI_API_KEY}
-      reasoning:
-        effort: low
+      reasoning: low
       instructions:
         - Extract values supported by the supplied product information.
         - Return null when a top-level attribute is absent.

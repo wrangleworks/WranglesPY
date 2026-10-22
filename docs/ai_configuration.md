@@ -99,9 +99,17 @@ keeps `0.2`. Unset temperature uses the provider's default (`1.0` for Gemini 3).
 For extraction, a saved definition's model retains its existing precedence over
 the caller's `model`. Both tuning and runtime defaults are resolved for that
 selected model before applying explicit caller overrides.
+Extraction accepts the simple recipe form `reasoning: none` and the equivalent
+nested form `reasoning: {effort: none}`. Direct Python calls likewise accept
+`reasoning="none"` or `reasoning={"effort": "none"}`. A scalar is normalized to
+the object form before resolving overrides; nested objects retain their other
+reasoning options.
 Explicit reasoning takes precedence over saved reasoning, which takes precedence
-over configured reasoning. Declared reasoning and verbosity enums are checked
-against the requested value; unsupported values are warned about and omitted.
+over configured reasoning. Extraction defaults to `none` for every model,
+including unlisted and future models. Reasoning is always sent to the provider;
+unsupported settings produce a provider error instead of silently applying the
+provider default. Declared verbosity enums are checked against the requested
+value; unsupported verbosity values are warned about and omitted.
 Recipe reasoning includes `max`. Saved `ReasoningEffort` remains `none|low` to
 preserve compatibility with existing editors that use that narrower contract.
 
@@ -167,8 +175,13 @@ remains available through `extract.ai(protocol="chat_completions")`. Extraction
 resolves configuration once per operation and uses a private transport for its
 individual rows.
 
-Generation remains unreleased. Its operation keeps `low` reasoning; extraction
-keeps `none` where supported. Its existing direct-Python and recipe strictness
+The packaged OpenAI model reasoning defaults are `none`. Extraction and
+generation inherit those model settings without an operation-level reasoning
+override, so configured model defaults remain effective. Extraction also sends
+`none` when an unlisted model has no configured effort. Explicit caller and
+saved-definition settings retain their precedence.
+
+Generation remains unreleased. Its existing direct-Python and recipe strictness
 defaults are represented by `strict` and `recipe_strict`, respectively.
 
 Extraction uses the operation's `defaults` directly. There is no profile registry

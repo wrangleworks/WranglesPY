@@ -31,7 +31,7 @@ providers:
         default_for: []
         defaults:
           reasoning:
-            effort: low
+            effort: none
           text:
             verbosity: low
         supported_values:
@@ -245,8 +245,6 @@ operations:
       retries: 1
       strict: true
       recipe_strict: false
-      reasoning:
-        effort: low
   embeddings:
     provider: openai
     protocol: embeddings

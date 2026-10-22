@@ -4265,6 +4265,8 @@ class TestExtractAI:
             wrangles:
             - extract.ai:
                 model: o3-mini
+                reasoning:
+                  effort: low
                 api_key: ${OPENAI_API_KEY}
                 timeout: 60
                 retries: 2
@@ -4324,13 +4326,8 @@ class TestExtractAI:
         ])
         assert matches >= 1
 
-    def test_ai_pre_gpt5_reasoning_and_verbosity_ignored(self, caplog):
-        """
-        Test extract.ai with a pre-gpt5 model that does not support
-        reasoning/verbosity. The recipe should still complete
-        successfully, ignoring those settings with a warning
-        rather than failing the request.
-        """
+    def test_ai_pre_gpt5_reasoning_rejected_and_verbosity_ignored(self, caplog):
+        """The recipe reports provider errors instead of dropping reasoning."""
         with caplog.at_level(logging.WARNING, logger="wrangles.extract"):
             df = wrangles.recipe.run(
                 """
@@ -4354,12 +4351,8 @@ class TestExtractAI:
                     "data": ["wrench 25mm", "6m cable"],
                 })
             )
-        matches = sum([
-            df['length'][0] == '25mm',
-            df['length'][1] == '6m',
-        ])
-        assert matches >= 1
-        assert "Ignoring 'reasoning' parameter" in caplog.text
+        assert all('OpenAI API error' in value and 'reasoning' in value for value in df['length'])
+        assert "Ignoring 'reasoning' parameter" not in caplog.text
         assert "Ignoring 'verbosity' parameter" in caplog.text
 
     def test_ai_invalid_model_fails_recipe(self):
@@ -4418,7 +4411,7 @@ class TestExtractAI:
         ])
         assert matches >= 1
 
-    def test_model_id(self):
+    def test_model_id(self, saved_extract_schema_model):
         """
         Test using extract.ai with a saved model
         """
@@ -4444,7 +4437,7 @@ class TestExtractAI:
             ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values or 'diamond' in df['Shapes'].values)
         )
 
-    def test_model_id_additional_properties(self):
+    def test_model_id_additional_properties(self, saved_extract_schema_model):
         """
         Test non-explicitly passed properties, i.e. kwargs
         This is set to specify a type of integer for the items in the array
@@ -4465,7 +4458,7 @@ class TestExtractAI:
         )
         assert 3 in df['Numbers'][0] or 2 in df['Numbers'][0]
 
-    def test_model_id_named_output_single_column(self):
+    def test_model_id_named_output_single_column(self, saved_extract_schema_model):
         """
         Test using a predefined model that specifies
         one output for all extracted data
@@ -4493,7 +4486,7 @@ class TestExtractAI:
             'Colors' in df['result'][0]
         )
 
-    def test_model_id_named_output_multi_column(self):
+    def test_model_id_named_output_multi_column(self, saved_extract_schema_model):
         """
         Test using a predefined model that specifies
         one output per model row
@@ -4523,7 +4516,7 @@ class TestExtractAI:
             ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values)
         )
 
-    def test_model_id_object_with_properties(self):
+    def test_model_id_object_with_properties(self, saved_extract_schema_model):
         """
         Test a model_id that contains an output of type object
         that contains properties defined as JSON
@@ -4545,7 +4538,7 @@ class TestExtractAI:
         )
         assert 'unit' in df['attributes'][0] and 'value' in df['attributes'][1]
 
-    def test_model_id_array_of_objects(self):
+    def test_model_id_array_of_objects(self, saved_extract_schema_model):
         """
         Test a model_id that contains an output of type array
         that contains items as objects with properties defined as JSON

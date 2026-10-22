@@ -8,6 +8,7 @@ from . import ckan
 from . import concurrent
 from . import duckdb
 from . import excel
+from . import grid
 from . import file
 from . import http
 from . import memory

@@ -190,6 +190,9 @@ Recipes are written in YAML and allow a series of Wrangles to be run as an autom
 For targeted web content retrieval with prompts that use values from each row,
 see [Retrieve content from links](docs/search_retrieve_link_content.md).
 
+For search-result scoring, filtering, part-code evidence, and output fields, see
+[Search-result scoring](docs/search_result_scoring.md).
+
 Recipes can be triggered either from python code or a terminal command.
 #### Run
 ```python
