@@ -727,13 +727,18 @@ def test_table_composed_reads_emit_json_safe_output_and_location(composition, co
     assert snapshots == original
 
 
-def test_table_write_normalizes_nullable_values_without_mutating_input(table_memory):
+def test_table_write_normalizes_non_finite_values_without_mutating_input(table_memory):
     import json
-    frame = pd.DataFrame({"ID": [1, 2, 3], "Value": [float("nan"), pd.NA, pd.NaT]})
+    frame = pd.DataFrame({
+        "ID": [1, 2, 3, 4, 5],
+        "Value": [float("nan"), pd.NA, pd.NaT, float("inf"), float("-inf")],
+    })
     original = frame.copy(deep=True)
     wrangles.connectors.excel.table.write(frame, "Results")
     payload, = memory.dataframes.values()
-    assert json.loads(json.dumps(payload, allow_nan=False))["data"] == [[1, None], [2, None], [3, None]]
+    assert json.loads(json.dumps(payload, allow_nan=False))["data"] == [
+        [1, None], [2, None], [3, None], [4, None], [5, None],
+    ]
     pd.testing.assert_frame_equal(frame, original)
 
 

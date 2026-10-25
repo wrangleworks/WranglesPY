@@ -363,9 +363,14 @@ class table():
             raise ValueError("excel.table batch_number exceeds batch_total")
         if action == "replace" and batch_number > 1:
             action = "append"
-        # A composed read may introduce NaN/pd.NA/NaT. Emit valid JSON cells
-        # without changing the dataframe returned to the recipe caller.
-        output = df.astype(object).where(_pd.notna(df), None)
+        # A composed read may introduce missing or non-finite numeric values.
+        # Emit valid JSON cells without changing the dataframe returned to the
+        # recipe caller.
+        output = (
+            df.astype(object)
+            .replace([float("inf"), float("-inf")], None)
+            .where(_pd.notna(df), None)
+        )
         _memory.write(
             output, connector="excel.table.write", orient="split",
             name=name, action=action, sheet=sheet, cell=cell,
