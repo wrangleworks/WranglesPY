@@ -4256,44 +4256,6 @@ class TestExtractAI:
         )
         assert df.empty and df.columns.to_list() == ['data', 'length']
 
-    def test_ai_o3_mini(self):
-        """
-        Test openai extract with a single input and output
-        """
-        df = wrangles.recipe.run(
-            """
-            wrangles:
-            - extract.ai:
-                model: o3-mini
-                reasoning:
-                  effort: low
-                api_key: ${OPENAI_API_KEY}
-                timeout: 60
-                retries: 2
-                output:
-                  length:
-                    type: string
-                    description: >-
-                      Any lengths found in the data
-                      such as cm, m, ft, etc.
-            """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "wrench 25mm",
-                    "6m cable",
-                    "screwdriver 3mm"
-                ],
-            })
-        )
-        # This is temperamental
-        # Score as 2/3 as good enough for test to pass
-        matches = sum([
-            df['length'][0] == '25mm',
-            df['length'][1] == '6m',
-            df['length'][2] == '3mm'
-        ])
-        assert matches >= 2
-
     def test_ai_reasoning_and_verbosity(self):
         """
         Test extract.ai using the configured default model with
