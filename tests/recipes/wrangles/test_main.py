@@ -3315,20 +3315,21 @@ class TestStandardize:
         assert df.empty and df.columns.to_list() == ['Abbrev', 'Abbreviations']
 
 
+@pytest.mark.parametrize('wrangle_name', ['replace', 'standardize.replace'])
 class TestReplace:
     """
     Test replace
     """
-    def test_replace(self):
+    def test_replace(self, wrangle_name):
         """
         Test replace
         """
         data = pd.DataFrame({
         'Abbrev': ['random ASAP random', 'random ETA random'],
         })
-        recipe = """
+        recipe = f"""
         wrangles:
-            - replace:
+            - {wrangle_name}:
                 input: Abbrev
                 output: Abbreviations
                 find: ETA
@@ -3337,7 +3338,7 @@ class TestReplace:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[1]['Abbreviations'] == 'random Estimated Time of Arrival random'
 
-    def test_replace_lists(self):
+    def test_replace_lists(self, wrangle_name):
         """
         Test replace with a list for input and output
         """
@@ -3345,9 +3346,9 @@ class TestReplace:
             'Abbrev1': ['random ETA random'],
             'Abbrev2': ['another ETA another']
         })
-        recipe = """
+        recipe = f"""
         wrangles:
-            - replace:
+            - {wrangle_name}:
                 input:
                 - Abbrev1
                 - Abbrev2
@@ -3363,16 +3364,16 @@ class TestReplace:
             df.iloc[0]['Abbreviations2'] == 'another Estimated Time of Arrival another'
         )
 
-    def test_replace_regex(self):
+    def test_replace_regex(self, wrangle_name):
         """
         Test replace using a regex pattern
         """
         data = pd.DataFrame({
             'Abbrev': ['random 123 random'],
         })
-        recipe = """
+        recipe = f"""
         wrangles:
-            - replace:
+            - {wrangle_name}:
                 input: Abbrev
                 output: Abbreviations
                 find: "[0-9]+"
@@ -3381,14 +3382,14 @@ class TestReplace:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Abbreviations'] == 'random found random'
 
-    def test_replace_where(self):
+    def test_replace_where(self, wrangle_name):
         """
         Test replace using where
         """
         df = wrangles.recipe.run(
-            """
+            f"""
             wrangles:
-                - replace:
+                - {wrangle_name}:
                     input: Abbrev
                     find: ETA
                     replace: Estimated Time of Arrival
@@ -3401,15 +3402,15 @@ class TestReplace:
         )
         assert df['Abbrev'].to_list() == ["random ETA random", 'random Estimated Time of Arrival random']
 
-    def test_replace_inconsistent_input(self):
+    def test_replace_inconsistent_input(self, wrangle_name):
         """
         Check error when the lists for input and output are inconsistent
         """
         with pytest.raises(ValueError) as info:
             wrangles.recipe.run(
-                """
+                f"""
                 wrangles:
-                - replace:
+                - {wrangle_name}:
                     input:
                         - Abbrev1
                     output:
@@ -3428,16 +3429,16 @@ class TestReplace:
             'The lists for' in info.value.args[0]
         )
 
-    def test_replace_integer(self):
+    def test_replace_repeated_integer_digits(self, wrangle_name):
         """
         Test replace with integers
         """
         data = pd.DataFrame({
         'numbers': [555, 252, 355]
         })
-        recipe = """
+        recipe = f"""
         wrangles:
-            - replace:
+            - {wrangle_name}:
                 input: numbers
                 output: replaced numbers
                 find: 5
@@ -3446,16 +3447,16 @@ class TestReplace:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['replaced numbers'] == '222'
 
-    def test_replace_integer_with_string(self):
+    def test_replace_integer_with_string(self, wrangle_name):
         """
         Test replacing integers with strings
         """
         data = pd.DataFrame({
         'numbers': [555, 252, 355]
         })
-        recipe = """
+        recipe = f"""
         wrangles:
-            - replace:
+            - {wrangle_name}:
                 input: numbers
                 output: replaced numbers
                 find: 5
@@ -3464,16 +3465,16 @@ class TestReplace:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['replaced numbers'] == 'fivefivefive'
 
-    def test_replace_string_with_integer(self):
+    def test_replace_string_with_integer(self, wrangle_name):
         """
         Test replacing a string with an integer
         """
         data = pd.DataFrame({
         'numbers': ['five', 'fifty-five']
         })
-        recipe = """
+        recipe = f"""
         wrangles:
-            - replace:
+            - {wrangle_name}:
                 input: numbers
                 output: replaced numbers
                 find: five
@@ -3482,14 +3483,14 @@ class TestReplace:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[1]['replaced numbers'] == 'fifty-5'
 
-    def test_replace_empty(self):
+    def test_replace_empty(self, wrangle_name):
         """
         Test replace with empty data
         """
         df = wrangles.recipe.run(
-            """
+            f"""
             wrangles:
-                - replace:
+                - {wrangle_name}:
                     input: Abbrev
                     output: output column
                     find: ETA
@@ -3501,16 +3502,16 @@ class TestReplace:
         )
         assert df.empty and df.columns.to_list() == ['Abbrev', 'output column']
 
-    def test_replace_list(self):
+    def test_replace_list(self, wrangle_name):
         """
         Test replace with a list for the input
         """
         data = pd.DataFrame({
         'List': [['random ASAP random', 'random ETA random']],
         })
-        recipe = """
+        recipe = f"""
         wrangles:
-            - replace:
+            - {wrangle_name}:
                 input: List
                 output: Still a List
                 find: ETA
@@ -3519,16 +3520,16 @@ class TestReplace:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Still a List'] == ['random ASAP random', 'random ETA random'] and isinstance(df.iloc[0]['Still a List'], list) == True
 
-    def test_replace_bool(self):
+    def test_replace_bool(self, wrangle_name):
         """
         Test replace with a boolean for the input
         """
         data = pd.DataFrame({
         'Bool': [True, False],
         })
-        recipe = """
+        recipe = f"""
         wrangles:
-            - replace:
+            - {wrangle_name}:
                 input: Bool
                 output: Not a Bool
                 find: False
@@ -3537,16 +3538,16 @@ class TestReplace:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[1]['Not a Bool'] == 'This is so True, there has never ever been anything more True' and isinstance(df.iloc[0]['Not a Bool'], str) == True
 
-    def test_replace_integer(self):
+    def test_replace_integer(self, wrangle_name):
         """
         Test replace with an integer for the input
         """
         data = pd.DataFrame({
         'Integers': [10, 20],
         })
-        recipe = """
+        recipe = f"""
         wrangles:
-            - replace:
+            - {wrangle_name}:
                 input: Integers
                 output: Not Integers
                 find: 0
@@ -3555,16 +3556,16 @@ class TestReplace:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[1]['Not Integers'] == '29' and isinstance(df.iloc[0]['Not Integers'], str) == True
 
-    def test_replace_dict(self):
+    def test_replace_dict(self, wrangle_name):
         """
         Test replace with a dictionary for the input
         """
         data = pd.DataFrame({
         'Dictionaries': [{'This': 'is a dictionary'}, {'So': 'is this'}],
         })
-        recipe = """
+        recipe = f"""
         wrangles:
-            - replace:
+            - {wrangle_name}:
                 input: Dictionaries
                 output: Not Dictionaries
                 find: Doesn't Matter

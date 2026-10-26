@@ -1,5 +1,13 @@
 import importlib
 import logging
+import json
+from pathlib import Path
+import runpy
+import shutil
+from types import SimpleNamespace
+
+import jsonschema
+import requests
 
 import pandas as pd
 import pytest
@@ -139,6 +147,49 @@ class TestStandardizeNamespace:
         assert explicit.equals(legacy)
         assert cleaned['result'].to_list() == ['one']
         assert source.columns.to_list() == ['raw']
+
+
+class TestStandardizeReplace:
+    def test_legacy_alias_and_schema(self):
+        namespace = wrangles.recipe._recipe_wrangles
+        main = importlib.import_module('wrangles.recipe_wrangles.main')
+        module = importlib.import_module('wrangles.recipe_wrangles.standardize')
+
+        assert namespace.replace is namespace.standardize.replace
+        assert main.replace is module.replace
+        schema = yaml.safe_load(namespace.standardize.replace.__doc__)
+        assert schema['required'] == ['input', 'find', 'replace']
+        assert set(schema['properties']) == {'input', 'output', 'find', 'replace'}
+
+    def test_generated_schema_supports_both_names(self, tmp_path, monkeypatch):
+        root = Path(__file__).resolve().parents[3]
+        shutil.copyfile(root / 'schema/recipe_base_schema.json',
+                        tmp_path / 'recipe_base_schema.json')
+        monkeypatch.chdir(tmp_path)
+
+        def schema_response(url):
+            assert url == 'http://json-schema.org/draft-07/schema#'
+            return SimpleNamespace(json=lambda: jsonschema.Draft7Validator.META_SCHEMA)
+
+        monkeypatch.setattr(requests, 'get', schema_response)
+        runpy.run_path(str(root / 'schema/generate_recipe_schema.py'))
+        generated = json.loads((tmp_path / 'schema.json').read_text())
+        contracts = generated['$defs']['wrangles']['items']['properties']
+        assert contracts['replace'] == contracts['standardize.replace']
+        assert contracts['standardize.replace']['required'] == ['input', 'find', 'replace']
+        assert {'standardize', 'standardize.clean', 'standardize.custom'} <= contracts.keys()
+
+    @pytest.mark.parametrize('dotted', [False, True], ids=['legacy', 'standardize'])
+    def test_dataframe_accessor_replaces_without_mutating_source(self, dotted):
+        source = wrangles.DataFrame({'raw': ['ETA 12', 'ASAP 34']})
+        operation = (source.wrangles.standardize.replace if dotted
+                     else source.wrangles.replace)
+        result = operation(input='raw', output='result', find=r'\d+', replace='#')
+
+        assert result['result'].to_list() == ['ETA #', 'ASAP #']
+        assert result['raw'].to_list() == ['ETA 12', 'ASAP 34']
+        assert source.columns.to_list() == ['raw']
+        assert source['raw'].to_list() == ['ETA 12', 'ASAP 34']
 
 
 class TestStandardizeCleanCore:
