@@ -61,14 +61,14 @@ _warnings.simplefilter(action='ignore', category=_pandas.errors.PerformanceWarni
 
 
 def _load_recipe(
-    recipe: str,
+    recipe: _Union[str, _os.PathLike[str]],
     variables: dict = None,
     functions: _Union[_types.FunctionType, list, dict, str] = []
 ) -> dict:
     """
     Load yaml recipe file + replace any placeholder variables
 
-    :param recipe: YAML recipe or name of a YAML file to be parsed
+    :param recipe: YAML recipe or path (str or os.PathLike) to a YAML file to be parsed
     :param variables: (Optional) dictionary of custom variables to override placeholders in the YAML file
     :param functions: (Optional) function, list of functions or a file of functions.
 
@@ -84,7 +84,7 @@ def _load_recipe(
 
     # Accept path-like objects (e.g. pathlib.Path) by converting to str
     if isinstance(recipe, _os.PathLike):
-        recipe = str(recipe)
+        recipe = _os.fspath(recipe)
 
     if isinstance(recipe, str) and "\n" not in recipe:
         _logging.info(f": Reading Recipe :: {recipe}")
@@ -1308,7 +1308,7 @@ def _run_thread(
 
 
 def run(
-    recipe: str,
+    recipe: _Union[str, _os.PathLike[str]],
     variables: dict = None,
     dataframe: _pandas.DataFrame = None,
     functions: _Union[_types.FunctionType, list, dict] = [],
@@ -1321,7 +1321,7 @@ def run(
 
     >>> wrangles.recipe.run('recipe.wrgl.yml')
     
-    :param recipe: YAML recipe or path to a YAML file containing the recipe
+    :param recipe: YAML recipe or path (str or os.PathLike, e.g. pathlib.Path) to a YAML file containing the recipe
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
     :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining a read section within the YAML
     :param functions: (Optional) A function or list of functions that can be called as part of the recipe. Functions can be referenced as custom.function_name
