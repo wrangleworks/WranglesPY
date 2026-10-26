@@ -183,6 +183,21 @@ byte encodings or remove HTML tags.
 The existing model-backed `standardize` name remains supported and is also
 available explicitly as `standardize.custom`.
 
+For regex-based find and replace in recipe columns, use `standardize.replace`:
+
+```yaml
+wrangles:
+  - standardize.replace:
+      input: description
+      find: ETA
+      replace: Estimated Time of Arrival
+```
+
+Omit `output` to update the input column, or set it to write a separate column.
+The legacy recipe name `replace` remains supported with the same parameters and
+behavior. DataFrame calls support both `df.wrangles.standardize.replace(...)`
+and `df.wrangles.replace(...)`.
+
 ### Recipes
 
 Recipes are written in YAML and allow a series of Wrangles to be run as an automated sequence.

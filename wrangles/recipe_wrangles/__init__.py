@@ -17,6 +17,7 @@ wrangles:
 """
 from .standardize import clean as _standardize_clean
 from .standardize import custom as _standardize_custom
+from .standardize import replace as _standardize_replace
 from .lookup import key as _lookup_key
 from .lookup import semantic as _lookup_semantic
 from .main import *
@@ -39,6 +40,7 @@ from . import search
 # standardize namespace to recipe resolution and schema discovery.
 standardize.clean = _standardize_clean
 standardize.custom = _standardize_custom
+standardize.replace = _standardize_replace
 
 lookup.key = _lookup_key
 lookup.semantic = _lookup_semantic

@@ -1,6 +1,7 @@
 """Dataframe wrappers for standardization wrangles."""
 
 import logging as _logging
+import re as _re
 from typing import Union as _Union
 
 import pandas as _pd
@@ -234,3 +235,64 @@ def custom(
         case_sensitive=case_sensitive,
         **kwargs
     )
+
+
+def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Quick find and replace for simple values. Can use regex if 'input' in params and isinstance(params['input'], list):in the find field.
+    additionalProperties: false
+    required:
+      - input
+      - find
+      - replace
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name or list of input column
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output column
+      find:
+        type: string
+        description: Pattern to find using regex
+      replace:
+        type: string
+        description: Value to replace the pattern found
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
+    def custom_replacement(x, find, replace, row):
+        if isinstance(x, (dict, list, bool)):  # Check if the input is an object
+            # Raise warning
+            if not getattr(custom_replacement, "_warning_logged", False):
+                _logging.warning(
+                    f"Found invalid values at row {row} when using replace. Dict, list and bool values will be skipped."
+                )
+                custom_replacement._warning_logged = True  # mark as logged
+            return x  # Return the object as-is without modification
+
+        try:
+            return _re.sub(str(find), str(replace), str(x))  # Apply the regex substitution
+        except:
+            return x
+
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = df.apply(lambda row: custom_replacement(row[input_column], find, replace, row=row.name), axis=1)
+
+    return df
