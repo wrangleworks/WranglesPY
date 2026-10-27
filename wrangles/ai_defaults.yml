@@ -142,6 +142,20 @@ providers:
         applications: [classification, scoring, true_false]
         default_for: [ai.choose, ai.score, ai.true_false, ai.answers]
 
+  openrouter:
+    endpoints:
+      # System One request/response shape, served on OpenRouter's alpha route.
+      systemone: https://openrouter.ai/api/alpha/decisions
+    documentation:
+      api: https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-request
+      model_cards: https://openrouter.ai/microsoft/microsoft-decision-1
+    models:
+      microsoft/microsoft-decision-1:
+        status: active
+        applications: [classification, scoring, true_false]
+        # ai.decisions retains ai.answers as its configuration role.
+        default_for: [ai.choose, ai.score, ai.true_false, ai.answers]
+
   huggingface:
     endpoints:
       hf_inference: https://router.huggingface.co/hf-inference/models

@@ -63,12 +63,20 @@ def true_false(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
                 timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl)
 
 
-def answers(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
-            model=None, provider=None, protocol=None, threads=None, timeout=None,
-            retries=None, cache=None, cache_ttl=None) -> _pd.DataFrame:
+def decisions(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
+              model=None, provider=None, protocol=None, threads=None, timeout=None,
+              retries=None, cache=None, cache_ttl=None) -> _pd.DataFrame:
     return _run(df, questions, None, input=input, api_key=api_key,
                 model=model, provider=provider, protocol=protocol, threads=threads,
                 timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl)
+
+
+def answers(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
+            model=None, provider=None, protocol=None, threads=None, timeout=None,
+            retries=None, cache=None, cache_ttl=None) -> _pd.DataFrame:
+    return decisions(df, questions, input=input, api_key=api_key,
+                     model=model, provider=provider, protocol=protocol, threads=threads,
+                     timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl)
 
 
 def _description_schema(nullable=False):
@@ -244,10 +252,10 @@ def _schema(kind):
                           "propertyNames": {"pattern": r"\S"},
                           "additionalProperties": question_definition,
                           "description": "Questions to answer for each input row, keyed by their distinct labels."},
-            "api_key": {"type": "string", "description": "Typesafe API key; defaults to TYPESAFE_API_KEY."},
+            "api_key": {"type": "string", "description": "Provider API key; defaults to TYPESAFE_API_KEY or OPENROUTER_API_KEY for the selected provider."},
             "model": {"type": "string", "description": "Model ID; defaults to this wrangle's AI catalog selection."},
-            "provider": {"type": "string", "enum": ["typesafe"],
-                         "description": "Provider resolved through the AI catalog; currently typesafe."},
+            "provider": {"type": "string", "enum": ["typesafe", "openrouter"],
+                         "description": "Provider resolved through the AI catalog; the packaged default is typesafe. Use openrouter for Microsoft decision models."},
             "protocol": {"type": "string", "enum": ["systemone"],
                          "description": "Provider protocol selected through the AI catalog."},
             "threads": {"type": "integer", "minimum": 1,
@@ -256,7 +264,7 @@ def _schema(kind):
                         "description": "Per-attempt request timeout in seconds; defaults to the AI catalog."},
             "retries": {"type": "integer", "minimum": 0,
                         "description": "Additional attempts for retryable failures; defaults to the AI catalog."},
-            "cache": {"type": "boolean", "description": "Reuse identical successful requests through the shared AI cache. Off by default for Typesafe; set true to enable."},
+            "cache": {"type": "boolean", "description": "Reuse identical successful requests through the shared AI cache. Off by default for these wrangles; set true to enable."},
             "cache_ttl": {"type": "number", "exclusiveMinimum": 0,
                           "description": "Override the cache result lifetime in seconds."},
         },
@@ -264,5 +272,10 @@ def _schema(kind):
 
 
 for _name, _kind in (("choose", "choose"), ("score", "score"),
-                     ("true_false", "true_false"), ("answers", None)):
-    globals()[_name].__doc__ = _yaml.safe_dump(_schema(_kind), sort_keys=False)
+                     ("true_false", "true_false"), ("decisions", None), ("answers", None)):
+    _definition = _schema(_kind)
+    if _name == "answers":
+        _definition["description"] = "Compatibility alias for `ai.decisions`. " + _definition["description"]
+    if _kind is None:
+        _definition["description"] += " Configuration and cache identity retain the existing `ai.answers` role."
+    globals()[_name].__doc__ = _yaml.safe_dump(_definition, sort_keys=False)
