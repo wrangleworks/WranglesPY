@@ -396,7 +396,7 @@ def clean_whitespaces(
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Condense multiple spaces to a single space and convert special space characters to a standard space.
+    description: Normalize Unicode whitespace runs to one ordinary space; optionally preserve internal tabs and line breaks.
     additionalProperties: false
     required:
       - input
@@ -414,10 +414,10 @@ def clean_whitespaces(
         description: Name or list of output columns.
       trim:
         type: boolean
-        description: Whether to trim leading and trailing spaces. Default True.
+        description: Whether to strip leading and trailing whitespace, including tabs and line breaks, after normalization. Default True.
       remove_literals:
         type: boolean
-        description: Whether to remove special space characters such as new lines etc. Default True.
+        description: Normalize tabs, line breaks, and other Unicode whitespace to spaces when true. When false, normalize Unicode space separators only and preserve internal tabs and line breaks. U+0081 is converted to a space in either mode. Literal backslash escapes are not decoded. Default True.
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -430,11 +430,15 @@ def clean_whitespaces(
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
     
+    if remove_literals:
+        pattern = r'[\s\u0081]+'
+    else:
+        # Unicode Zs (space separators) plus the legacy U+0081 conversion.
+        # Exclude control whitespace and line/paragraph separators in this mode.
+        pattern = r'[ \u0081\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000]+'
+
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        if remove_literals: pattern = r'\s{2,}| | |'
-        else: pattern = '( | | |)+'
-
         df[output_column] = df[input_column].apply(
             lambda x: _re.sub(pattern, ' ', x) if isinstance(x, str) else x
         )
