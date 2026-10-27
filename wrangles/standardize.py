@@ -84,6 +84,7 @@ def clean(
     trim: bool = True,
     unescape_unicode: bool = False,
     latex_to_text: bool = False,
+    unescape_markdown: bool = False,
     **kwargs
 ) -> _Union[str, list]:
     """
@@ -112,6 +113,11 @@ def clean(
         qualifiers; remove extra dollar signs from other supported inline math.
         Unsupported formulas are preserved. Defaults to false.
         Use collapse_whitespace=False and trim=False to retain Markdown layout.
+    :param unescape_markdown: Remove Markdown punctuation escapes in prose.
+        Defaults to false. Preserve code, links, Windows/UNC paths, literal
+        backslashes, currency and unsupported formulas. Recognize LaTeX before
+        Markdown unescaping; decoded Unicode is not recursively interpreted.
+        These token conversions precede ftfy and whitespace normalization.
     :param kwargs: Additional options forwarded to ``ftfy.fix_text``.
     :return: A cleaned string or shape-preserving list.
     """
@@ -136,11 +142,12 @@ def clean(
             results.append(value)
             continue
 
-        if unescape_unicode or latex_to_text:
+        if unescape_unicode or latex_to_text or unescape_markdown:
             value = _clean_escaped_text(
                 value,
                 unescape_unicode=unescape_unicode,
                 latex_to_text=latex_to_text,
+                unescape_markdown=unescape_markdown,
             )
 
         cleaned = _fix_text(

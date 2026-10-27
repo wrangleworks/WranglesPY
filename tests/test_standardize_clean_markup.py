@@ -217,3 +217,163 @@ def test_cleanup_preserves_viewer_links_for_subsequent_semantic_extraction():
     text = "Go to product viewer dialog for this item."
     original = raw + "\n\n" + code + "\n\n" + text
     assert _clean(original, unescape_unicode=True, latex_to_text=True) == original
+
+
+@pytest.mark.parametrize(("source", "expected"), [
+    (r"\(OP50\)", "(OP50)"),
+    (r"PART123\_", "PART123_"),
+    (r"Manufacturing \> Machine Tools", "Manufacturing > Machine Tools"),
+    (r"08B\-2", "08B-2"),
+    (r"\!\#\%\&\*\+\,\-\.\/\:\;\<\=\>\?\@\[\]\^\_\`\{\|\}\~", "!#%&*+,-./:;<=>?@[]^_`{|}~"),
+    ("\\\"quoted\\\"", '"quoted"'),
+    (r"\$label", "$label"),
+    ("", ""),
+])
+def test_markdown_unescaping_is_independently_opt_in(source, expected):
+    assert _clean(source) == source
+    assert _clean(source, unescape_markdown=False) == source
+    assert _clean(source, unescape_markdown=True) == expected
+
+
+@pytest.mark.parametrize("protected", [
+    r"`A\_B`", r"``A ` B\_C``",
+    "```python\n" + r"A\_B" + "\n```",
+    "~~~\n" + r"A\_B" + "\n~~~",
+    "> ```\n> " + r"A\_B" + "\n> ```",
+    "    " + r"A\_B", "\t" + r"A\_B",
+    r"[label](https://example.com/a\_b\(c\))",
+    r'''[label](<https://example.com/a\_b> "title ) A\_B")''',
+    r"[ref]: https://example.com/a\_b",
+    r"<https://example.com/a\_b>", r"https://example.com/a\_b",
+    r"C:\_cache\part\-2.txt", r"C:\Users\u0026\_data.txt",
+    r"\\server\share\_part\-2", r".\_cache\file.txt", r"..\_cache\file.txt",
+    r'"C:\Program Files\_cache\file.txt"',
+    r"\_cache\file.txt", r"folder\part\_file.txt", r"C:\Program Files\_cache\file.txt",
+    r"A\\_B", r"A\\\_B", r"A\\\\_B",
+    r"A\nB \unknown trailing" + "\\",
+    r"Prices $22.75 and $30.00", r"Price \$22.75; range \$20-\$30",
+    r"$x^2 + y_1 \times 2$", r"$\unknown{A\_B}$",
+    r"$$A\_B$$", r"\(x \times y\)", r"\[x^2 + y_1\]", r"\(x+1\)",
+])
+@pytest.mark.parametrize("other_options", [False, True])
+def test_markdown_cleanup_preserves_protected_content(protected, other_options):
+    source = protected + "\n\n" + r"PART123\_"
+    assert _clean(
+        source, unescape_markdown=True,
+        unescape_unicode=other_options, latex_to_text=other_options,
+    ) == protected + "\n\nPART123_"
+
+
+@pytest.mark.parametrize(("options", "expected"), [
+    ({"unescape_markdown": True}, r"$12\text{ VDC}$; healthcare \u0026; (OP50)"),
+    ({"unescape_markdown": True, "unescape_unicode": True}, r"$12\text{ VDC}$; healthcare &; (OP50)"),
+    ({"unescape_markdown": True, "latex_to_text": True}, r"12 VDC; healthcare \u0026; (OP50)"),
+    ({"unescape_markdown": True, "unescape_unicode": True, "latex_to_text": True}, "12 VDC; healthcare &; (OP50)"),
+])
+def test_markdown_composes_with_unicode_and_latex(options, expected):
+    source = r"$12\text{ VDC}$; healthcare \u0026; \(OP50\)"
+    assert _clean(source, **options) == expected
+
+
+def test_markdown_preserves_escaped_unicode_punctuation_and_list_shape():
+    values = [r"\u005c_ \u0026 PART\_", "", None, 42, [r"A\_B"]]
+    assert _clean(values, unescape_markdown=True, unescape_unicode=True) == [
+        r"\_ & PART_", "", None, 42, [r"A\_B"],
+    ]
+
+
+def test_markdown_shared_helper_and_recipe_schema_forwarding():
+    import jsonschema
+    from wrangles._text_cleanup import clean_escaped_text
+
+    assert clean_escaped_text(r"PART\_", unescape_markdown=True) == "PART_"
+    options = {
+        "input": "raw", "output": "clean", "unescape_markdown": True,
+        "unescape_unicode": True, "latex_to_text": True,
+        "collapse_whitespace": False, "trim": False,
+    }
+    schema = yaml.safe_load(wrangles.recipe._recipe_wrangles.standardize.clean.__doc__)
+    assert schema["properties"]["unescape_markdown"]["default"] is False
+    jsonschema.Draft7Validator.check_schema(schema)
+    jsonschema.validate(options, schema)
+    source = r"$12\text{ VDC}$; \u0026 PART\_"
+    frame = wrangles.DataFrame({"raw": [source, 42]})
+    recipe_result = wrangles.recipe.run(
+        {"wrangles": [{"standardize.clean": options}]}, dataframe=frame.copy(),
+    )
+    accessor_result = frame.wrangles.standardize.clean(**options)
+    assert recipe_result.to_dict("list") == {
+        "raw": [source, 42], "clean": ["12 VDC; & PART_", 42],
+    }
+    assert accessor_result.equals(recipe_result)
+
+
+def test_markdown_unclosed_fence_is_preserved():
+    source = "```\n" + r"A\_B"
+    assert _clean(source, unescape_markdown=True) == source
+
+
+def test_markdown_link_labels_clean_without_rewriting_destinations():
+    source = r"[PART\_](https://example.com/a\_b) and A\_B"
+    expected = r"[PART_](https://example.com/a\_b) and A_B"
+    assert _clean(source, unescape_markdown=True) == expected
+
+
+def test_markdown_long_prose_preserves_layout_and_mixed_values():
+    source = "# Heading\n\n" + "x" * 40000 + "\n\n" + r"PART\_"
+    expected = source[:-6] + "PART_"
+    assert _clean([source, None, False, {"raw": r"A\_B"}], unescape_markdown=True) == [
+        expected, None, False, {"raw": r"A\_B"},
+    ]
+
+
+@pytest.mark.parametrize("punctuation", ['"', "'", "$"])
+def test_markdown_quotes_and_non_currency_dollars(punctuation):
+    assert _clean("A\\" + punctuation + "B", unescape_markdown=True) == "A" + punctuation + "B"
+
+
+def test_generated_recipe_schema_supports_markdown_toggle(tmp_path, monkeypatch):
+    import json
+    import runpy
+    import shutil
+    from pathlib import Path
+    from types import SimpleNamespace
+    import jsonschema
+    import requests
+
+    root = Path(__file__).resolve().parents[1]
+    shutil.copyfile(root / "schema/recipe_base_schema.json", tmp_path / "recipe_base_schema.json")
+    monkeypatch.chdir(tmp_path)
+
+    def schema_response(url):
+        assert url == "http://json-schema.org/draft-07/schema#"
+        return SimpleNamespace(json=lambda: jsonschema.Draft7Validator.META_SCHEMA)
+
+    monkeypatch.setattr(requests, "get", schema_response)
+    runpy.run_path(str(root / "schema/generate_recipe_schema.py"))
+    generated = json.loads((tmp_path / "schema.json").read_text())
+    contract = generated["$defs"]["wrangles"]["items"]["properties"]["standardize.clean"]
+    assert contract["properties"]["unescape_markdown"] == {
+        "type": "boolean", "default": False,
+        "description": yaml.safe_load(
+            wrangles.recipe._recipe_wrangles.standardize.clean.__doc__
+        )["properties"]["unescape_markdown"]["description"],
+    }
+    jsonschema.Draft7Validator.check_schema(generated)
+    jsonschema.validate({"wrangles": [{"standardize.clean": {
+        "input": "raw", "unescape_markdown": True,
+    }}]}, generated)
+
+
+@pytest.mark.parametrize(("source", "options", "expected"), [
+    (r"PART\_", {}, r"PART\_"),
+    (r"PART\_", {"unescape_markdown": True}, "PART_"),
+    (r"`PART\_`", {"unescape_markdown": True}, r"`PART\_`"),
+    (r"C:\_cache\part", {"unescape_markdown": True}, r"C:\_cache\part"),
+    (r"$12\text{ VDC}$ PART\_", {"unescape_markdown": True, "latex_to_text": True}, "12 VDC PART_"),
+    (r"\u005c_", {"unescape_markdown": True, "unescape_unicode": True}, r"\_"),
+])
+def test_shared_escape_scanner_markdown_contract(source, options, expected):
+    from wrangles._text_cleanup import clean_escaped_text
+
+    assert clean_escaped_text(source, **options) == expected

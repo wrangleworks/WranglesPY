@@ -1,6 +1,7 @@
 """Conservative conversions for escaped text embedded in Markdown."""
 
 import re
+import string
 
 
 _PROTECTED = re.compile(
@@ -129,9 +130,49 @@ def _latex_to_text(match):
     return value if _DOLLAR_CURRENCY.fullmatch(value) else value.replace("$", "")
 
 
-def clean_escaped_text(text, *, unescape_unicode=False, latex_to_text=False):
-    """Decode printable Unicode escapes and/or simple inline LaTeX notation."""
+# Only punctuation recognized by Markdown is eligible. Doubled backslashes are
+# literal data here, rather than a request to recursively decode another escape.
+_MARKDOWN_ESCAPE = re.compile(
+    r"\\([" + re.escape(string.punctuation.replace("\\", "")) + r"])"
+)
+_MARKDOWN_INLINE = re.compile(
+    _INLINE_MATH + "|"
+    r'(?P<path>(?<!\w)(?:"[A-Za-z]:\\[^"\r\n]*"'
+    r"|'[A-Za-z]:\\[^'\r\n]*'"
+    r'|(?:[A-Za-z]:\\|\\\\|\.{1,2}\\)'
+    r'(?:[^\s\\<>"|?*]+(?:[ \t]+[^\s\\<>"|?*]+)*\\)*[^\s<>"|?*]+'
+    r'|\\(?:[A-Za-z0-9][A-Za-z0-9_.-]*|_[A-Za-z0-9][A-Za-z0-9_.-]*)\\[^\s<>"|?*]+'
+    r'|[^\s\\<>"|?*]+\\[A-Za-z0-9][^\s<>"|?*]*))'
+    r"|(?P<slashes>\\{2,})"
+    r"|(?P<currency>\\\$(?=[+-]?(?:[0-9]|\.[0-9])))"
+    r"|(?P<tex_delimited>(?<!\\)\\\((?:\\[^\r\n]|[^\\\r\n])*?\\\)"
+    r"|(?<!\\)\\\[(?:\\[^\r\n]|[^\\\r\n])*?\\\])"
+    + "|(?P<unicode>" + _UNICODE_ESCAPE + ")"
+    + "|(?P<markdown>" + _MARKDOWN_ESCAPE.pattern + ")"
+)
+
+
+def clean_escaped_text(
+    text, *, unescape_unicode=False, latex_to_text=False, unescape_markdown=False,
+):
+    """Clean prose tokens once, preserving code, links, paths and math syntax.
+
+    LaTeX is recognized before Markdown escapes. Unicode replacements are not
+    rescanned, so decoding a literal backslash never creates a new Markdown escape.
+    """
     def replace(match):
+        if unescape_markdown:
+            if any(match.group(name) is not None for name in ("path", "slashes", "currency")):
+                return match.group()
+            if match.group("tex_delimited") is not None:
+                body = match.group()[2:-2]
+                # Parenthesized prose such as \(OP50\) is Markdown; expressions
+                # with TeX commands/groups/powers/subscripts remain untouched.
+                if re.search(r"[\\{}^_=+*/]", body):
+                    return match.group()
+                return _MARKDOWN_ESCAPE.sub(lambda item: item[1], match.group())
+            if match.group("markdown") is not None:
+                return match.group()[1:]
         if match.group("math") is not None:
             return _latex_to_text(match) if latex_to_text else match.group()
         if unescape_unicode:
@@ -145,4 +186,5 @@ def clean_escaped_text(text, *, unescape_unicode=False, latex_to_text=False):
                 return chr(codepoint)
         return match.group()
 
-    return map_markdown_prose(text, lambda prose: _INLINE.sub(replace, prose))
+    tokens = _MARKDOWN_INLINE if unescape_markdown else _INLINE
+    return map_markdown_prose(text, lambda prose: tokens.sub(replace, prose))
