@@ -40,6 +40,14 @@ try:
 except ImportError:
     from yaml import SafeDumper as _YAMLDumper
 
+
+class _RecipeDumper(_YAMLDumper):
+    def represent_data(self, data):
+        if isinstance(data, _os.PathLike):
+            data = _os.fspath(data)
+        return super().represent_data(data)
+
+
 _logging.getLogger().setLevel(_logging.INFO)
 
 # Recipe source, logging attribution, and nesting state.
@@ -93,7 +101,7 @@ def _load_recipe(
     if not isinstance(recipe, str):
         try:
             # If user passes in a pre-parsed recipe, convert back to YAML
-            recipe = _yaml.dump(recipe, sort_keys=False, Dumper=_YAMLDumper, allow_unicode=True)
+            recipe = _yaml.dump(recipe, sort_keys=False, Dumper=_RecipeDumper, allow_unicode=True)
         except:
             raise ValueError('Recipe passed in as an invalid type')
 

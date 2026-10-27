@@ -4,6 +4,7 @@ Standalone functions
 These will be called directly, without belonging to a parent module
 """
 import types as _types
+import os as _os
 import logging as _logging
 from typing import Union as _Union
 import random as _random
@@ -1524,7 +1525,7 @@ def recipe(
     df: _pd.DataFrame,
     input: _Union[str, int, list] = None,
     output: _Union[str, list] = None,
-    name: str = None,
+    name: _Union[str, _os.PathLike[str]] = None,
     variables = None,
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
