@@ -151,9 +151,12 @@ _MARKDOWN_INLINE = re.compile(
     + r"|'" + _PATH_PREFIX + r"[^'\r\n]*'"
     + "|" + _PATH_PREFIX + r'[^\s<>"|?*]+'
     r'|\\(?:[A-Za-z0-9][A-Za-z0-9_.-]*|_[A-Za-z0-9][A-Za-z0-9_.-]*)\\[^\s<>"|?*]+'
+    # Try an unprefixed path only at the start of its bounded token. Retrying
+    # this lookahead at every punctuation mark makes long prose quadratic.
     # A valid Unicode escape anywhere in an unprefixed token indicates prose.
     # Dollar boundaries must stay available to the inline LaTeX matcher.
-    r'|(?![^\s<>"|?$]*\\(?:u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}))'
+    r'|(?<![^\s<>"|?$])'
+    r'(?![^\s<>"|?$]*\\(?:u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}))'
     r'[^\s\\<>"|?$]+\\'
     r'(?:[A-Za-z0-9]|_[A-Za-z0-9](?=[^\s\\$]*\\))[^\s<>"|?$]*))'
     r"|(?P<slashes>\\{2,})"

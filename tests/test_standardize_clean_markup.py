@@ -487,3 +487,19 @@ def test_recipe_preserves_quoted_paths_and_math_while_cleaning_mixed_escapes():
         dataframe=pd.DataFrame({"raw": source}),
     )
     assert result.to_dict("list") == {"raw": source, "clean": expected}
+
+
+def test_markdown_punctuation_rich_prose_scales_by_token_length():
+    import time
+    from wrangles._text_cleanup import clean_escaped_text
+
+    timings = []
+    for repeats in [4000, 16000]:
+        source = "A-" * repeats
+        start = time.process_time()
+        assert clean_escaped_text(source, unescape_markdown=True) == source
+        timings.append(time.process_time() - start)
+
+    # Four times the input allows eight times the CPU plus scheduling/clock
+    # slack, while rejecting the former roughly sixteenfold quadratic growth.
+    assert timings[1] <= 8 * timings[0] + 0.05, timings
