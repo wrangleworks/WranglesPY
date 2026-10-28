@@ -34,8 +34,12 @@ inline code, fenced code (including an unclosed fence), and indented code. Link
 labels can be cleaned while their destinations remain unchanged.
 
 Windows drive paths, UNC paths, and recognizable relative backslash paths are
-protected. Quote paths containing spaces when mixing them with prose to avoid
-ambiguity. Doubled backslashes are literal data and remain doubled; letter
+protected. Quote paths containing spaces when mixing them with prose to protect
+one whole path span. Unquoted path spans stop at whitespace so adjacent prose can
+still be cleaned. An unprefixed token such as `A\u0026B` is treated as escaped
+Unicode prose, not a path. Use an explicit drive, UNC, or `.\` prefix to disambiguate
+actual paths with Unicode-looking directory names. Doubled backslashes are
+literal data and remain doubled; letter
 escapes such as literal `\n`, unknown commands, and trailing backslashes remain
 unchanged. Escaped numeric currency, ordinary prices, and unsupported formulas
 remain intact. Ambiguous TeX-delimited expressions with commands or math syntax

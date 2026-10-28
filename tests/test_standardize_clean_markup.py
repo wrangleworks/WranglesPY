@@ -377,3 +377,51 @@ def test_shared_escape_scanner_markdown_contract(source, options, expected):
     from wrangles._text_cleanup import clean_escaped_text
 
     assert clean_escaped_text(source, **options) == expected
+
+
+@pytest.mark.parametrize(("source", "expected"), [
+    (r"A\u0026B", "A&B"),
+    (r"Temperature\u00b0C", "Temperature\N{DEGREE SIGN}C"),
+    (r"A\U0001F600B", "A\N{GRINNING FACE}B"),
+    (r"A\uD83D\uDE00B", "A\N{GRINNING FACE}B"),
+])
+def test_markdown_does_not_misclassify_unicode_prose_as_paths(source, expected):
+    assert _clean(source, unescape_unicode=True, unescape_markdown=True) == expected
+    assert _clean(source, unescape_unicode=True) == expected
+
+
+@pytest.mark.parametrize("path", [
+    r"C:\folder\file.txt", r"C:\folder", r"\\server\share\file.txt",
+    r".\folder\file.txt", r"folder\part\_file.txt",
+    r'"C:\Program Files\_cache\file.txt"',
+    r"C:\Users\u0026\_data.txt",
+])
+@pytest.mark.parametrize("separator", [" and ", " then ", "; "])
+def test_markdown_path_protection_stops_before_adjacent_prose(path, separator):
+    source = path + separator + r"PART\_123 A\u0026B"
+    assert _clean(source, unescape_unicode=True, unescape_markdown=True) == (
+        path + separator + "PART_123 A&B"
+    )
+
+
+def test_markdown_and_unicode_escapes_in_same_unprefixed_token():
+    assert _clean(r"A\u0026B\_C", unescape_unicode=True, unescape_markdown=True) == "A&B_C"
+
+
+def test_recipe_cleans_unicode_and_prose_beside_protected_path():
+    from wrangles._text_cleanup import clean_escaped_text
+
+    source = r"C:\u0026\_cache and A\u0026B PART\_123"
+    expected = r"C:\u0026\_cache and A&B PART_123"
+    assert clean_escaped_text(
+        source, unescape_unicode=True, unescape_markdown=True,
+    ) == expected
+    result = wrangles.recipe.run(
+        {"wrangles": [{"standardize.clean": {
+            "input": "raw", "output": "clean",
+            "unescape_unicode": True, "unescape_markdown": True,
+            "collapse_whitespace": False, "trim": False,
+        }}]},
+        dataframe=pd.DataFrame({"raw": [source]}),
+    )
+    assert result.to_dict("list") == {"raw": [source], "clean": [expected]}

@@ -135,14 +135,20 @@ def _latex_to_text(match):
 _MARKDOWN_ESCAPE = re.compile(
     r"\\([" + re.escape(string.punctuation.replace("\\", "")) + r"])"
 )
+# Quoted paths can contain spaces. Unquoted path spans end at whitespace so
+# an adjacent sentence is never absorbed into the protected token.
 _MARKDOWN_INLINE = re.compile(
     _INLINE_MATH + "|"
     r'(?P<path>(?<!\w)(?:"[A-Za-z]:\\[^"\r\n]*"'
     r"|'[A-Za-z]:\\[^'\r\n]*'"
     r'|(?:[A-Za-z]:\\|\\\\|\.{1,2}\\)'
-    r'(?:[^\s\\<>"|?*]+(?:[ \t]+[^\s\\<>"|?*]+)*\\)*[^\s<>"|?*]+'
+    r'[^\s<>"|?*]+'
     r'|\\(?:[A-Za-z0-9][A-Za-z0-9_.-]*|_[A-Za-z0-9][A-Za-z0-9_.-]*)\\[^\s<>"|?*]+'
-    r'|[^\s\\<>"|?*]+\\[A-Za-z0-9][^\s<>"|?*]*))'
+    # An unprefixed token containing a valid Unicode escape is prose, not
+    # sufficient evidence of a Windows path. Explicit drive/UNC prefixes above
+    # still protect directory names such as C:\\Users\\u0026.
+    r'|[^\s\\<>"|?*]+\\(?!u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})'
+    r'(?:[A-Za-z0-9]|_[A-Za-z0-9](?=[^\s\\]*\\))[^\s<>"|?*]*))'
     r"|(?P<slashes>\\{2,})"
     r"|(?P<currency>\\\$(?=[+-]?(?:[0-9]|\.[0-9])))"
     r"|(?P<tex_delimited>(?<!\\)\\\((?:\\[^\r\n]|[^\\\r\n])*?\\\)"
