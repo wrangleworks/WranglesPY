@@ -22,6 +22,11 @@ _PROTECTED_WITHOUT_LINKS = re.compile(
     r"|(?P<display_math>(?<!\\)\$\$)",
     re.MULTILINE,
 )
+_MULTILINE_TEX = (
+    r"(?<!\\)\\\[(?:(?!\\\])[^\r\n])*\r?\n[\s\S]*?\\\]"
+    r"|(?<!\\)\\\((?:(?!\\\))[^\r\n])*\r?\n[\s\S]*?\\\)"
+)
+
 _BARE_FRACTION = r"[ \t]*[+-]?(?:[0-9]+[ \t]+)?[0-9]+[ \t]*/[ \t]*[0-9]+[ \t]*"
 _INLINE_MATH = (
     r"(?<![\\$])\$(?!\$)(?=[^$\r\n]*\\|" + _BARE_FRACTION + r"\$)"
@@ -75,10 +80,12 @@ def _link_end(text, start):
     return None
 
 
-def map_markdown_prose(text, transform, *, protect_links=True):
+def map_markdown_prose(text, transform, *, protect_links=True, protect_tex=False):
     """Transform prose, protecting code/math and, by default, link destinations."""
     parts, pos = [], 0
     protected = _PROTECTED if protect_links else _PROTECTED_WITHOUT_LINKS
+    if protect_tex:
+        protected = re.compile(_MULTILINE_TEX + "|" + protected.pattern, re.MULTILINE)
     while match := protected.search(text, pos):
         start, end = match.span()
         if match.group("fenced"):
@@ -137,18 +144,18 @@ _MARKDOWN_ESCAPE = re.compile(
 )
 # Quoted paths can contain spaces. Unquoted path spans end at whitespace so
 # an adjacent sentence is never absorbed into the protected token.
+_PATH_PREFIX = r"(?:[A-Za-z]:\\|\\\\|\.{1,2}\\)"
 _MARKDOWN_INLINE = re.compile(
     _INLINE_MATH + "|"
-    r'(?P<path>(?<!\w)(?:"[A-Za-z]:\\[^"\r\n]*"'
-    r"|'[A-Za-z]:\\[^'\r\n]*'"
-    r'|(?:[A-Za-z]:\\|\\\\|\.{1,2}\\)'
-    r'[^\s<>"|?*]+'
+    r'(?P<path>(?<!\w)(?:"' + _PATH_PREFIX + r'[^"\r\n]*"'
+    + r"|'" + _PATH_PREFIX + r"[^'\r\n]*'"
+    + "|" + _PATH_PREFIX + r'[^\s<>"|?*]+'
     r'|\\(?:[A-Za-z0-9][A-Za-z0-9_.-]*|_[A-Za-z0-9][A-Za-z0-9_.-]*)\\[^\s<>"|?*]+'
-    # An unprefixed token containing a valid Unicode escape is prose, not
-    # sufficient evidence of a Windows path. Explicit drive/UNC prefixes above
-    # still protect directory names such as C:\\Users\\u0026.
-    r'|[^\s\\<>"|?*]+\\(?!u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})'
-    r'(?:[A-Za-z0-9]|_[A-Za-z0-9](?=[^\s\\]*\\))[^\s<>"|?*]*))'
+    # A valid Unicode escape anywhere in an unprefixed token indicates prose.
+    # Dollar boundaries must stay available to the inline LaTeX matcher.
+    r'|(?![^\s<>"|?$]*\\(?:u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}))'
+    r'[^\s\\<>"|?$]+\\'
+    r'(?:[A-Za-z0-9]|_[A-Za-z0-9](?=[^\s\\$]*\\))[^\s<>"|?$]*))'
     r"|(?P<slashes>\\{2,})"
     r"|(?P<currency>\\\$(?=[+-]?(?:[0-9]|\.[0-9])))"
     r"|(?P<tex_delimited>(?<!\\)\\\((?:\\[^\r\n]|[^\\\r\n])*?\\\)"
@@ -193,4 +200,6 @@ def clean_escaped_text(
         return match.group()
 
     tokens = _MARKDOWN_INLINE if unescape_markdown else _INLINE
-    return map_markdown_prose(text, lambda prose: tokens.sub(replace, prose))
+    return map_markdown_prose(
+        text, lambda prose: tokens.sub(replace, prose), protect_tex=unescape_markdown,
+    )

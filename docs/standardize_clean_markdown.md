@@ -35,14 +35,16 @@ labels can be cleaned while their destinations remain unchanged.
 
 Windows drive paths, UNC paths, and recognizable relative backslash paths are
 protected. Quote paths containing spaces when mixing them with prose to protect
-one whole path span. Unquoted path spans stop at whitespace so adjacent prose can
-still be cleaned. An unprefixed token such as `A\u0026B` is treated as escaped
-Unicode prose, not a path. Use an explicit drive, UNC, or `.\` prefix to disambiguate
+one whole path span. Both single and double quotes protect drive, UNC, and
+explicit relative paths. Unquoted path spans stop at whitespace so adjacent prose can
+still be cleaned. An unprefixed token containing a valid Unicode escape anywhere, such as
+`A\_B\u0026C`, is treated as escaped prose, not a path. Use an explicit drive, UNC, or `.\` prefix to disambiguate
 actual paths with Unicode-looking directory names. Doubled backslashes are
 literal data and remain doubled; letter
 escapes such as literal `\n`, unknown commands, and trailing backslashes remain
 unchanged. Escaped numeric currency, ordinary prices, and unsupported formulas
-remain intact. Ambiguous TeX-delimited expressions with commands or math syntax
+remain intact, including multiline TeX spans with indented formula bodies.
+Inline LaTeX can touch preceding prose or punctuation. Ambiguous TeX-delimited expressions with commands or math syntax
 are preserved; parenthesized prose such as `\(OP50\)` is unescaped.
 
 1. Identify existing code, destinations, URLs, and display math with the shared

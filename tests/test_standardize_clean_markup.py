@@ -425,3 +425,65 @@ def test_recipe_cleans_unicode_and_prose_beside_protected_path():
         dataframe=pd.DataFrame({"raw": [source]}),
     )
     assert result.to_dict("list") == {"raw": [source], "clean": [expected]}
+
+
+@pytest.mark.parametrize("prefix", [r"\\server\shared files\_part.txt", r".\shared files\_part.txt", r"..\shared files\_part.txt"])
+@pytest.mark.parametrize("quote", ['"', "'"])
+@pytest.mark.parametrize("other_options", [False, True])
+def test_markdown_preserves_quoted_unc_and_relative_paths(prefix, quote, other_options):
+    path = quote + prefix + quote
+    assert _clean(
+        path + r" and PART\_", unescape_markdown=True,
+        unescape_unicode=other_options, latex_to_text=other_options,
+    ) == path + " and PART_"
+
+
+@pytest.mark.parametrize(("source", "expected"), [
+    (r"A\_B\u0026C", "A_B&C"),
+    (r"A\_B\U0001F600C", "A_B\N{GRINNING FACE}C"),
+    (r"A\_B\uD83D\uDE00C", "A_B\N{GRINNING FACE}C"),
+    (r"folder\part\u0026C", r"folder\part&C"),
+])
+def test_markdown_before_unicode_does_not_establish_a_relative_path(source, expected):
+    assert _clean(source, unescape_unicode=True, unescape_markdown=True) == expected
+
+
+@pytest.mark.parametrize(("source", "expected"), [
+    (r"($12\text{ VDC}$)", "(12 VDC)"),
+    (r"Output:$12\text{VDC}$", "Output:12VDC"),
+    (r"Output:$12\text{VDC}$ PART\_", "Output:12VDC PART_"),
+    (r"prefix$\unknown{A\_B}$", r"prefix$\unknown{A\_B}$"),
+])
+def test_markdown_path_candidates_do_not_swallow_adjacent_math(source, expected):
+    assert _clean(source, latex_to_text=True, unescape_markdown=True) == expected
+
+
+@pytest.mark.parametrize("delimiters", [(r"\[", r"\]"), (r"\(", r"\)")])
+@pytest.mark.parametrize("indent", ["", "    ", "\t"])
+@pytest.mark.parametrize("latex_to_text", [False, True])
+def test_markdown_preserves_multiline_unsupported_tex(delimiters, indent, latex_to_text):
+    formula = delimiters[0] + "\n" + indent + r"x^2 + y_1 \times 2" + "\n" + delimiters[1]
+    source = formula + "\n\n" + r"PART\_"
+    assert _clean(source, unescape_markdown=True, latex_to_text=latex_to_text) == formula + "\n\nPART_"
+
+
+def test_recipe_preserves_quoted_paths_and_math_while_cleaning_mixed_escapes():
+    source = [
+        r'"\\server\shared files\_part.txt" and PART\_',
+        r"A\_B\u0026C",
+        r"Output:$12\text{VDC}$",
+        "\\[\n    x^2 + y_1\n\\]",
+    ]
+    expected = [
+        r'"\\server\shared files\_part.txt" and PART_',
+        "A_B&C", "Output:12VDC", source[3],
+    ]
+    result = wrangles.recipe.run(
+        {"wrangles": [{"standardize.clean": {
+            "input": "raw", "output": "clean",
+            "unescape_unicode": True, "latex_to_text": True, "unescape_markdown": True,
+            "collapse_whitespace": False, "trim": False,
+        }}]},
+        dataframe=pd.DataFrame({"raw": source}),
+    )
+    assert result.to_dict("list") == {"raw": source, "clean": expected}
