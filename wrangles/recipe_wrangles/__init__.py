@@ -30,6 +30,7 @@ from . import format
 from . import merge
 from . import select
 from . import split
+from . import structure
 from . import compare
 from . import generate
 from . import compute
