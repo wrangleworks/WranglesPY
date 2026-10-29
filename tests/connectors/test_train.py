@@ -17,20 +17,10 @@ class LogCapture(logging.Handler):
     def get_messages(self):
         return [self.format(r) for r in self.records]
 
-def _delete_model(model_id, model_type=None):
-    """Delete a model by id. Best-effort - silently ignores failures."""
-    from wrangles import config as _config, auth as _auth
-    try:
-        params = {'model_id': model_id}
-        if model_type:
-            params['type'] = model_type
-        _requests.delete(
-            f'{_config.api_host}/model/content',
-            params=params,
-            headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
-        )
-    except Exception:
-        pass
+def _delete_model(model_id):
+    """Delete a temporary model and surface cleanup failures."""
+    wrangles.train.delete(model_id)
+
 
 def _wait_for_model(recipe, dataframe=None, max_wait=120, interval=5, check=None):
     """
@@ -338,7 +328,7 @@ def test_classify_name_creates_working_model(caplog):
         )
     finally:
         if new_model_id:
-            _delete_model(new_model_id, 'classify')
+            _delete_model(new_model_id)
 
 def test_classify_write_logs_new_model_id_integration(caplog):
     caplog.set_level(logging.INFO)
@@ -783,7 +773,7 @@ class TestTrainExtract:
             )
         finally:
             if new_model_id:
-                _delete_model(new_model_id, 'extract')
+                _delete_model(new_model_id)
 
     def test_extract_name_creates_working_model_after_short_wait(self, caplog):
         """
@@ -838,7 +828,7 @@ class TestTrainExtract:
             assert result.loc[2, 'characters'] == []
         finally:
             if new_model_id:
-                _delete_model(new_model_id, 'extract')
+                _delete_model(new_model_id)
 
 class TestTrainLookup:
     """
@@ -1870,7 +1860,7 @@ def test_lookup_name_creates_working_model(caplog):
         )
     finally:
         if new_model_id:
-            _delete_model(new_model_id, 'lookup')
+            _delete_model(new_model_id)
 
 def test_lookup_write_logs_new_model_id(caplog):
     """
@@ -2062,7 +2052,7 @@ def test_standardize_name_creates_working_model(caplog):
         )
     finally:
         if new_model_id:
-            _delete_model(new_model_id, 'standardize')
+            _delete_model(new_model_id)
 
 def test_standardize_write_logs_new_model_id(caplog):
     """
