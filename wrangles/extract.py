@@ -201,7 +201,7 @@ def ai(
         of the output requested or a dict of JSON schema definitions.
     :param model_id: (Optional) An extract.ai model ID containing a saved definition. Use this or output. \
         If both are provided, named output fields take precedence over matching saved fields.
-    :param model: (Optional) The model to use for the extraction.
+    :param model: (Optional) The model to use for the extraction. Deprecated or retired models in the AI configuration are replaced by their configured successor with a warning.
     :param threads: (Optional) Number of threads to use for parallel processing.
     :param timeout: (Optional) Timeout in seconds for each API call.
     :param retries: (Optional) Number of retries to attempt on failure.
@@ -254,7 +254,7 @@ def ai(
             protocol = policy.get("protocol", "responses")
     protocol = _normalize_ai_protocol(protocol)
     policy = _ai_config.resolve(
-        "extract.ai", model=model, provider=provider, protocol=protocol
+        "extract.ai", model=model, provider=provider, protocol=protocol, warn=False
     )
     if not isinstance(web_search, bool):
         raise ValueError("web_search must be true or false.")
@@ -334,6 +334,7 @@ def ai(
     policy = _ai_config.resolve(
         "extract.ai", model=model, provider=provider, protocol=protocol
     )
+    model = policy["model"]
     _ai_config.warn_if_deprecated(model, provider=provider)
     threads = threads if threads is not None else policy.get("default_concurrency", 32)
     timeout = timeout if timeout is not None else policy.get("request_timeout_seconds", 12)

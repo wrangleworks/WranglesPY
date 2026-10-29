@@ -49,7 +49,7 @@ def ai(
         description: Target schema; string/array shorthands are expanded automatically.
       model:
         type: string
-        description: Responses model name. Defaults to the generate.ai role in the AI configuration.
+        description: Responses model name. Defaults to the generate.ai role in the AI configuration. Deprecated or retired OpenAI models listed in the AI configuration (for example gpt-4o-mini) are replaced by their configured successor and a warning is logged.
       threads:
         type: integer
         description: Maximum concurrent requests; defaults to the AI configuration.

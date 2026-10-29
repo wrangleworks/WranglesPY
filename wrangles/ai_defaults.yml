@@ -47,33 +47,225 @@ providers:
         status: active
         default_for: []
 
-      # Older OpenAI models; status records each model's catalog lifecycle.
-      gpt-5.4-mini:
-        status: deprecated
+      # Older OpenAI models. Deprecated/retired models with a replacement are
+      # silently swapped for it at every call site (a warning is logged).
+      # Replacement targets are best-effort and non-exhaustive.
+      text-ada-001:
+        status: retired
+        replacement: gpt-6-luna
         default_for: []
-        defaults:
-          reasoning:
-            effort: none
-          text:
-            verbosity: low
+      text-babbage-001:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      text-curie-001:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      text-davinci-001:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      text-davinci-002:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      text-davinci-003:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      code-davinci-002:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      davinci:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      curie:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      babbage:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      ada:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      davinci-002:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      babbage-002:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      gpt-3.5-turbo-instruct:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      gpt-3.5-turbo:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      gpt-3.5-turbo-16k:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      gpt-3.5-turbo-0301:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      gpt-3.5-turbo-0613:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      gpt-3.5-turbo-1106:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      gpt-3.5-turbo-0125:
+        status: retired
+        replacement: gpt-6-luna
+        default_for: []
+      gpt-4:
+        status: retired
+        replacement: gpt-6-sol
+        default_for: []
+      gpt-4-32k:
+        status: retired
+        replacement: gpt-6-sol
+        default_for: []
+      gpt-4-0314:
+        status: retired
+        replacement: gpt-6-sol
+        default_for: []
+      gpt-4-0613:
+        status: retired
+        replacement: gpt-6-sol
+        default_for: []
+      gpt-4-turbo:
+        status: retired
+        replacement: gpt-6-sol
+        default_for: []
+      gpt-4-turbo-preview:
+        status: retired
+        replacement: gpt-6-sol
+        default_for: []
+      gpt-4-1106-preview:
+        status: retired
+        replacement: gpt-6-sol
+        default_for: []
+      gpt-4-0125-preview:
+        status: retired
+        replacement: gpt-6-sol
+        default_for: []
+      gpt-4-vision-preview:
+        status: retired
+        replacement: gpt-6-sol
+        default_for: []
+      chatgpt-4o-latest:
+        status: retired
+        replacement: gpt-6-sol
+        default_for: []
       gpt-4o:
         status: deprecated
+        replacement: gpt-6-sol
         default_for: []
-        protocol_defaults:
-          chat_completions:
-            temperature: 0.2
-        supported_values:
-          reasoning.effort: []
-          text.verbosity: []
+      gpt-4.1:
+        status: deprecated
+        replacement: gpt-6-sol
+        default_for: []
+      gpt-5:
+        status: deprecated
+        replacement: gpt-6-sol
+        default_for: []
+      gpt-5.1:
+        status: deprecated
+        replacement: gpt-6-sol
+        default_for: []
+      gpt-5.2:
+        status: deprecated
+        replacement: gpt-6-sol
+        default_for: []
+      gpt-5.4:
+        status: deprecated
+        replacement: gpt-6-sol
+        default_for: []
       gpt-4o-mini:
-        status: active
+        status: deprecated
+        replacement: gpt-6-luna
         default_for: []
-        protocol_defaults:
-          chat_completions:
-            temperature: 0.2
-        supported_values:
-          reasoning.effort: []
-          text.verbosity: []
+      gpt-4.1-mini:
+        status: deprecated
+        replacement: gpt-6-luna
+        default_for: []
+      gpt-4.1-nano:
+        status: deprecated
+        replacement: gpt-6-luna
+        default_for: []
+      gpt-5-mini:
+        status: deprecated
+        replacement: gpt-6-luna
+        default_for: []
+      gpt-5-nano:
+        status: deprecated
+        replacement: gpt-6-luna
+        default_for: []
+      gpt-5.1-mini:
+        status: deprecated
+        replacement: gpt-6-luna
+        default_for: []
+      gpt-5.2-mini:
+        status: deprecated
+        replacement: gpt-6-luna
+        default_for: []
+      gpt-5.4-mini:
+        status: deprecated
+        replacement: gpt-6-luna
+        default_for: []
+      gpt-5.4-nano:
+        status: deprecated
+        replacement: gpt-6-luna
+        default_for: []
+      text-embedding-ada-002:
+        status: retired
+        replacement: text-embedding-3-small
+        default_for: []
+      text-similarity-ada-001:
+        status: retired
+        replacement: text-embedding-3-small
+        default_for: []
+      text-similarity-babbage-001:
+        status: retired
+        replacement: text-embedding-3-small
+        default_for: []
+      text-similarity-curie-001:
+        status: retired
+        replacement: text-embedding-3-small
+        default_for: []
+      text-similarity-davinci-001:
+        status: retired
+        replacement: text-embedding-3-small
+        default_for: []
+      text-search-ada-doc-001:
+        status: retired
+        replacement: text-embedding-3-small
+        default_for: []
+      text-search-babbage-doc-001:
+        status: retired
+        replacement: text-embedding-3-small
+        default_for: []
+      text-search-curie-doc-001:
+        status: retired
+        replacement: text-embedding-3-small
+        default_for: []
+      text-search-davinci-doc-001:
+        status: retired
+        replacement: text-embedding-3-small
+        default_for: []
 
   google:
     endpoints:

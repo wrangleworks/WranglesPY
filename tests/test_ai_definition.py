@@ -1019,7 +1019,7 @@ def test_saved_model_without_inline_output_flows_through_yaml_recipe(monkeypatch
     saved = _saved_model(
         ["Color", "Named color", "string", "", "", "", "", ""],
         settings={
-            "GPTModel": "gpt-5-mini",
+            "GPTModel": "gpt-6-luna",
             setting_key: "Return the explicit color.",
         },
     )
@@ -1051,7 +1051,7 @@ def test_saved_model_without_inline_output_flows_through_yaml_recipe(monkeypatch
     )
 
     assert result["Color"].tolist() == ["yellow"]
-    assert calls[0]["model"] == "gpt-5-mini"
+    assert calls[0]["model"] == "gpt-6-luna"
     assert calls[0]["instructions"].count("Return the explicit color.") == 1
     assert calls[0]["instructions"].count("Use primary product evidence.") == 1
 

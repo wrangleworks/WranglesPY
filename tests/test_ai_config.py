@@ -202,13 +202,14 @@ def test_applications_accepts_lists_including_spaces(monkeypatch, tmp_path, appl
 
 
 @pytest.mark.parametrize("provider,model", [
-    ("openai", "gpt-4o"),
-    ("openai", "gpt-4o-2024-08-06"),
+    ("openai", "legacy-model"),
+    ("openai", "legacy-model-2024-08-06"),
     ("google", "models/deprecated-gemini"),
 ])
 def test_deprecated_catalog_models_warn_only_when_called(monkeypatch, tmp_path, caplog, provider, model):
     config = ai_config.load()
     config["providers"]["google"]["models"]["deprecated-gemini"] = {"status": "deprecated"}
+    config["providers"]["openai"]["models"]["legacy-model"] = {"status": "deprecated"}
     use_config(config, monkeypatch, tmp_path)
     operation = "extract.ai" if provider == "openai" else "search.retrieve_link_content"
     assert ai_config.resolve(operation, model=model)["model"] == model
@@ -335,11 +336,89 @@ def test_snapshot_inherits_model_options_with_exact_overrides(monkeypatch, tmp_p
     assert ai_config.model_capabilities("gpt-6-luna-2026-09-26")["reasoning_none"] is True
 
 
-def test_legacy_chat_defaults_do_not_leak_into_responses():
-    assert ai_config.model_defaults("gpt-4o", protocol="chat_completions") == {"temperature": 0.2}
-    assert ai_config.model_defaults("gpt-4o-mini-2024-07-18", protocol="chat_completions") == {"temperature": 0.2}
-    assert ai_config.model_defaults("gpt-4o", protocol="responses") == {}
-    assert "temperature" not in ai_config.resolve("extract.ai", model="gpt-4o")
+def test_legacy_chat_defaults_do_not_leak_into_responses(monkeypatch, tmp_path):
+    config = ai_config.load()
+    config["providers"]["openai"]["models"]["chat-model"] = {
+        "status": "active", "protocol_defaults": {"chat_completions": {"temperature": 0.2}},
+    }
+    use_config(config, monkeypatch, tmp_path)
+    assert ai_config.model_defaults("chat-model", protocol="chat_completions") == {"temperature": 0.2}
+    assert ai_config.model_defaults("chat-model-2024-07-18", protocol="chat_completions") == {"temperature": 0.2}
+    assert ai_config.model_defaults("chat-model", protocol="responses") == {}
+    assert "temperature" not in ai_config.resolve("extract.ai", model="chat-model")
+
+
+@pytest.mark.parametrize("old,new", [
+    ("gpt-4o-mini", "gpt-6-luna"),
+    ("gpt-4o-mini-2024-07-18", "gpt-6-luna"),
+    ("gpt-3.5-turbo", "gpt-6-luna"),
+    ("text-davinci-003", "gpt-6-luna"),
+    ("code-davinci-002", "gpt-6-luna"),
+    ("gpt-4", "gpt-6-sol"),
+    ("gpt-4-turbo", "gpt-6-sol"),
+    ("gpt-4o", "gpt-6-sol"),
+    ("GPT-4o ", "gpt-6-sol"),
+    ("gpt-5", "gpt-6-sol"),
+    ("gpt-5.4", "gpt-6-sol"),
+    ("gpt-5-mini", "gpt-6-luna"),
+    ("gpt-5-nano", "gpt-6-luna"),
+    ("gpt-5.4-mini", "gpt-6-luna"),
+    ("gpt-5-mini-2025-08-07", "gpt-6-luna"),
+])
+def test_deprecated_chat_models_are_remapped_with_warning(caplog, old, new):
+    for operation in ("extract.ai", "generate.ai"):
+        caplog.clear()
+        policy = ai_config.resolve(operation, model=old)
+        assert policy["model"] == new
+        assert policy["requested_model"] == old.strip()
+        assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 1
+        assert new in caplog.text and old.strip() in caplog.text
+    caplog.clear()
+    assert ai_config.resolve_model(old) == new
+    assert "replaced" in caplog.text
+
+
+def test_remap_warning_can_be_suppressed(caplog):
+    assert ai_config.resolve("extract.ai", model="gpt-4o", warn=False)["model"] == "gpt-6-sol"
+    assert not caplog.records
+
+
+@pytest.mark.parametrize("old", ["text-embedding-ada-002", "text-similarity-davinci-001"])
+def test_legacy_embedding_models_map_to_current_embedding_model(caplog, old):
+    policy = ai_config.resolve("embeddings", model=old)
+    assert policy["model"] == "text-embedding-3-small"
+    assert policy["requested_model"] == old
+    assert caplog.records
+
+
+@pytest.mark.parametrize("model", ["gpt-6-luna", "gpt-6-sol", "text-embedding-3-large", "my-proxy-model"])
+def test_current_and_unknown_models_pass_through(caplog, model):
+    policy = ai_config.resolve("extract.ai", model=model)
+    assert policy["model"] == model
+    assert "requested_model" not in policy
+    assert ai_config.resolve_model(model) == model
+    assert not caplog.records
+
+
+def test_every_packaged_replacement_targets_an_active_model():
+    models = ai_config.load()["providers"]["openai"]["models"]
+    for name, entry in models.items():
+        if "replacement" in entry:
+            assert entry["status"] != "active", name
+            assert models[entry["replacement"]]["status"] == "active", name
+
+
+def test_replacement_on_active_model_is_invalid(monkeypatch, tmp_path):
+    config = ai_config.load()
+    config["providers"]["openai"]["models"]["gpt-6-sol"]["replacement"] = "gpt-6-luna"
+    use_config(config, monkeypatch, tmp_path)
+    with pytest.raises(ValueError, match="only valid for deprecated"):
+        ai_config.load()
+
+
+def test_legacy_v1_configuration_remaps_deprecated_extract_model(monkeypatch, tmp_path):
+    use_config({"version": 1, "extract_ai": {"model": "gpt-4o"}}, monkeypatch, tmp_path)
+    assert ai_config.extract_ai()["model"] == "gpt-6-sol"
 
 
 def test_legacy_override_is_replacement_and_merges_capabilities(monkeypatch, tmp_path):

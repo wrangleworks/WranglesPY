@@ -61,7 +61,7 @@ def test_extract_ai_uses_responses_structured_outputs(monkeypatch, caplog):
                     "examples": ["25mm"],
                 }
             },
-            model="gpt-5-mini",
+            model="gpt-6-luna",
             seed=1,
             threads=1,
         )
@@ -70,7 +70,7 @@ def test_extract_ai_uses_responses_structured_outputs(monkeypatch, caplog):
     schema = payload["text"]["format"]["schema"]
     assert result == {"length": "25mm"}
     assert calls[0]["url"] == "https://api.openai.com/v1/responses"
-    assert payload["model"] == "gpt-5-mini"
+    assert payload["model"] == "gpt-6-luna"
     assert payload["reasoning"] == {"effort": "none"}
     assert payload["text"]["verbosity"] == "low"
     assert payload["text"]["format"]["strict"] is True
@@ -568,7 +568,7 @@ def test_extract_ai_sends_default_reasoning_for_non_reasoning_models(monkeypatch
                 "description": "Return the names of any fruits that are yellow",
             }
         },
-        model="gpt-4o-mini",
+        model="legacy-chat-model",
         threads=1,
     )
 
@@ -763,7 +763,7 @@ def test_extract_chat_tuning_uses_saved_model_and_caller_precedence(
         lambda **kwargs: calls.append(kwargs) or _successful_extraction_response("chat_completions"),
     )
     assert extract.ai(
-        "wrench 25mm", "key", model_id="saved-model", model="gpt-4o-mini",
+        "wrench 25mm", "key", model_id="saved-model", model="legacy-chat-model",
         protocol="chat_completions", threads=1, cache=False, **explicit,
     ) == {"length": "25mm"}
     payload = calls[0]["json"]
@@ -786,7 +786,7 @@ def test_extract_chat_sends_reasoning_and_omits_unsupported_verbosity(monkeypatc
     )
     with caplog.at_level(logging.WARNING, logger="wrangles.extract"):
         assert extract.ai(
-            "wrench 25mm", "key", model="gpt-4o-mini",
+            "wrench 25mm", "key", model="legacy-chat-model",
             output={"length": {"type": "string"}}, protocol="chat_completions",
             threads=1, cache=False, **explicit,
         ) == {"length": "25mm"}
@@ -1409,9 +1409,9 @@ def test_extract_token_alias_overrides_use_caller_precedence(
 @pytest.mark.parametrize("temperature", [None, 0])
 def test_extract_chat_uses_configured_model_temperature(monkeypatch, tmp_path, temperature):
     config = ai_config.load()
-    config["providers"]["openai"]["models"]["gpt-4o-mini"]["protocol_defaults"][
-        "chat_completions"
-    ]["temperature"] = 0.35
+    config["providers"]["openai"]["models"]["legacy-chat-model"] = {
+        "status": "active", "protocol_defaults": {"chat_completions": {"temperature": 0.35}},
+    }
     override = tmp_path / "ai.yml"
     override.write_text(json.dumps(config), encoding="utf-8")
     monkeypatch.setenv("WRANGLES_AI_CONFIG", str(override))
@@ -1424,7 +1424,7 @@ def test_extract_chat_uses_configured_model_temperature(monkeypatch, tmp_path, t
     settings = {} if temperature is None else {"temperature": temperature}
     try:
         assert extract.ai(
-            "wrench 25mm", "key", model="gpt-4o-mini", protocol="chat_completions",
+            "wrench 25mm", "key", model="legacy-chat-model", protocol="chat_completions",
             output={"length": {"type": "string"}}, threads=1, **settings,
         ) == {"length": "25mm"}
         assert calls[0]["json"]["temperature"] == (0.35 if temperature is None else 0)
@@ -1438,7 +1438,10 @@ def test_extract_resolves_protocol_runtime_defaults_before_request(monkeypatch, 
     operation_defaults = config["operations"]["extract.ai"]["defaults"]
     for key in ("request_timeout_seconds", "strict", "cache"):
         operation_defaults.pop(key)
-    config["providers"]["openai"]["models"]["gpt-4o-mini"]["protocol_defaults"][
+    config["providers"]["openai"]["models"]["legacy-chat-model"] = {
+        "status": "active", "protocol_defaults": {"chat_completions": {}},
+    }
+    config["providers"]["openai"]["models"]["legacy-chat-model"]["protocol_defaults"][
         "chat_completions"
     ].update({"request_timeout_seconds": 7, "strict": False, "cache": {"enabled": False}})
     override = tmp_path / "ai.yml"
@@ -1459,7 +1462,7 @@ def test_extract_resolves_protocol_runtime_defaults_before_request(monkeypatch, 
     try:
         for _ in range(2):
             assert extract.ai(
-                "wrench 25mm", "key", model="gpt-4o-mini",
+                "wrench 25mm", "key", model="legacy-chat-model",
                 output={"length": {"type": "string"}}, threads=1, **selection,
             ) == {"length": "25mm"}
         assert len(calls) == 2  # The model's protocol disables the warm result cache.
@@ -1470,7 +1473,7 @@ def test_extract_resolves_protocol_runtime_defaults_before_request(monkeypatch, 
 
 
 @pytest.mark.parametrize("retries", [None, 0])
-def test_v1_chat_preserves_temperature_and_resolves_retries(monkeypatch, tmp_path, retries):
+def test_v1_chat_remaps_deprecated_model_and_resolves_retries(monkeypatch, tmp_path, retries):
     override = tmp_path / "ai.yml"
     override.write_text(json.dumps({
         "version": 1,
@@ -1493,7 +1496,7 @@ def test_v1_chat_preserves_temperature_and_resolves_retries(monkeypatch, tmp_pat
             "wrench 25mm", "key", output={"length": {"type": "string"}},
             threads=1, retries=retries,
         ) == {"length": "25mm"}
-        assert calls[0][0]["temperature"] == 0.2
+        assert calls[0][0]["model"] == "gpt-6-luna"
         assert calls[0][1] == (1 if retries is None else 0)
     finally:
         ai_config.clear_cache()
@@ -2053,7 +2056,7 @@ def test_saved_model_and_call_instructions_use_shared_compiler(monkeypatch, inst
     calls = []
     saved = {
         "Settings": {
-            "GPTModel": "gpt-5-mini",
+            "GPTModel": "gpt-6-luna",
             **instruction_settings,
             "ReasoningEffort": "low",
         },
@@ -2106,7 +2109,7 @@ def test_saved_model_and_call_instructions_use_shared_compiler(monkeypatch, inst
     payload = calls[0]["json"]
     voltage = payload["text"]["format"]["schema"]["properties"]["Voltage"]
     assert result == {"Voltage": {"value": 12, "uom": "VDC"}}
-    assert payload["model"] == "gpt-5-mini"
+    assert payload["model"] == "gpt-6-luna"
     assert payload["reasoning"] == {"effort": "low"}
     assert payload["text"]["format"]["strict"] is True
     assert voltage["required"] == ["value", "uom"]

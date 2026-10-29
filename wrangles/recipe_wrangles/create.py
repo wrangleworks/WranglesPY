@@ -237,7 +237,7 @@ def embeddings(
         description: The API key.
       model:
         type: string
-        description: The embedding model. Defaults to the AI configuration for the resolved provider. Jina requires an explicit model unless a default is configured.
+        description: The embedding model. Defaults to the AI configuration for the resolved provider. Jina requires an explicit model unless a default is configured. Deprecated or retired OpenAI models listed in the AI configuration (for example text-embedding-ada-002) are replaced by their configured successor and a warning is logged.
       batch_size:
         type: integer
         description: The number of rows to submit per individual request.

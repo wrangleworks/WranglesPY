@@ -104,7 +104,19 @@ def _model_policy(config: dict, provider: str, model: str, protocol: str = None)
     return _merge(entry.get("defaults", {}), entry.get("protocol_defaults", {}).get(protocol, {}))
 
 
-def _resolve_v2(config: dict, operation: str, model=None, provider=None, protocol=None, role=None) -> dict:
+def _replacement(config: dict, provider: str, model: str) -> str:
+    """Follow replacement links to the final model; stops on cycles."""
+    seen = set()
+    while True:
+        target = _model_entry(config, provider, model).get("replacement")
+        if not target or target.strip().lower() in seen:
+            return model
+        seen.add(model.strip().lower())
+        model = target
+
+
+def _resolve_v2(config: dict, operation: str, model=None, provider=None, protocol=None, role=None,
+                remap=False) -> dict:
     operation_policy = config["operations"].get(operation)
     if operation_policy is None:
         raise ValueError(f"No AI operation {operation!r} is configured.")
@@ -133,9 +145,14 @@ def _resolve_v2(config: dict, operation: str, model=None, provider=None, protoco
             raise ValueError(f"No default model for {wanted!r} is configured for provider {provider!r}; specify model explicitly.")
         model = matches[0]
     model = _string(model, "model").strip()
+    requested_model = model
+    if remap:
+        model = _replacement(config, provider, model)
     policy = _merge(_model_policy(config, provider, model, protocol), operation_policy.get("defaults", {}))
     policy.update(model=model, provider=provider, protocol=protocol,
                   endpoints=_copy.deepcopy(provider_policy.get("endpoints", {})))
+    if model != requested_model:
+        policy["requested_model"] = requested_model
     return policy
 
 
@@ -198,6 +215,16 @@ def _validate_v2(config: dict) -> None:
             for protocol, overrides in protocol_defaults.items():
                 _validate_settings(overrides, f"{location}.protocol_defaults.{protocol}")
                 _validate_defaults(_merge(defaults, overrides), supported, f"{location}.protocol_defaults.{protocol}")
+    for provider, policy in providers.items():
+        for name, entry in policy["models"].items():
+            if "replacement" not in entry:
+                continue
+            location = f"providers.{provider}.models.{name}"
+            replacement = _string(entry["replacement"], f"{location}.replacement").strip().lower()
+            if entry["status"] == "active":
+                raise ValueError(f"{location}.replacement is only valid for deprecated or retired models.")
+            if not replacement:
+                raise ValueError(f"{location}.replacement must be a non-empty model name.")
     # Validate the effective snapshot as well as raw entries: a dated model can
     # inherit allowed values and must not override them with invalid defaults.
     for provider, policy in providers.items():
@@ -268,30 +295,67 @@ def load() -> dict:
     return _copy.deepcopy(_load_config_file(str(config_path().resolve())))
 
 
+def _log_remap(policy: dict) -> None:
+    if "requested_model" in policy:
+        _logging.warning(
+            "AI model is deprecated or retired and was replaced; update the recipe or definition :: "
+            "provider :: %s, requested_model :: %s, model :: %s",
+            policy.get("provider", "openai"), policy["requested_model"], policy["model"],
+        )
+
+
 def resolve(operation: str, model: str = None, provider: str = None,
-            protocol: str = None, role: str = None) -> dict:
+            protocol: str = None, role: str = None, warn: bool = True) -> dict:
     """Resolve one operation without changing explicit per-call selections.
 
     Explicit model wins over the requested role, then the operation's default
     role, then (for extraction/generation only) the global role. A role such as
     'test' is opt-in. Defaults merge model -> protocol -> operation; callers
     apply explicit request options last. Unlisted explicit models are accepted.
+
+    A cataloged model with a `replacement` is silently swapped for that active
+    model; the result's `model` is the effective one and `requested_model` the
+    original. A warning is logged unless warn is False. Callers must use the
+    returned `model`.
     """
+    policy = _resolve(operation, model, provider, protocol, role)
+    if warn:
+        _log_remap(policy)
+    return policy
+
+
+def resolve_model(model: str, provider: str = "openai") -> str:
+    """Return the effective model for an explicit name, logging if it was replaced."""
+    config = load()
+    if config["version"] == 1:
+        config = _load_config_file(str(_PACKAGED_CONFIG.resolve()))
+    provider = provider.strip().lower()
+    effective = _replacement(config, provider, model)
+    if effective != model:
+        _log_remap({"provider": provider, "requested_model": model, "model": effective})
+    return effective
+
+
+def _resolve(operation, model, provider, protocol, role) -> dict:
     config = load()
     if config["version"] == 2:
-        return _resolve_v2(config, operation, model, provider, protocol, role)
+        return _resolve_v2(config, operation, model, provider, protocol, role, remap=True)
     if operation == "extract.ai":
         policy = _copy.deepcopy(config["extract_ai"])
         for key, value in (("model", model), ("provider", provider), ("protocol", protocol)):
             if value is not None:
                 policy[key] = value
+        effective = _replacement(_load_config_file(str(_PACKAGED_CONFIG.resolve())),
+                                 str(policy.get("provider", "openai")).strip().lower(), policy["model"])
+        if effective != policy["model"]:
+            policy.update(requested_model=policy["model"], model=effective)
         return policy
     packaged = _load_config_file(str(_PACKAGED_CONFIG.resolve()))
     # Version 1 shared its extraction model with generation, but no other
     # operation. Its missing extraction options must not inherit packaged ones.
     if operation == "generate.ai" and model is None and role is None:
         model = config["extract_ai"].get("model")
-    return _resolve_v2(packaged, operation, model, provider, protocol, role)
+    return _resolve_v2(packaged, operation, model, provider, protocol, role, remap=True)
 
 
 def extract_ai() -> dict:

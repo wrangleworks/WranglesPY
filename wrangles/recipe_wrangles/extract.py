@@ -514,6 +514,8 @@ def ai(
         description: >-
           OpenAI model ID for this call. If omitted, uses the configured
           extract.ai default; a saved model definition may supply its own model.
+          Deprecated or retired models listed in the AI configuration (for example
+          gpt-4o-mini) are replaced by their configured successor and a warning is logged.
       threads:
         type: integer
         minimum: 1
