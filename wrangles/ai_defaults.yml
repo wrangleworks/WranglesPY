@@ -65,15 +65,6 @@ providers:
         supported_values:
           reasoning.effort: []
           text.verbosity: []
-      gpt-4o-mini:
-        status: active
-        default_for: []
-        protocol_defaults:
-          chat_completions:
-            temperature: 0.2
-        supported_values:
-          reasoning.effort: []
-          text.verbosity: []
 
   google:
     endpoints:

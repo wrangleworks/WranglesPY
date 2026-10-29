@@ -453,15 +453,15 @@ def test_extract_ai_properties_list():
     )
     assert isinstance(result, list) and 'unit' in result[0]
 
-def test_extract_ai_pre_gpt5_model():
+def test_extract_ai_luna_model():
     """
     Test using python api for extract.ai
-    with a model that rejects the default reasoning setting
+    with Luna and its default reasoning setting
     """
     result = wrangles.extract.ai(
         "yellow square",
         api_key=os.environ['OPENAI_API_KEY'],
-        model="gpt-4o-mini",
+        model="gpt-6-luna",
         output={
             "Colors": {
                 "type": "string",
@@ -471,16 +471,15 @@ def test_extract_ai_pre_gpt5_model():
         retries=2
     )
 
-    assert 'OpenAI API error' in result['Colors']
-    assert 'reasoning' in result['Colors']
+    assert result['Colors'].strip().lower() == 'yellow'
 
-def test_extract_ai_pre_gpt5_model_explicit_reasoning_and_verbosity(caplog):
-    """The provider rejects unsupported reasoning; verbosity is still omitted."""
+def test_extract_ai_luna_model_explicit_reasoning_and_verbosity(caplog):
+    """Luna accepts explicit reasoning and verbosity through Responses."""
     with caplog.at_level(logging.WARNING, logger="wrangles.extract"):
         result = wrangles.extract.ai(
             "yellow square",
             api_key=os.environ['OPENAI_API_KEY'],
-            model="gpt-4o-mini",
+            model="gpt-6-luna",
             reasoning={"effort": "low"},
             verbosity="low",
             output={
@@ -492,10 +491,9 @@ def test_extract_ai_pre_gpt5_model_explicit_reasoning_and_verbosity(caplog):
             retries=2
         )
 
-    assert 'OpenAI API error' in result['Colors']
-    assert 'reasoning' in result['Colors']
+    assert result['Colors'].strip().lower() == 'yellow'
     assert "Ignoring 'reasoning' parameter" not in caplog.text
-    assert "Ignoring 'verbosity' parameter" in caplog.text
+    assert "Ignoring 'verbosity' parameter" not in caplog.text
 
 ### Format Split Tests
 def test_format_split_skip_empty_true():  

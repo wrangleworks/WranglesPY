@@ -335,11 +335,17 @@ def test_snapshot_inherits_model_options_with_exact_overrides(monkeypatch, tmp_p
     assert ai_config.model_capabilities("gpt-6-luna-2026-09-26")["reasoning_none"] is True
 
 
-def test_legacy_chat_defaults_do_not_leak_into_responses():
-    assert ai_config.model_defaults("gpt-4o", protocol="chat_completions") == {"temperature": 0.2}
-    assert ai_config.model_defaults("gpt-4o-mini-2024-07-18", protocol="chat_completions") == {"temperature": 0.2}
-    assert ai_config.model_defaults("gpt-4o", protocol="responses") == {}
-    assert "temperature" not in ai_config.resolve("extract.ai", model="gpt-4o")
+def test_protocol_defaults_do_not_leak_into_responses(monkeypatch, tmp_path):
+    config = ai_config.load()
+    config["providers"]["openai"]["models"]["protocol-test-model"] = {
+        "status": "active", "default_for": [],
+        "protocol_defaults": {"chat_completions": {"temperature": 0.2}},
+    }
+    use_config(config, monkeypatch, tmp_path)
+    assert ai_config.model_defaults("protocol-test-model", protocol="chat_completions") == {"temperature": 0.2}
+    assert ai_config.model_defaults("protocol-test-model-2026-10-01", protocol="chat_completions") == {"temperature": 0.2}
+    assert ai_config.model_defaults("protocol-test-model", protocol="responses") == {}
+    assert "temperature" not in ai_config.resolve("extract.ai", model="protocol-test-model")
 
 
 def test_legacy_override_is_replacement_and_merges_capabilities(monkeypatch, tmp_path):
@@ -401,9 +407,9 @@ def test_inherited_snapshot_defaults_are_validated(monkeypatch, tmp_path):
     (lambda c: c["providers"].update(OpenAI={"models": {}}), "Provider names must be lowercase"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"].update(status=[]), "status must"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"].update(status="retired"), "cannot hold default roles"),
-    (lambda c: c["providers"]["openai"]["models"]["gpt-4o-mini"].update(default_for=["global"]), "Duplicate default role"),
+    (lambda c: c["providers"]["openai"]["models"]["gpt-6-sol"].update(default_for=["global"]), "Duplicate default role"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-4o"].update(default_for="global"), "list of non-empty roles"),
-    (lambda c: c["providers"]["openai"]["models"]["gpt-4o-mini"].update(default_for=["extrcat.ai"]), "unknown default role"),
+    (lambda c: c["providers"]["openai"]["models"]["gpt-6-sol"].update(default_for=["extrcat.ai"]), "unknown default role"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"]["supported_values"].update({"reasoning.effort": True}), "list of enum values"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"]["supported_values"].update({"reasoning.effort": [True]}), "list of enum values"),
     (lambda c: c["providers"]["openai"]["models"]["gpt-6-luna"]["defaults"]["reasoning"].update(effort="invalid"), "must be one of"),

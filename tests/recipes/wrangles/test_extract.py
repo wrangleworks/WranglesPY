@@ -4288,14 +4288,14 @@ class TestExtractAI:
         ])
         assert matches >= 1
 
-    def test_ai_pre_gpt5_reasoning_rejected_and_verbosity_ignored(self, caplog):
-        """The recipe reports provider errors instead of dropping reasoning."""
+    def test_ai_luna_reasoning_and_verbosity(self, caplog):
+        """The recipe accepts Luna reasoning and verbosity through Responses."""
         with caplog.at_level(logging.WARNING, logger="wrangles.extract"):
             df = wrangles.recipe.run(
                 """
                 wrangles:
                 - extract.ai:
-                    model: gpt-4o-mini
+                    model: gpt-6-luna
                     api_key: ${OPENAI_API_KEY}
                     timeout: 60
                     retries: 2
@@ -4313,9 +4313,9 @@ class TestExtractAI:
                     "data": ["wrench 25mm", "6m cable"],
                 })
             )
-        assert all('OpenAI API error' in value and 'reasoning' in value for value in df['length'])
+        assert df['length'].tolist() == ['25mm', '6m']
         assert "Ignoring 'reasoning' parameter" not in caplog.text
-        assert "Ignoring 'verbosity' parameter" in caplog.text
+        assert "Ignoring 'verbosity' parameter" not in caplog.text
 
     def test_ai_invalid_model_fails_recipe(self):
         """
