@@ -1,6 +1,97 @@
 import wrangles
 import pandas as pd
+import pytest
+import yaml
 from wrangles.connectors import memory
+from wrangles.recipe_wrangles.main import recipe as recipe_wrangle
+
+
+@pytest.mark.parametrize("stage", ["read", "wrangles", "write", "run"])
+@pytest.mark.parametrize("source", ["direct", "embedded", "variable", "nested"])
+@pytest.mark.parametrize("path_type", ["pathlib", "pathlike"])
+def test_recipe_path_objects(tmp_path, stage, source, path_type):
+    """
+    Recipe paths work through connectors, wrangles, and nested recipe dictionaries.
+    """
+    recipe_path = tmp_path / "nested café.wrgl.yml"
+    recipe_path.write_text(
+        (
+            "read:\n"
+            "  test:\n"
+            "    rows: 1\n"
+            "    values:\n"
+            "      header1: ${value}\n"
+            if stage in ("read", "run") else ""
+        )
+        + "wrangles:\n"
+        "  - convert.case:\n"
+        "      input: header1\n"
+        "      case: upper\n"
+        "write:\n"
+        "  custom.capture: {}\n",
+        encoding="utf-8"
+    )
+
+    class RecipePath:
+        def __fspath__(self):
+            return str(recipe_path)
+
+    name = RecipePath() if path_type == "pathlike" else recipe_path
+    data = pd.DataFrame({"header1": ["value1"]})
+    expected = pd.DataFrame({"header1": ["VALUE1"]})
+    captured = []
+
+    def capture(df):
+        captured.append(df.copy())
+
+    variables = {"value": "value1"}
+    if source == "direct":
+        if stage == "wrangles":
+            result = recipe_wrangle(
+                data, name=name, variables=variables, functions=[capture]
+            )
+        elif stage == "write":
+            result = wrangles.connectors.recipe.write(
+                data, name=name, variables=variables, functions=[capture]
+            )
+        else:
+            result = getattr(wrangles.connectors.recipe, stage)(
+                name=name, variables=variables, functions=[capture]
+            )
+    else:
+        params = {"name": name}
+        if source == "variable":
+            params = {"name": "${child_recipe}"}
+            variables["child_recipe"] = name
+        recipe = params
+        for _ in range(2 if source == "nested" else 1):
+            recipe = (
+                {"run": {"on_start": [{"recipe": recipe}]}}
+                if stage == "run"
+                else {stage: [{"recipe": recipe}]}
+            )
+        result = wrangles.recipe.run(
+            recipe, dataframe=data, variables=variables, functions=[capture]
+        )
+        assert params["name"] == ("${child_recipe}" if source == "variable" else name)
+
+    if stage in ("read", "wrangles"):
+        pd.testing.assert_frame_equal(result, expected)
+    if stage == "wrangles":
+        assert captured == []
+    else:
+        assert len(captured) == 1
+        pd.testing.assert_frame_equal(captured[0], expected)
+
+
+def test_recipe_path_serialization_keeps_safe_yaml_behavior(tmp_path):
+    """
+    Supporting paths does not allow arbitrary objects or change global dumpers.
+    """
+    with pytest.raises(ValueError, match="Recipe passed in as an invalid type"):
+        wrangles.recipe.run({"read": {"recipe": {"name": object()}}})
+    with pytest.raises(yaml.representer.RepresenterError):
+        yaml.safe_dump({"name": tmp_path})
 
 
 def test_read_recipe_connector():

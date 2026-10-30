@@ -40,6 +40,14 @@ try:
 except ImportError:
     from yaml import SafeDumper as _YAMLDumper
 
+
+class _RecipeDumper(_YAMLDumper):
+    def represent_data(self, data):
+        if isinstance(data, _os.PathLike):
+            data = _os.fspath(data)
+        return super().represent_data(data)
+
+
 _logging.getLogger().setLevel(_logging.INFO)
 
 # Recipe source, logging attribution, and nesting state.
@@ -61,14 +69,14 @@ _warnings.simplefilter(action='ignore', category=_pandas.errors.PerformanceWarni
 
 
 def _load_recipe(
-    recipe: str,
+    recipe: _Union[str, _os.PathLike[str]],
     variables: dict = None,
     functions: _Union[_types.FunctionType, list, dict, str] = []
 ) -> dict:
     """
     Load yaml recipe file + replace any placeholder variables
 
-    :param recipe: YAML recipe or name of a YAML file to be parsed
+    :param recipe: YAML recipe or path (str or os.PathLike) to a YAML file to be parsed
     :param variables: (Optional) dictionary of custom variables to override placeholders in the YAML file
     :param functions: (Optional) function, list of functions or a file of functions.
 
@@ -84,7 +92,7 @@ def _load_recipe(
 
     # Accept path-like objects (e.g. pathlib.Path) by converting to str
     if isinstance(recipe, _os.PathLike):
-        recipe = str(recipe)
+        recipe = _os.fspath(recipe)
 
     if isinstance(recipe, str) and "\n" not in recipe:
         _logging.info(f": Reading Recipe :: {recipe}")
@@ -93,7 +101,7 @@ def _load_recipe(
     if not isinstance(recipe, str):
         try:
             # If user passes in a pre-parsed recipe, convert back to YAML
-            recipe = _yaml.dump(recipe, sort_keys=False, Dumper=_YAMLDumper, allow_unicode=True)
+            recipe = _yaml.dump(recipe, sort_keys=False, Dumper=_RecipeDumper, allow_unicode=True)
         except:
             raise ValueError('Recipe passed in as an invalid type')
 
@@ -1310,7 +1318,7 @@ def _run_thread(
 
 
 def run(
-    recipe: str,
+    recipe: _Union[str, _os.PathLike[str]],
     variables: dict = None,
     dataframe: _pandas.DataFrame = None,
     functions: _Union[_types.FunctionType, list, dict] = [],
@@ -1323,7 +1331,7 @@ def run(
 
     >>> wrangles.recipe.run('recipe.wrgl.yml')
     
-    :param recipe: YAML recipe or path to a YAML file containing the recipe
+    :param recipe: YAML recipe or path (str or os.PathLike, e.g. pathlib.Path) to a YAML file containing the recipe
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
     :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining a read section within the YAML
     :param functions: (Optional) A function or list of functions that can be called as part of the recipe. Functions can be referenced as custom.function_name
