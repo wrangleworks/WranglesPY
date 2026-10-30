@@ -688,6 +688,8 @@ def _execute_wrangles(
                         'merge.key_value_pairs',
                         'split.text',
                         'split.list',
+                        'structure.split_text',
+                        'structure.split_list',
                         'select.element',
                         'rename'
                     ]

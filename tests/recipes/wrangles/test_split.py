@@ -1,6 +1,7 @@
 import wrangles
 import pandas as pd
 import pytest
+from copy import deepcopy
 
 
 class TestSplitText:
@@ -1841,3 +1842,157 @@ class TestTokenize:
             })
         )
         assert df.empty and df.columns.to_list() == ['Col', 'out1']
+
+
+class TestStructureSplitAliases:
+    """Recipe and schema compatibility for the names introduced by #1247."""
+
+    @pytest.fixture(autouse=True)
+    def block_live_http(self, monkeypatch):
+        import requests
+
+        def blocked(*args, **kwargs):
+            pytest.fail("Split alias tests must not contact live services")
+
+        monkeypatch.setattr(requests.sessions.Session, "request", blocked)
+
+    @pytest.fixture(params=["dictionary", "list", "text", "tokenize"])
+    def split_case(self, request):
+        cases = {
+            "dictionary": (
+                "structure.split_dictionary",
+                [{"name": "steel", "qty": None}, None],
+                {"default": {"name": "unknown", "qty": 0},
+                 "output": [{"name": "first"}, {"qty": "second"}]},
+                {"first": ["steel", "unknown"], "second": [0, 0]},
+            ),
+            "list": (
+                "structure.split_list",
+                [[10], [30, 40]],
+                {"output": ["first", "second"]},
+                {"first": [10, 30], "second": ["", 40]},
+            ),
+            "text": (
+                "structure.split_text",
+                ["red|blue", "green|gold"],
+                {"char": "|", "output": ["first", "second"]},
+                {"first": ["red", "green"], "second": ["blue", "gold"]},
+            ),
+            "tokenize": (
+                "structure.tokenize",
+                ["red,blue", "green;gold"],
+                {"method": "regex:[,;]", "output": "tokens"},
+                {"tokens": [["red", "blue"], ["green", "gold"]]},
+            ),
+        }
+        alias, values, options, outputs = cases[request.param]
+        frame = pd.DataFrame({"row_id": [2, 1], "source": values})
+        expected = frame.copy()
+        if request.param == "dictionary":
+            # Recipes normalize the original null cell after the transform.
+            expected.at[1, "source"] = ""
+        for column, values in outputs.items():
+            expected[column] = pd.Series(values, dtype=object)
+        return f"split.{request.param}", alias, frame, options, expected
+
+    def _run(self, operation, frame, options, **kwargs):
+        return wrangles.recipe.run(
+            {"wrangles": [{operation: {"input": "source", **deepcopy(options)}}]},
+            dataframe=frame.copy(deep=True),
+            **kwargs,
+        )
+
+    def test_alias_matches_legacy_output(self, split_case):
+        legacy, alias, frame, options, expected = split_case
+        for operation in (legacy, alias):
+            result = self._run(operation, frame, options)
+            pd.testing.assert_frame_equal(result, expected)
+
+    def test_alias_preserves_where(self, split_case):
+        legacy, alias, frame, options, expected = split_case
+        for column in expected.columns.difference(frame.columns):
+            frame[column] = "untouched"
+            expected.at[0, column] = "untouched"
+        for operation in (legacy, alias):
+            result = self._run(operation, frame, {**options, "where": "row_id = 1"})
+            pd.testing.assert_frame_equal(result, expected)
+
+    @pytest.mark.parametrize("enabled", [True, False])
+    def test_alias_preserves_if(self, split_case, enabled):
+        legacy, alias, frame, options, expected = split_case
+        for operation in (legacy, alias):
+            result = self._run(operation, frame, {**options, "if": "${enabled}"},
+                               variables={"enabled": enabled})
+            pd.testing.assert_frame_equal(result, expected if enabled else frame)
+
+    def test_alias_preserves_empty_where(self, split_case):
+        legacy, alias, frame, options, transformed = split_case
+        expected = frame.copy()
+        for column in transformed.columns.difference(frame.columns):
+            expected[column] = ""
+        for operation in (legacy, alias):
+            result = self._run(operation, frame, {**options, "where": "row_id > 10"})
+            pd.testing.assert_frame_equal(result, expected)
+
+    @pytest.mark.parametrize("legacy, alias, value, options, outputs", [
+        ("split.list", "structure.split_list", [10, 20],
+         {"output": ["first", "second"]}, {"first": [10], "second": [20]}),
+        ("split.text", "structure.split_text", "red|blue",
+         {"char": "|", "output": ["first", "second"]},
+         {"first": ["red"], "second": ["blue"]}),
+    ])
+    def test_alias_preserves_literal_input_name(self, legacy, alias, value, options, outputs):
+        frame = pd.DataFrame({"source*": [value], "source_extra": ["keep"]})
+        expected = frame.assign(**outputs)
+        for operation in (legacy, alias):
+            result = self._run(operation, frame, {**options, "input": "source*"})
+            pd.testing.assert_frame_equal(result, expected)
+
+    @pytest.mark.parametrize("legacy, alias, values, expected_values", [
+        ("split.text", "structure.split_text", ["red,blue", "green,gold"],
+         [["red", "blue"], ["green", "gold"]]),
+        ("split.tokenize", "structure.tokenize", ["red blue", "green gold"],
+         [["red", "blue"], ["green", "gold"]]),
+    ])
+    def test_alias_preserves_default_output_and_options(self, legacy, alias, values, expected_values):
+        frame = pd.DataFrame({"source": values})
+        expected = pd.DataFrame({"source": expected_values})
+        for operation in (legacy, alias):
+            pd.testing.assert_frame_equal(self._run(operation, frame, {}), expected)
+
+    def test_tokenize_alias_forwards_custom_function(self):
+        frame = pd.DataFrame({"source": ["red:blue", "green:gold"]})
+        expected = frame.assign(tokens=[["red", "blue"], ["green", "gold"]])
+        for operation in ("split.tokenize", "structure.tokenize"):
+            result = self._run(
+                operation, frame, {"output": "tokens", "method": "custom.parts"},
+                functions={"parts": lambda value: value.split(":")},
+            )
+            pd.testing.assert_frame_equal(result, expected)
+
+    def test_generated_schema_preserves_alias_contracts(self, tmp_path, monkeypatch):
+        import json
+        import runpy
+        from pathlib import Path
+        import jsonschema
+
+        root = Path(__file__).resolve().parents[3]
+        (tmp_path / "recipe_base_schema.json").write_text(
+            (root / "schema/recipe_base_schema.json").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        monkeypatch.chdir(tmp_path)
+        runpy.run_path(str(root / "schema/generate_recipe_schema.py"))
+        schema = json.loads((tmp_path / "schema.json").read_text(encoding="utf-8"))
+        operations = schema["$defs"]["wrangles"]["items"]["properties"]
+        for legacy, alias, options in [
+            ("split.dictionary", "structure.split_dictionary", {"default": {"name": "unknown"}}),
+            ("split.list", "structure.split_list", {"output": ["first", "second"]}),
+            ("split.text", "structure.split_text", {"char": "|"}),
+            ("split.tokenize", "structure.tokenize", {"method": "regex:[,;]"}),
+        ]:
+            assert operations[alias] == operations[legacy]
+            for operation in (legacy, alias):
+                jsonschema.validate({"wrangles": [{operation: {
+                    "input": "source", "where": "row_id = 1", "if": "row_count > 0", **options,
+                }}]}, schema)
