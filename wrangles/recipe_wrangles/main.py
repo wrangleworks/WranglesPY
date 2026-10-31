@@ -396,7 +396,12 @@ def clean_whitespaces(
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Condense multiple spaces to a single space and convert special space characters to a standard space.
+    description: >-
+      Collapse runs of Unicode whitespace, including single tabs, newlines and
+      nonbreaking spaces, to one standard space. Also converts the legacy
+      U+0081 control character to a space. Non-string values are preserved.
+      Does not decode HTML or backslash escape sequences, remove zero-width
+      formatting characters, or deduplicate text.
     additionalProperties: false
     required:
       - input
@@ -414,10 +419,17 @@ def clean_whitespaces(
         description: Name or list of output columns.
       trim:
         type: boolean
-        description: Whether to trim leading and trailing spaces. Default True.
+        default: true
+        description: >-
+          Trim leading and trailing whitespace after normalization, including
+          boundary tabs and newlines even when remove_literals is false.
       remove_literals:
         type: boolean
-        description: Whether to remove special space characters such as new lines etc. Default True.
+        default: true
+        description: >-
+          Convert tabs and line-break characters to spaces. When false, normalize
+          Unicode space characters and U+0081 while preserving internal tabs and
+          line breaks. This option does not interpret backslash escape sequences.
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -429,12 +441,15 @@ def clean_whitespaces(
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
-    
+
+    if remove_literals:
+        pattern = r'[\s\x81]+'
+    else:
+        # Unicode space separators (Zs), plus the legacy U+0081 cleanup.
+        pattern = r'[ \u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\x81]+'
+
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        if remove_literals: pattern = r'\s{2,}| | |'
-        else: pattern = '( | | |)+'
-
         df[output_column] = df[input_column].apply(
             lambda x: _re.sub(pattern, ' ', x) if isinstance(x, str) else x
         )

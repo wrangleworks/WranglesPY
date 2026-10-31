@@ -246,6 +246,99 @@ class TestCleanWhitespace:
     """
     Test spaces
     """
+    @pytest.mark.parametrize('separator', [
+        '\t', '\n', '\r', '\r\n', '\v', '\f', '\x85',
+        '\u00a0', '\u1680', '\u2003', '\u2007', '\u2028', '\u2029',
+        '\u202f', '\u205f', '\u3000', '\x81',
+    ])
+    def test_clean_whitespaces_single_and_mixed_separators(self, separator):
+        """Normalize separators before removing duplicate manufacturer words."""
+        values = [
+            f'STIEFELMAYER{separator}STIEFELMAYER',
+            f'STIEFELMAYER {separator}{separator} STIEFELMAYER',
+            f'{separator}{separator}STIEFELMAYER{separator}',
+            separator * 2,
+            '',
+        ]
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - clean_whitespaces:
+                  input: MFR
+                  output: Normalized
+              - format.remove_duplicates:
+                  input: Normalized
+                  output: MFR clean
+            """,
+            dataframe=pd.DataFrame({'MFR': values})
+        )
+        assert df['MFR'].tolist() == values
+        assert df['Normalized'].tolist() == [
+            'STIEFELMAYER STIEFELMAYER',
+            'STIEFELMAYER STIEFELMAYER',
+            'STIEFELMAYER', '', '',
+        ]
+        assert df['MFR clean'].tolist() == ['STIEFELMAYER'] * 3 + ['', '']
+
+    @pytest.mark.parametrize('separator', [
+        '\u00a0', '\u1680', '\u2003', '\u2007', '\u202f', '\u205f',
+        '\u3000', '\x81',
+    ])
+    def test_clean_whitespaces_unicode_spaces_with_literals_preserved(self, separator):
+        """Preserving tabs/newlines still normalizes Unicode space characters."""
+        df = wrangles.recipe.run(
+            {'wrangles': [{'clean_whitespaces': {
+                'input': 'col', 'remove_literals': False,
+            }}]},
+            dataframe=pd.DataFrame({'col': [f'A{separator} {separator}B']})
+        )
+        assert df['col'].tolist() == ['A B']
+
+    @pytest.mark.parametrize('separator', [
+        '\t', '\n', '\r', '\r\n', '\v', '\f', '\x1c', '\x1d', '\x1e',
+        '\x1f', '\x85', '\u2028', '\u2029',
+    ])
+    def test_clean_whitespaces_preserves_literal_whitespace(self, separator):
+        """Keep tabs and line boundaries intact when remove_literals is false."""
+        df = wrangles.recipe.run(
+            {'wrangles': [{'clean_whitespaces': {
+                'input': 'col', 'remove_literals': False,
+            }}]},
+            dataframe=pd.DataFrame({
+                'col': [f' \u00a0A \u202f{separator}\u2009 B\u3000 '],
+            })
+        )
+        assert df['col'].tolist() == [f'A {separator} B']
+
+    @pytest.mark.parametrize(('remove_literals', 'expected'), [
+        (True, ' A '),
+        (False, '\t A \n'),
+    ])
+    def test_clean_whitespaces_unicode_edges_without_trim(self, remove_literals, expected):
+        df = wrangles.recipe.run(
+            {'wrangles': [{'clean_whitespaces': {
+                'input': 'col', 'remove_literals': remove_literals, 'trim': False,
+            }}]},
+            dataframe=pd.DataFrame({'col': ['\t\u00a0 A \u2003\n']})
+        )
+        assert df['col'].tolist() == [expected]
+
+    @pytest.mark.parametrize('remove_literals', [True, False])
+    def test_clean_whitespaces_preserves_non_whitespace(self, remove_literals):
+        """HTML, escaped text, zero-width formatting and name content are separate."""
+        values = [
+            'STIEFELMAYER<br>STIEFELMAYER',
+            'A\u200bB', 'A\ufeffB', 'A\u200cB', 'A\u200dB',
+            'MINITEC_', r'A\nA', 'Johnson & Johnson',
+        ]
+        df = wrangles.recipe.run(
+            {'wrangles': [{'clean_whitespaces': {
+                'input': 'col', 'remove_literals': remove_literals,
+            }}]},
+            dataframe=pd.DataFrame({'col': values})
+        )
+        assert df['col'].tolist() == values
+
     def test_clean_whitespaces(self):
         """
         Test the base functionality of clean_whitespaces
