@@ -71,15 +71,15 @@ automatically discovered inventory of every provider model. A provider entry
 does not implement a new adapter. For example, the reserved Anthropic section
 does not enable Anthropic extraction.
 
-Use `protocol_defaults` for tuning that applies only to a specific protocol:
+Use `protocol_defaults` for tuning that applies only to a specific protocol.
+For example, add this block to the existing `gpt-6-luna` model entry to give
+Chat Completions an output-token limit while retaining its current roles,
+defaults, and supported values:
 
 ```yaml
-gpt-4o-mini:
-  status: active
-  default_for: []
-  protocol_defaults:
-    chat_completions:
-      temperature: 0.2
+protocol_defaults:
+  chat_completions:
+    max_completion_tokens: 512
 ```
 
 ## Resolution and overrides

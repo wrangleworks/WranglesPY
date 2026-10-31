@@ -537,7 +537,7 @@ def test_field_examples_are_stable_system_content_for_legacy_protocol(monkeypatc
     assert "yellow grip" in stable_content
 
 
-def test_extract_ai_sends_default_reasoning_for_non_reasoning_models(monkeypatch):
+def test_extract_ai_sends_default_reasoning_for_non_reasoning_models(monkeypatch, non_reasoning_model):
     calls = []
     body = {
         "output": [
@@ -568,7 +568,7 @@ def test_extract_ai_sends_default_reasoning_for_non_reasoning_models(monkeypatch
                 "description": "Return the names of any fruits that are yellow",
             }
         },
-        model="gpt-4o-mini",
+        model=non_reasoning_model,
         threads=1,
     )
 
@@ -597,7 +597,8 @@ def test_reasoning_none_model_compatibility(model, supported):
 
 
 @pytest.mark.parametrize("reasoning", [None, {"effort": "low"}])
-def test_extract_ai_default_model_capabilities_reach_request(monkeypatch, reasoning):
+@pytest.mark.parametrize("model", [None, "gpt-6-luna"])
+def test_extract_ai_luna_defaults_reach_request(monkeypatch, reasoning, model):
     calls = []
     monkeypatch.setattr(
         extract._openai_responses._requests,
@@ -607,13 +608,15 @@ def test_extract_ai_default_model_capabilities_reach_request(monkeypatch, reason
 
     assert extract.ai(
         "wrench 25mm", "key", output={"length": {"type": "string"}},
-        reasoning=reasoning, threads=1,
+        model=model, reasoning=reasoning, threads=1,
     ) == {"length": "25mm"}
 
     payload = calls[0]["json"]
-    assert payload["model"] == ai_config.extract_ai()["model"]
+    assert payload["model"] == "gpt-6-luna"
     assert payload["reasoning"] == (reasoning or {"effort": "none"})
     assert payload["text"]["verbosity"] == "low"
+
+    assert "temperature" not in payload
 
 
 @pytest.mark.parametrize(
@@ -623,11 +626,11 @@ def test_extract_ai_default_model_capabilities_reach_request(monkeypatch, reason
         (" GPT-6-LUNA-2026-09-25 ", True),
         ("gpt-6-luna-other", False),
         ("gpt-6-unknown", False),
-        ("gpt-4o-mini", False),
+        ("non-reasoning-test-model", False),
         ("gpt-5.4-mini", True),
     ],
 )
-def test_model_reasoning_and_verbosity_capabilities(model, supported):
+def test_model_reasoning_and_verbosity_capabilities(model, supported, non_reasoning_model):
     assert extract._openai_responses.supports_reasoning(model) is supported
     assert extract._openai_responses.supports_low_verbosity(model) is supported
 
@@ -763,7 +766,7 @@ def test_extract_chat_tuning_uses_saved_model_and_caller_precedence(
         lambda **kwargs: calls.append(kwargs) or _successful_extraction_response("chat_completions"),
     )
     assert extract.ai(
-        "wrench 25mm", "key", model_id="saved-model", model="gpt-4o-mini",
+        "wrench 25mm", "key", model_id="saved-model", model="gpt-6-luna",
         protocol="chat_completions", threads=1, cache=False, **explicit,
     ) == {"length": "25mm"}
     payload = calls[0]["json"]
@@ -778,7 +781,7 @@ def test_extract_chat_tuning_uses_saved_model_and_caller_precedence(
     {"reasoning": {"effort": "none"}, "verbosity": "low"},
     {"reasoning_effort": "none", "verbosity": "low"},
 ])
-def test_extract_chat_sends_reasoning_and_omits_unsupported_verbosity(monkeypatch, caplog, explicit):
+def test_extract_chat_sends_reasoning_and_omits_unsupported_verbosity(monkeypatch, caplog, explicit, non_reasoning_model):
     calls = []
     monkeypatch.setattr(
         extract._openai._requests, "post",
@@ -786,7 +789,7 @@ def test_extract_chat_sends_reasoning_and_omits_unsupported_verbosity(monkeypatc
     )
     with caplog.at_level(logging.WARNING, logger="wrangles.extract"):
         assert extract.ai(
-            "wrench 25mm", "key", model="gpt-4o-mini",
+            "wrench 25mm", "key", model=non_reasoning_model,
             output={"length": {"type": "string"}}, protocol="chat_completions",
             threads=1, cache=False, **explicit,
         ) == {"length": "25mm"}
@@ -1096,6 +1099,18 @@ def extraction_config(monkeypatch, tmp_path):
 
     yield config, save
     ai_config.clear_cache()
+
+
+@pytest.fixture
+def non_reasoning_model(extraction_config):
+    config, save = extraction_config
+    model = "non-reasoning-test-model"
+    config["providers"]["openai"]["models"][model] = {
+        "status": "active", "default_for": [],
+        "supported_values": {"reasoning.effort": [], "text.verbosity": []},
+    }
+    save()
+    return model
 
 
 @pytest.mark.parametrize("reasoning,verbosity,expected_reasoning,expected_verbosity", [
@@ -1409,9 +1424,9 @@ def test_extract_token_alias_overrides_use_caller_precedence(
 @pytest.mark.parametrize("temperature", [None, 0])
 def test_extract_chat_uses_configured_model_temperature(monkeypatch, tmp_path, temperature):
     config = ai_config.load()
-    config["providers"]["openai"]["models"]["gpt-4o-mini"]["protocol_defaults"][
-        "chat_completions"
-    ]["temperature"] = 0.35
+    config["providers"]["openai"]["models"]["gpt-6-luna"].setdefault(
+        "protocol_defaults", {}
+    ).setdefault("chat_completions", {})["temperature"] = 0.35
     override = tmp_path / "ai.yml"
     override.write_text(json.dumps(config), encoding="utf-8")
     monkeypatch.setenv("WRANGLES_AI_CONFIG", str(override))
@@ -1424,7 +1439,7 @@ def test_extract_chat_uses_configured_model_temperature(monkeypatch, tmp_path, t
     settings = {} if temperature is None else {"temperature": temperature}
     try:
         assert extract.ai(
-            "wrench 25mm", "key", model="gpt-4o-mini", protocol="chat_completions",
+            "wrench 25mm", "key", model="gpt-6-luna", protocol="chat_completions",
             output={"length": {"type": "string"}}, threads=1, **settings,
         ) == {"length": "25mm"}
         assert calls[0]["json"]["temperature"] == (0.35 if temperature is None else 0)
@@ -1438,9 +1453,9 @@ def test_extract_resolves_protocol_runtime_defaults_before_request(monkeypatch, 
     operation_defaults = config["operations"]["extract.ai"]["defaults"]
     for key in ("request_timeout_seconds", "strict", "cache"):
         operation_defaults.pop(key)
-    config["providers"]["openai"]["models"]["gpt-4o-mini"]["protocol_defaults"][
-        "chat_completions"
-    ].update({"request_timeout_seconds": 7, "strict": False, "cache": {"enabled": False}})
+    config["providers"]["openai"]["models"]["gpt-6-luna"].setdefault(
+        "protocol_defaults", {}
+    ).setdefault("chat_completions", {}).update({"request_timeout_seconds": 7, "strict": False, "cache": {"enabled": False}})
     override = tmp_path / "ai.yml"
     override.write_text(json.dumps(config), encoding="utf-8")
     monkeypatch.setenv("WRANGLES_AI_CONFIG", str(override))
@@ -1459,7 +1474,7 @@ def test_extract_resolves_protocol_runtime_defaults_before_request(monkeypatch, 
     try:
         for _ in range(2):
             assert extract.ai(
-                "wrench 25mm", "key", model="gpt-4o-mini",
+                "wrench 25mm", "key", model="gpt-6-luna",
                 output={"length": {"type": "string"}}, threads=1, **selection,
             ) == {"length": "25mm"}
         assert len(calls) == 2  # The model's protocol disables the warm result cache.
@@ -1475,7 +1490,8 @@ def test_v1_chat_preserves_temperature_and_resolves_retries(monkeypatch, tmp_pat
     override.write_text(json.dumps({
         "version": 1,
         "extract_ai": {
-            "model": "gpt-4o-mini", "protocol": "chat_completions",
+            "model": "gpt-6-luna", "protocol": "chat_completions",
+            "temperature": 0.2,
             "endpoints": {"chat_completions": "https://api.openai.com/v1/chat/completions"},
         },
     }), encoding="utf-8")
@@ -1493,6 +1509,8 @@ def test_v1_chat_preserves_temperature_and_resolves_retries(monkeypatch, tmp_pat
             "wrench 25mm", "key", output={"length": {"type": "string"}},
             threads=1, retries=retries,
         ) == {"length": "25mm"}
+        assert calls[0][0]["model"] == "gpt-6-luna"
+        assert calls[0][0]["reasoning_effort"] == "none"
         assert calls[0][0]["temperature"] == 0.2
         assert calls[0][1] == (1 if retries is None else 0)
     finally:
@@ -2332,12 +2350,12 @@ def test_legacy_chat_completions_uses_same_result_cache(monkeypatch):
 
 
 @pytest.mark.parametrize("model", [
-    "gpt-6-luna", "gpt-6-sol", "gpt-6-luna-2026-09-25", "future-model", "gpt-4o-mini",
+    "gpt-6-luna", "gpt-6-sol", "gpt-6-luna-2026-09-25", "future-model", "non-reasoning-test-model",
 ])
 @pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
 @pytest.mark.parametrize("via_recipe", [False, True])
 @pytest.mark.parametrize("reasoning", [None, {}, {"effort": "none"}, {"effort": "low"}])
-def test_extract_reasoning_always_reaches_provider(monkeypatch, model, protocol, via_recipe, reasoning):
+def test_extract_reasoning_always_reaches_provider(monkeypatch, model, protocol, via_recipe, reasoning, non_reasoning_model):
     calls = []
     monkeypatch.setattr(
         extract._openai_responses._requests, "post",
@@ -2358,6 +2376,7 @@ def test_extract_reasoning_always_reaches_provider(monkeypatch, model, protocol,
     else:
         assert extract.ai("wrench 25mm", **settings) == {"length": "25mm"}
     payload = calls[0]["json"]
+    assert payload["model"] == model
     expected = reasoning or {"effort": "none"}
     if protocol == "responses":
         assert payload["reasoning"] == expected
@@ -2402,7 +2421,7 @@ def test_extract_reports_reasoning_rejection_without_fallback(monkeypatch, reaso
 @pytest.mark.parametrize("model_key", ["GPTModel", "AIModel", "Model"])
 def test_saved_schema_fixture_preserves_shared_definition(monkeypatch, request, model_key):
     shared = {
-        "Settings": {model_key: "gpt-4o-mini", "AdditionalMessages": "Use source units."},
+        "Settings": {model_key: "original-saved-model", "AdditionalMessages": "Use source units."},
         "Columns": ["Find", "Type", "Description"],
         "Data": [["length", "string", "Length in source units"]],
     }
@@ -2421,6 +2440,6 @@ def test_saved_schema_fixture_preserves_shared_definition(monkeypatch, request, 
     assert payload["reasoning"] == {"effort": "none"}
     assert payload["text"]["format"]["schema"]["properties"]["length"]["description"] == "Length in source units"
     assert "Use source units." in payload["instructions"]
-    assert shared["Settings"] == {model_key: "gpt-4o-mini", "AdditionalMessages": "Use source units."}
+    assert shared["Settings"] == {model_key: "original-saved-model", "AdditionalMessages": "Use source units."}
     assert shared["Columns"] == ["Find", "Type", "Description"]
     assert shared["Data"] == [["length", "string", "Length in source units"]]
