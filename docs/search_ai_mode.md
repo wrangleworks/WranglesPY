@@ -176,6 +176,11 @@ prepared column. It preserves Markdown line breaks and destinations, and leaves
 unsupported formulas intact for the model. These cleanup controls remain opt-in
 for other recipes.
 
+The independent [`unescape_markdown`](standardize_clean_markdown.md) toggle can
+remove Markdown punctuation escapes in prose. Enable it in deployed recipes only
+after the updated package is available in their runtime; retain the separate
+description-link and Google-viewer handling.
+
 `merge.to_dict` builds **Input Product Information** from `Mfr`, `MPN` and
 `Description`, retaining blank fields. `extract.ai` receives that dictionary
 alongside `ai_mode_results_clean`. The original input identity and the search
