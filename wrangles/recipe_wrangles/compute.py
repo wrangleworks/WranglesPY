@@ -17,6 +17,9 @@ def case_when(
 ):
     """  
     type: object  
+    catalog_id: "3"
+    status: active
+    history: {}
     description: Assign values to a column based on conditional logic  
     additionalProperties: false  
     required:  
@@ -83,6 +86,9 @@ def score_search_results(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "4"
+    status: active
+    history: {}
     description: >-
       Deduplicates and ranks structured search results using part-number, supplier
       text, context, original-rank, query-order, supplier-domain, and product-URL

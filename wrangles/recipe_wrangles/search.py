@@ -41,6 +41,9 @@ def find_links(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "47"
+    status: active
+    history: {}
     description: Perform web searches to find links. Returns structured search results with titles, links, snippets, and optional pricing.
     additionalProperties: false
     required:
@@ -205,6 +208,9 @@ def ai_mode(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "154"
+    status: active
+    history: {}
     description: Retrieve Google AI Mode Markdown and metadata. Use standardize.clean and extract.ai afterwards for cleanup and structuring.
     additionalProperties: false
     required:
@@ -321,6 +327,9 @@ def retrieve_link_content(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "48"
+    status: active
+    history: {}
     description: Retrieves targeted content from web pages using LLM URL extraction. Can optionally output a second column containing a clean, human-readable text summary of the retrieved data. Additional options are passed to Gemini GenerateContentConfig.
     additionalProperties: true
     required:

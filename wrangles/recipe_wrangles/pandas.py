@@ -62,6 +62,9 @@ def copy(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "74"
+    status: active
+    history: {}
     description: Make a copy of a column or a list of columns
     additionalProperties: false
     required:
@@ -116,6 +119,9 @@ def copy(
 def drop(df: _pd.DataFrame, columns: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "76"
+    status: active
+    history: {}
     description: Drop (Delete) selected column(s)
     additionalProperties: true
     required:
@@ -134,6 +140,9 @@ def drop(df: _pd.DataFrame, columns: _Union[str, list]) -> _pd.DataFrame:
 def transpose(df: _pd.DataFrame, header_column = 0) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "97"
+    status: active
+    history: {}
     description: Transpose the DataFrame (swap columns to rows)
     additionalProperties: false
     properties:
@@ -169,6 +178,9 @@ def transpose(df: _pd.DataFrame, header_column = 0) -> _pd.DataFrame:
 def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "93"
+    status: active
+    history: {}
     description: Sort the data
     additionalProperties: true
     required:
@@ -227,6 +239,9 @@ def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
 def round(df: _pd.DataFrame, input: _Union[str, int, list], decimals: int = 0, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "91"
+    status: active
+    history: {}
     description: Round column(s) to the specified decimals
     additionalProperties: false
     required:
@@ -272,6 +287,9 @@ def reindex(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "87"
+    status: active
+    history: {}
     description: Changes the row labels and column labels of a DataFrame.
     additionalProperties: false
     properties:
@@ -313,6 +331,9 @@ def explode(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "77"
+    status: active
+    history: {}
     description: Explode a column of lists into rows
     additionalProperties: false
     required:

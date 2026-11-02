@@ -228,6 +228,9 @@ def _schema(kind):
         question_definition = _question_schema(kind)
     return {
         "type": "object", "additionalProperties": False, "required": ["questions"],
+        "catalog_id": {None: "149", "choose": "150", "score": "151", "true_false": "152"}[kind],
+        "status": "active",
+        "history": {},
         "description": (
             descriptions[kind]
             + "Accepts multiple named questions in one provider request per row. "

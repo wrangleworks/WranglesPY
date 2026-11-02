@@ -13,6 +13,9 @@ from ..utils import get_nested_function as _get_nested_function
 def columns(df: _pd.DataFrame, input: _Union[str, int, list]) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "49"
+    status: active
+    history: {}
     description: Select columns from the dataframe
     additionalProperties: false
     required:
@@ -42,6 +45,9 @@ def dictionary_element(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "50"
+    status: active
+    history: {}
     description: Select one or more element of a dictionary.
     additionalProperties: false
     required:
@@ -107,6 +113,9 @@ def element(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "51"
+    status: active
+    history: {}
     description: >-
       Select elements of lists or dicts
       using python syntax like col[0]['key']
@@ -266,6 +275,9 @@ def group_by(
 ):
     """
     type: object
+    catalog_id: "52"
+    status: active
+    history: {}
     description: Group and aggregate the data
     properties:
       by:
@@ -526,6 +538,9 @@ def group_by(
 def head(df: _pd.DataFrame, n: int) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "53"
+    status: active
+    history: {}
     description: Return the first n rows
     required:
       - n
@@ -543,6 +558,9 @@ def head(df: _pd.DataFrame, n: int) -> _pd.DataFrame:
 def highest_confidence(df: _pd.DataFrame, input: list, output: _Union[str,list]) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "54"
+    status: active
+    history: {}
     description: Select the option with the highest confidence from multiple columns. Inputs are expected to be of the form [<<value>>, <<confidence_score>>].
     additionalProperties: false
     required:
@@ -578,6 +596,9 @@ def left(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "55"
+    status: active
+    history: {}
     description: >-
       Return characters from the left of text.
       Strings shorter than the length defined will be unaffected.
@@ -651,6 +672,9 @@ def length(
 ):
   """
   type: object
+  catalog_id: "56"
+  status: active
+  history: {}
   description: >-
     Calculate the lengths of data in a column.
     The length depends on the data type
@@ -690,6 +714,9 @@ def list_element(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "57"
+    status: active
+    history: {}
     description: Select a numbered element of a list (zero indexed).
     additionalProperties: false
     required:
@@ -748,6 +775,9 @@ def right(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "58"
+    status: active
+    history: {}
     description: >-
       Return characters from the right of text.
       Strings shorter than the length defined will be unaffected.
@@ -817,6 +847,9 @@ def right(
 def sample(df: _pd.DataFrame, rows: _Union[int, float], **kwargs) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "59"
+    status: active
+    history: {}
     description: Return a random sample of the rows
     required:
       - rows
@@ -855,6 +888,9 @@ def sample(df: _pd.DataFrame, rows: _Union[int, float], **kwargs) -> _pd.DataFra
 def substring(df: _pd.DataFrame, input: _Union[str, int, list], start: int = None, length: int = None, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "60"
+    status: active
+    history: {}
     description: Return characters from the middle of text.
     additionalProperties: false
     required:
@@ -928,6 +964,9 @@ def substring(df: _pd.DataFrame, input: _Union[str, int, list], start: int = Non
 def tail(df: _pd.DataFrame, n: int) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "61"
+    status: active
+    history: {}
     description: Return the last n rows
     required:
       - n
@@ -944,6 +983,9 @@ def tail(df: _pd.DataFrame, n: int) -> _pd.DataFrame:
 def threshold(df: _pd.DataFrame, input: list, output: str, threshold: float) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "62"
+    status: active
+    history: {}
     description: Select the first option if it exceeds a given threshold, else the second option.
     additionalProperties: false
     required:

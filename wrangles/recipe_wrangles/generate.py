@@ -27,6 +27,9 @@ def ai(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "39"
+    status: active
+    history: {}
     description: Generate structured AI output for each recipe row.
     additionalProperties: false
     required:

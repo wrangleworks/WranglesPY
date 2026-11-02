@@ -28,6 +28,9 @@ def bins(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "12"
+    status: active
+    history: {}
     description: Create a column that groups data into bins
     additionalProperties: false
     required:
@@ -95,6 +98,9 @@ def column(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "13"
+    status: active
+    history: {}
     description: Create column(s) with a user defined value. Defaults to None (empty).
     additionalProperties: false
     required:
@@ -216,6 +222,9 @@ def embeddings(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "14"
+    status: active
+    history: {}
     description: Create an embedding based on text input.
     required:
       - input
@@ -347,6 +356,9 @@ def embeddings(
 def guid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "15"
+    status: active
+    history: {}
     description: Create column(s) with a GUID.
     additionalProperties: false
     required:
@@ -371,6 +383,9 @@ def index(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "17"
+    status: active
+    history: {}
     description: Create column(s) with an incremental index. e.g. 1,2,3...
     additionalProperties: false
     required:
@@ -426,6 +441,9 @@ def index(
 def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "18"
+    status: active
+    history: {}
     description: Output text using a jinja template
     additionalProperties: false
     required:
@@ -509,6 +527,9 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
 def uuid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "19"
+    status: active
+    history: {}
     description: Create column(s) with a UUID.
     additionalProperties: false
     required:
@@ -533,6 +554,9 @@ def uuid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
 def hash(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list], method: str = 'md5') -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "16"
+    status: active
+    history: {}
     description: Create a hash of a column
     additionalProperties: false
     required:

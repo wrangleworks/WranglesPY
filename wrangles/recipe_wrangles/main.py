@@ -51,6 +51,9 @@ def accordion(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "69"
+    status: active
+    history: {}
     description: >-
       Apply a series of wrangles to column(s) containing lists.
       The wrangles will be applied to each element in the list
@@ -229,6 +232,9 @@ def batch(
 ):
     """
     type: object
+    catalog_id: "70"
+    status: active
+    history: {}
     description: >-
       Split the data into batches for executing a list of wrangles.
       Use this in situations such as where the intermediate data
@@ -339,6 +345,9 @@ def classify(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "71"
+    status: active
+    history: {}
     description: |
       Run classify wrangles on the specified columns.
       Requires WrangleWorks Account and Subscription.
@@ -396,6 +405,9 @@ def clean_whitespaces(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "72"
+    status: active
+    history: {}
     description: Condense multiple spaces to a single space and convert special space characters to a standard space.
     additionalProperties: false
     required:
@@ -456,6 +468,9 @@ def concurrent(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "73"
+    status: active
+    history: {}
     description: >-
       Run multiple wrangles concurrently rather than sequentially.
       Wrangles must specify output columns to be used concurrently.
@@ -531,6 +546,9 @@ def concurrent(
 def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operation: str = 'add', output: _Union[str, _pd.Timestamp] = None, time_unit: str = None, time_value: float = None) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "75"
+    status: active
+    history: {}
     description: Add or Subtract time from a date
     additionalProperties: false
     required:
@@ -623,6 +641,9 @@ def filter(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "78"
+    status: active
+    history: {}
     description: |-
       Filter the dataframe based on the contents.
       If multiple filters are specified, all must be correct.
@@ -792,6 +813,9 @@ def huggingface(
 ):
     """
     type: object
+    catalog_id: "79"
+    status: active
+    history: {}
     description: Use a model from huggingface
     required:
       - input
@@ -896,6 +920,9 @@ def log(
 ):
     """
     type: object
+    catalog_id: "80"
+    status: active
+    history: {}
     description: Log the current status of the dataframe.
     additionalProperties: false
     properties:
@@ -994,6 +1021,9 @@ def lookup(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "81"
+    status: active
+    history: {}
     description: >-
       Deprecated: Use lookup.key for key lookup models or lookup.semantic
       for semantic lookup models instead. Lookup values from a saved lookup wrangle.
@@ -1285,6 +1315,9 @@ def _lookup_with_variant(
 def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "82"
+    status: active
+    history: {}
     description: Apply a mathematical calculation.
     additionalProperties: false
     required:
@@ -1325,6 +1358,9 @@ def matrix(
 ):
     """
     type: object
+    catalog_id: "84"
+    status: active
+    history: {}
     description: |-
       Apply a matrix of wrangles to the dataframe.
       This will run the wrangles for each combination of the variables.
@@ -1381,6 +1417,9 @@ def python(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "85"
+    status: active
+    history: {}
     description: |-
       Apply a simple single-line python command. For more complex python use a custom function.
       Note, this evaluates the python command - be especially cautious including
@@ -1530,6 +1569,9 @@ def recipe(
     **kwargs
 ) -> _pd.DataFrame:
     """
+    catalog_id: "86"
+    status: active
+    history: {}
     anyOf:
       - "$ref": "#"
       - type: object
@@ -1612,6 +1654,9 @@ def remove_words(
     ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "88"
+    status: active
+    history: {}
     description: Remove all the elements that occur in one list from another.
     additionalProperties: false
     required:
@@ -1672,6 +1717,9 @@ def rename(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "89"
+    status: active
+    history: {}
     description: Rename a column or list of columns.
     properties:
       input:
@@ -1915,6 +1963,9 @@ def rename(
 def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosine') -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "92"
+    status: active
+    history: {}
     description: Calculate the cosine similarity of two vectors
     additionalProperties: false
     required:
@@ -1999,6 +2050,9 @@ def sql(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "94"
+    status: active
+    history: {}
     description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output.
     additionalProperties: false
     required:
@@ -2118,6 +2172,9 @@ def standardize(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "95"
+    status: active
+    history: {}
     description: Standardize data using a DIY or bespoke standardization wrangle. Requires WrangleWorks Account and Subscription.
     required:
       - input
@@ -2194,6 +2251,9 @@ def translate(
 ) -> _pd.DataFrame:
     """
     type: object
+    catalog_id: "96"
+    status: active
+    history: {}
     description: Translate the input to a different language. Requires WrangleWorks Account and DeepL API Key (A free account for up to 500,000 characters per month is available).
     additionalProperties: false
     required:
@@ -2306,6 +2366,9 @@ def Try(
 ):
     """
     type: object
+    catalog_id: "98"
+    status: active
+    history: {}
     description: Try a list of wrangles and catch any errors that occur
     required:
       - wrangles
