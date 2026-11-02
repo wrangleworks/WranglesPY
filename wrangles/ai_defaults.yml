@@ -6,7 +6,6 @@ providers:
   openai:
     endpoints:
       responses: https://api.openai.com/v1/responses
-      chat_completions: https://api.openai.com/v1/chat/completions
       embeddings: https://api.openai.com/v1/embeddings
     documentation:
       model_cards: https://developers.openai.com/api/docs/models
@@ -59,9 +58,6 @@ providers:
       gpt-4o:
         status: deprecated
         default_for: []
-        protocol_defaults:
-          chat_completions:
-            temperature: 0.2
         supported_values:
           reasoning.effort: []
           text.verbosity: []

@@ -4343,35 +4343,20 @@ class TestExtractAI:
                 })
             )
 
-    def test_ai_legacy_chat_completions_endpoint(self):
-        """
-        Test extract.ai using the legacy Chat Completions endpoint
-        via the `url` override, instead of the default Responses API
-        """
-        df = wrangles.recipe.run(
-            """
-            wrangles:
-            - extract.ai:
-                api_key: ${OPENAI_API_KEY}
-                seed: 1
-                retries: 2
-                url: https://api.openai.com/v1/chat/completions
-                output:
-                  length:
-                    type: string
-                    description: >-
-                      Any length measurement found in the text,
-                      such as cm, m, ft, mm, etc.
-            """,
-            dataframe=pd.DataFrame({
-                "data": ["wrench 25mm", "6m cable"],
-            })
-        )
-        matches = sum([
-            df['length'][0] == '25mm',
-            df['length'][1] == '6m',
-        ])
-        assert matches >= 1
+    def test_ai_rejects_retired_completion_endpoints_before_requests(self, monkeypatch):
+        def unexpected_request(*args, **kwargs):
+            pytest.fail("Retired endpoints must fail before any provider request")
+
+        monkeypatch.setattr("requests.post", unexpected_request)
+        with pytest.raises(ValueError, match="Responses API endpoint"):
+            wrangles.recipe.run(
+                {"wrangles": [{"extract.ai": {
+                    "api_key": "synthetic-key", "input": "data",
+                    "url": "https://api.openai.com/v1/chat/completions/",
+                    "output": {"length": {"type": "string"}},
+                }}]},
+                dataframe=pd.DataFrame({"data": ["wrench 25mm"]}),
+            )
 
     def test_model_id(self, saved_extract_schema_model):
         """

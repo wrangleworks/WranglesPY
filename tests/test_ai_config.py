@@ -339,11 +339,11 @@ def test_protocol_defaults_do_not_leak_into_responses(monkeypatch, tmp_path):
     config = ai_config.load()
     config["providers"]["openai"]["models"]["protocol-test-model"] = {
         "status": "active", "default_for": [],
-        "protocol_defaults": {"chat_completions": {"temperature": 0.2}},
+        "protocol_defaults": {"other-protocol": {"temperature": 0.2}},
     }
     use_config(config, monkeypatch, tmp_path)
-    assert ai_config.model_defaults("protocol-test-model", protocol="chat_completions") == {"temperature": 0.2}
-    assert ai_config.model_defaults("protocol-test-model-2026-10-01", protocol="chat_completions") == {"temperature": 0.2}
+    assert ai_config.model_defaults("protocol-test-model", protocol="other-protocol") == {"temperature": 0.2}
+    assert ai_config.model_defaults("protocol-test-model-2026-10-01", protocol="other-protocol") == {"temperature": 0.2}
     assert ai_config.model_defaults("protocol-test-model", protocol="responses") == {}
     assert "temperature" not in ai_config.resolve("extract.ai", model="protocol-test-model")
 

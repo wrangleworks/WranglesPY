@@ -207,6 +207,7 @@ def ai(
     timeout = timeout if timeout is not None else policy["request_timeout_seconds"]
     retries = retries if retries is not None else policy["retries"]
     url = url if url is not None else policy["endpoints"]["responses"]
+    _openai_responses.validate_endpoint(url)
     strict = strict if strict is not None else policy["strict"]
     reasoning = dict(reasoning if reasoning is not None else policy.get("reasoning", {}))
     _logging.info(f": Generating data using AI :: model :: {model}, thread_count :: {threads}, record_count :: {1 if not isinstance(input, list) else len(input)}")
