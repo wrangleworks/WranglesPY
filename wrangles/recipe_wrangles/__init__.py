@@ -42,6 +42,13 @@ from . import search
 standardize.clean = _standardize_clean
 standardize.custom = _standardize_custom
 standardize.replace = _standardize_replace
+standardize.dates = format.dates
+standardize.pad = format.pad
+standardize.prefix = format.prefix
+standardize.remove_duplicates = format.remove_duplicates
+standardize.significant_figures = format.significant_figures
+standardize.suffix = format.suffix
+standardize.trim = format.trim
 
 lookup.key = _lookup_key
 lookup.semantic = _lookup_semantic

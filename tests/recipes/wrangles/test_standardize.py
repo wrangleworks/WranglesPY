@@ -1,9 +1,11 @@
 import importlib
+from copy import deepcopy
 import logging
 import json
 from pathlib import Path
 import runpy
 import shutil
+import warnings
 from types import SimpleNamespace
 
 import jsonschema
@@ -406,3 +408,154 @@ class TestStandardizeCleanRecipe:
         assert filtered['Clean'].to_list() == ['one', '']
         assert empty.empty
         assert empty.columns.to_list() == ['Raw', 'Clean']
+
+
+class TestStandardizeFormatAliases:
+    """Compatibility for the seven recipe aliases requested in #1248."""
+
+    CASES = {
+        'dates': (
+            ['2024-01-02', '2024-12-31', ''],
+            {'format': '%d/%m/%Y'},
+            ['02/01/2024', '31/12/2024', ''],
+        ),
+        'pad': (
+            ['12', '', '  '],
+            {'pad_length': 4, 'side': 'left', 'char': '0'},
+            ['0012', '0000', '00  '],
+        ),
+        'prefix': (['123', '', 'abc'], {'value': 'ID-'}, ['ID-123', 'ID-', 'ID-abc']),
+        'remove_duplicates': (
+            [['A', 'a', 'A'], 'b b B', ''], {}, [['A', 'a'], 'b B', ''],
+        ),
+        'significant_figures': (
+            [1234.56, 0.012345, 0.0], {}, [1230.0, 0.0123, 0.0],
+        ),
+        'suffix': (['123', '', 'abc'], {'value': '-X'}, ['123-X', '-X', 'abc-X']),
+        'trim': (['  red  ', '\tblue\n', ''], {}, ['red', 'blue', '']),
+    }
+
+    @pytest.fixture(autouse=True)
+    def block_live_http(self, monkeypatch):
+        def blocked(*args, **kwargs):
+            pytest.fail('Standardize alias tests must not contact live services')
+
+        monkeypatch.setattr(requests.sessions.Session, 'request', blocked)
+
+    @pytest.fixture(params=list(CASES))
+    def format_case(self, request):
+        name = request.param
+        values, options, expected = deepcopy(self.CASES[name])
+        frame = pd.DataFrame({'row_id': [3, 1, 2], 'raw': values})
+        return name, frame, options, expected
+
+    def _run(self, operation, frame, options, **kwargs):
+        return wrangles.recipe.run(
+            {'wrangles': [{operation: {'input': 'raw', **deepcopy(options)}}]},
+            dataframe=frame.copy(deep=True), **kwargs,
+        )
+
+    @pytest.mark.parametrize('explicit_output', [False, True], ids=['overwrite', 'new-column'])
+    def test_alias_matches_legacy_output(self, format_case, explicit_output, caplog):
+        name, frame, options, values = format_case
+        target = 'result' if explicit_output else 'raw'
+        if explicit_output:
+            options['output'] = target
+        expected = frame.copy()
+        expected[target] = values
+
+        with warnings.catch_warnings(record=True) as caught, caplog.at_level(logging.WARNING):
+            warnings.simplefilter('always', DeprecationWarning)
+            for operation in (f'format.{name}', f'standardize.{name}'):
+                pd.testing.assert_frame_equal(self._run(operation, frame, options), expected)
+        assert not any(issubclass(w.category, DeprecationWarning) for w in caught)
+        assert not any('deprecat' in record.getMessage().lower() for record in caplog.records)
+
+    @pytest.mark.parametrize('explicit_output', [False, True], ids=['overwrite', 'new-column'])
+    def test_alias_preserves_where_and_parameters(self, format_case, explicit_output):
+        name, frame, options, values = format_case
+        target = 'result' if explicit_output else 'raw'
+        if explicit_output:
+            options['output'] = target
+            frame[target] = 'untouched'
+        expected = frame.copy()
+        expected.at[1, target] = values[1]
+        options.update(where='row_id = :selected_id', where_params={'selected_id': 1})
+        for operation in (f'format.{name}', f'standardize.{name}'):
+            pd.testing.assert_frame_equal(self._run(operation, frame, options), expected)
+
+    @pytest.mark.parametrize('enabled', [True, False])
+    def test_alias_preserves_if(self, format_case, enabled):
+        name, frame, options, values = format_case
+        options.update(output='result', **{'if': '${enabled}'})
+        expected = frame.assign(result=values) if enabled else frame
+        for operation in (f'format.{name}', f'standardize.{name}'):
+            result = self._run(operation, frame, options, variables={'enabled': enabled})
+            pd.testing.assert_frame_equal(result, expected)
+
+    def test_alias_preserves_empty_where(self, format_case):
+        name, frame, options, _ = format_case
+        options.update(output='result', where='row_id > 10')
+        expected = frame.assign(result='')
+        for operation in (f'format.{name}', f'standardize.{name}'):
+            pd.testing.assert_frame_equal(self._run(operation, frame, options), expected)
+
+    def test_alias_preserves_multiple_inputs_and_wildcards(self, format_case):
+        name, frame, options, values = format_case
+        frame['raw_extra'] = frame['raw'].copy()
+        options.update(input='raw*', output=['first', 'second'])
+        expected = frame.assign(first=values, second=values)
+        for operation in (f'format.{name}', f'standardize.{name}'):
+            pd.testing.assert_frame_equal(self._run(operation, frame, options), expected)
+
+    def test_alias_preserves_mismatched_output_error(self, format_case):
+        name, frame, options, _ = format_case
+        frame['raw_extra'] = frame['raw'].copy()
+        options.update(input=['raw', 'raw_extra'], output=['only'])
+        for operation in (f'format.{name}', f'standardize.{name}'):
+            with pytest.raises(ValueError, match='The lists for input and output must be the same length'):
+                self._run(operation, frame, options)
+
+    @pytest.mark.parametrize('name, override, expected', [
+        ('pad', {'skip_empty': True}, ['0012', '', '  ']),
+        ('prefix', {'skip_empty': True}, ['ID-123', '', 'ID-abc']),
+        ('suffix', {'skip_empty': True}, ['123-X', '', 'abc-X']),
+        ('remove_duplicates', {'ignore_case': True}, [['A'], 'b', '']),
+        ('significant_figures', {'significant_figures': 2}, [1200.0, 0.012, 0.0]),
+    ])
+    def test_alias_preserves_option_overrides(self, name, override, expected):
+        values, options, _ = deepcopy(self.CASES[name])
+        frame = pd.DataFrame({'row_id': [3, 1, 2], 'raw': values})
+        options.update(output='result', **override)
+        for operation in (f'format.{name}', f'standardize.{name}'):
+            pd.testing.assert_frame_equal(
+                self._run(operation, frame, options), frame.assign(result=expected),
+            )
+
+    def test_aliases_share_implementations_and_preserve_legacy_namespace(self):
+        namespace = wrangles.recipe._recipe_wrangles
+        main = importlib.import_module('wrangles.recipe_wrangles.main')
+        assert namespace.standardize is main.standardize
+        assert callable(namespace.standardize)
+        for name in self.CASES:
+            assert getattr(namespace.standardize, name) is getattr(namespace.format, name)
+        for name in ('clean', 'custom', 'replace'):
+            assert callable(getattr(namespace.standardize, name))
+
+    def test_generated_schema_preserves_both_names_and_controls(self, tmp_path, monkeypatch):
+        root = Path(__file__).resolve().parents[3]
+        shutil.copyfile(root / 'schema/recipe_base_schema.json', tmp_path / 'recipe_base_schema.json')
+        monkeypatch.chdir(tmp_path)
+        runpy.run_path(str(root / 'schema/generate_recipe_schema.py'))
+        schema = json.loads((tmp_path / 'schema.json').read_text(encoding='utf-8'))
+        contracts = schema['$defs']['wrangles']['items']['properties']
+        assert {'standardize', 'standardize.clean', 'standardize.custom', 'standardize.replace'} <= contracts.keys()
+        for name, (_, options, _) in self.CASES.items():
+            old, new = f'format.{name}', f'standardize.{name}'
+            assert contracts[new] == contracts[old]
+            assert {'if', 'where', 'where_params'} <= contracts[new]['properties'].keys()
+            for operation in (old, new):
+                jsonschema.validate({'wrangles': [{operation: {
+                    'input': 'raw', 'output': 'result', 'where': 'row_id = :selected_id',
+                    'where_params': {'selected_id': 1}, 'if': 'row_count > 0', **options,
+                }}]}, schema)
