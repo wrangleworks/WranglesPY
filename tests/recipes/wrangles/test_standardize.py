@@ -535,12 +535,40 @@ class TestStandardizeFormatAliases:
     def test_aliases_share_implementations_and_preserve_legacy_namespace(self):
         namespace = wrangles.recipe._recipe_wrangles
         main = importlib.import_module('wrangles.recipe_wrangles.main')
+        canonical = importlib.import_module('wrangles.recipe_wrangles.standardize')
         assert namespace.standardize is main.standardize
         assert callable(namespace.standardize)
         for name in self.CASES:
-            assert getattr(namespace.standardize, name) is getattr(namespace.format, name)
+            implementation = getattr(canonical, name)
+            assert implementation.__module__ == canonical.__name__
+            assert getattr(namespace.standardize, name) is implementation
+            assert getattr(namespace.format, name) is implementation
         for name in ('clean', 'custom', 'replace'):
             assert callable(getattr(namespace.standardize, name))
+
+    @pytest.mark.parametrize('module_name', ['standardize', 'format'])
+    def test_module_exports_preserve_transformations(self, format_case, module_name):
+        name, frame, options, values = format_case
+        module = importlib.import_module(f'wrangles.recipe_wrangles.{module_name}')
+        expected = frame.assign(result=values)
+        if name == 'dates':
+            # The direct wrapper preserves missing dates; recipe.run fills them.
+            expected.at[2, 'result'] = float('nan')
+        result = getattr(module, name)(
+            frame.copy(deep=True), input='raw', output='result', **options,
+        )
+        pd.testing.assert_frame_equal(result, expected)
+
+    def test_dataframe_accessor_preserves_both_names(self, format_case):
+        name, frame, options, values = format_case
+        source = wrangles.DataFrame(frame.copy(deep=True))
+        expected = frame.assign(result=values)
+        if name == 'dates':
+            expected.at[2, 'result'] = float('nan')
+        for namespace in (source.wrangles.standardize, source.wrangles.format):
+            result = getattr(namespace, name)(input='raw', output='result', **options)
+            pd.testing.assert_frame_equal(result, expected)
+        pd.testing.assert_frame_equal(pd.DataFrame(source), frame)
 
     def test_generated_schema_preserves_both_names_and_controls(self, tmp_path, monkeypatch):
         root = Path(__file__).resolve().parents[3]
