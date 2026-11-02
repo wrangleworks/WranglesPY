@@ -3,6 +3,236 @@ import pandas as pd
 import pytest
 
 
+class TestExtractTextSlicing:
+    """Canonical extract names and compatible select names for issue #1257."""
+
+    CASES = [
+        ('left', {'length': 3}, ['abc', 'xy', '']),
+        ('right', {'length': 3}, ['def', 'xy', '']),
+        ('substring', {'start': 2, 'length': 3}, ['bcd', 'y', '']),
+    ]
+
+    @pytest.fixture(autouse=True)
+    def block_http(self, monkeypatch):
+        def unexpected_http(*args, **kwargs):
+            pytest.fail('Text slicing must not make HTTP requests')
+        monkeypatch.setattr('requests.sessions.Session.request', unexpected_http)
+
+    @pytest.fixture(params=['extract', 'select'])
+    def namespace(self, request):
+        return request.param
+
+    @staticmethod
+    def run(namespace, name, frame, **options):
+        return wrangles.recipe.run(
+            {'wrangles': [{f'{namespace}.{name}': options}]},
+            dataframe=frame.copy(deep=True),
+        )
+
+    @pytest.mark.parametrize('name,options,expected', [
+        ('left', {'length': 1}, 'a'),
+        ('left', {'length': 6}, 'abcdef'),
+        ('left', {'length': 7}, 'abcdef'),
+        ('left', {'length': -1}, 'bcdef'),
+        ('left', {'length': -6}, ''),
+        ('left', {'length': -7}, ''),
+        ('left', {'length': '3'}, 'abc'),
+        ('right', {'length': 1}, 'f'),
+        ('right', {'length': 6}, 'abcdef'),
+        ('right', {'length': 7}, 'abcdef'),
+        ('right', {'length': -1}, 'abcde'),
+        ('right', {'length': -6}, ''),
+        ('right', {'length': -7}, ''),
+        ('right', {'length': '3'}, 'def'),
+        ('substring', {'start': 2, 'length': 3}, 'bcd'),
+        ('substring', {'start': 1}, 'abcdef'),
+        ('substring', {'start': 6}, 'f'),
+        ('substring', {'start': 7}, ''),
+        ('substring', {'length': 3}, 'abc'),
+        ('substring', {'length': 6}, 'abcdef'),
+        ('substring', {'length': 7}, 'abcdef'),
+        ('substring', {'start': 2, 'length': 0}, ''),
+        ('substring', {'start': 0, 'length': 3}, ''),
+        ('substring', {'start': -1}, 'ef'),
+        ('substring', {'start': 3, 'length': -1}, ''),
+    ])
+    def test_slice_boundaries(self, namespace, name, options, expected):
+        frame = pd.DataFrame({'Text': ['abcdef'], 'Keep': [7]}, index=[19])
+        result = self.run(namespace, name, frame, input='Text', output='Out', **options)
+        pd.testing.assert_frame_equal(result, frame.assign(Out=[expected]))
+
+    @pytest.mark.parametrize('name,options,values', CASES)
+    @pytest.mark.parametrize('mode', ['scalar', 'overwrite', 'list', 'wildcard', 'list_overwrite'])
+    def test_columns_outputs_and_frame_contract(self, namespace, name, options, values, mode):
+        frame = pd.DataFrame({
+            'Text': ['abcdef', 'xy', ''], 'Text2': ['uvwxyz', 'jk', ''],
+            'Keep': [2, 1, 3],
+        }, index=pd.Index([8, 2, 5], name='row'))
+        other_values = {
+            'left': ['uvw', 'jk', ''], 'right': ['xyz', 'jk', ''],
+            'substring': ['vwx', 'k', ''],
+        }[name]
+        expected = frame.copy()
+        if mode == 'overwrite':
+            columns = {'input': 'Text'}
+            expected['Text'] = values
+        elif mode == 'list_overwrite':
+            columns = {'input': ['Text', 'Text2']}
+            expected['Text'] = values
+            expected['Text2'] = other_values
+        elif mode == 'scalar':
+            columns = {'input': 'Text', 'output': 'Out'}
+            expected['Out'] = values
+        else:
+            columns = {
+                'input': 'Text*' if mode == 'wildcard' else ['Text', 'Text2'],
+                'output': ['First', 'Second'],
+            }
+            expected['First'] = values
+            expected['Second'] = other_values
+        pd.testing.assert_frame_equal(self.run(namespace, name, frame, **columns, **options), expected)
+
+    @pytest.mark.parametrize('name,options,values', CASES)
+    def test_integer_column_labels_keep_dispatcher_error(self, namespace, name, options, values):
+        frame = pd.DataFrame({7: ['abcdef', 'xy', ''], 'Keep': [2, 1, 3]}, index=[8, 2, 5])
+        with pytest.raises(TypeError, match=r"unsupported operand type\(s\) for \+: 'int' and 'str'"):
+            self.run(namespace, name, frame, input=7, output='Out', **options)
+
+    @pytest.mark.parametrize('name,options,values', CASES)
+    @pytest.mark.parametrize('output', ['Text', 'Out'])
+    @pytest.mark.parametrize('condition', ['plain', 'list_params', 'dict_params', 'no_rows'])
+    def test_where_preserves_unselected_rows(self, namespace, name, options, values, output, condition):
+        frame = pd.DataFrame({'Text': ['abcdef', 'xy', ''], 'Keep': [2, 1, 3]}, index=[8, 2, 5])
+        controls = {
+            'plain': {'where': 'Keep = 2'},
+            'list_params': {'where': 'Keep = ?', 'where_params': [2]},
+            'dict_params': {'where': 'Keep = :value', 'where_params': {'value': 2}},
+            'no_rows': {'where': 'Keep > 100'},
+        }[condition]
+        expected = frame.copy()
+        if output == 'Out':
+            expected['Out'] = ''
+        if condition != 'no_rows':
+            expected.loc[8, output] = values[0]
+        pd.testing.assert_frame_equal(
+            self.run(namespace, name, frame, input='Text', output=output, **options, **controls),
+            expected,
+        )
+
+    @pytest.mark.parametrize('name,options,values', CASES)
+    @pytest.mark.parametrize('enabled', [True, False])
+    def test_if_controls_execution(self, namespace, name, options, values, enabled):
+        frame = pd.DataFrame({'Text': ['abcdef', 'xy', ''], 'Keep': [2, 1, 3]})
+        expected = frame.assign(Out=values) if enabled else frame
+        pd.testing.assert_frame_equal(
+            self.run(namespace, name, frame, input='Text', output='Out', **options, **{'if': enabled}),
+            expected,
+        )
+
+    @pytest.mark.parametrize('name,options,values', CASES)
+    def test_empty_and_non_string_values(self, namespace, name, options, values):
+        frame = pd.DataFrame({'Text': ['abcdef', '', None, float('nan'), 42, False]})
+        expected = pd.DataFrame({
+            'Text': ['abcdef', '', '', '', 42, False],
+            'Out': [values[0], '', '', '', '', ''],
+        })
+        pd.testing.assert_frame_equal(
+            self.run(namespace, name, frame, input='Text', output='Out', **options), expected,
+        )
+
+    @pytest.mark.parametrize('name,options,values', CASES)
+    @pytest.mark.parametrize('output', [None, 'Out'])
+    def test_empty_frame_preserves_columns_and_dtypes(self, namespace, name, options, values, output):
+        frame = pd.DataFrame({'Text': pd.Series(dtype=object), 'Keep': pd.Series(dtype='int64')})
+        expected = frame.copy()
+        expected[output or 'Text'] = None
+        pd.testing.assert_frame_equal(
+            self.run(namespace, name, frame, input='Text', output=output, **options), expected,
+        )
+
+    @pytest.mark.parametrize('name,options', [
+        ('left', {'length': 0}), ('right', {'length': 'bad'}), ('substring', {}),
+    ])
+    def test_empty_frame_retains_early_return(self, namespace, name, options):
+        frame = pd.DataFrame({'Text': pd.Series(dtype=object)})
+        pd.testing.assert_frame_equal(
+            self.run(namespace, name, frame, input='Text', output='Out', **options),
+            frame.assign(Out=None),
+        )
+
+    @pytest.mark.parametrize('name,options,error,message', [
+        ('left', {'length': 0}, ValueError, 'Length may not equal 0'),
+        ('right', {'length': 0}, ValueError, 'Length may not equal 0'),
+        ('left', {'length': 1.5}, TypeError, 'Length must be an integer'),
+        ('right', {'length': '-2'}, TypeError, 'Length must be an integer'),
+        ('left', {'length': None}, TypeError, 'Length must be an integer'),
+        ('right', {'length': 'bad'}, TypeError, 'Length must be an integer'),
+        ('substring', {}, ValueError, 'Either start or length must be provided'),
+        ('substring', {'start': '2'}, TypeError, 'unsupported operand type'),
+    ])
+    def test_invalid_parameters_keep_meaningful_errors(self, namespace, name, options, error, message):
+        with pytest.raises(error, match=message):
+            self.run(namespace, name, pd.DataFrame({'Text': ['abcdef']}), input='Text', **options)
+
+    @pytest.mark.parametrize('name,options,values', CASES)
+    def test_column_mismatch_missing_and_numeric_errors(self, namespace, name, options, values):
+        frame = pd.DataFrame({'Text': ['abcdef'], 'Other': ['ghijkl']})
+        with pytest.raises(ValueError, match='The lists for input and output must be the same length'):
+            self.run(namespace, name, frame, input=['Text', 'Other'], output=['Only'], **options)
+        with pytest.raises(KeyError, match='Column Missing does not exist'):
+            self.run(namespace, name, frame, input='Missing', **options)
+        with pytest.raises(AttributeError, match=r'Can only use \.str accessor with string values'):
+            self.run(namespace, name, pd.DataFrame({'Text': [12, 34]}), input='Text', **options)
+
+    @pytest.mark.parametrize('name,options,values', CASES)
+    def test_direct_modules_share_canonical_implementation(self, name, options, values):
+        import importlib
+
+        canonical = importlib.import_module('wrangles.recipe_wrangles.extract')
+        legacy = importlib.import_module('wrangles.recipe_wrangles.select')
+        implementation = getattr(canonical, name)
+        assert implementation.__module__ == canonical.__name__
+        assert getattr(legacy, name) is implementation
+        frame = pd.DataFrame({'Text': ['abcdef', 'xy', '']}, index=[8, 2, 5])
+        for module in (canonical, legacy):
+            pd.testing.assert_frame_equal(
+                getattr(module, name)(frame.copy(), input='Text', output='Out', **options),
+                frame.assign(Out=values),
+            )
+
+    @pytest.mark.parametrize('name,options,values', CASES)
+    def test_dataframe_accessors_preserve_source(self, namespace, name, options, values):
+        from wrangles.dataframe import DataFrame
+
+        frame = DataFrame({'Text': ['abcdef', 'xy', '']}, index=[8, 2, 5])
+        original = frame.copy(deep=True)
+        result = getattr(getattr(frame.wrangles, namespace), name)(input='Text', output='Out', **options)
+        pd.testing.assert_frame_equal(result, frame.assign(Out=values))
+        pd.testing.assert_frame_equal(frame, original)
+
+    def test_generated_schema_preserves_parameters_and_controls(self, tmp_path, monkeypatch):
+        import json
+        import runpy
+        from pathlib import Path
+        import jsonschema
+
+        root = Path(__file__).resolve().parents[3]
+        (tmp_path / 'recipe_base_schema.json').write_text(
+            (root / 'schema/recipe_base_schema.json').read_text(encoding='utf-8'), encoding='utf-8',
+        )
+        monkeypatch.chdir(tmp_path)
+        runpy.run_path(str(root / 'schema/generate_recipe_schema.py'))
+        schema = json.loads((tmp_path / 'schema.json').read_text(encoding='utf-8'))
+        operations = schema['$defs']['wrangles']['items']['properties']
+        for name, options, _ in self.CASES:
+            assert operations[f'extract.{name}'] == operations[f'select.{name}']
+            for namespace in ('extract', 'select'):
+                jsonschema.validate({'wrangles': [{f'{namespace}.{name}': {
+                    'input': 'Text', 'output': 'Out', **options,
+                    'where': 'Keep = ?', 'where_params': [2], 'if': 'row_count > 0',
+                }}]}, schema)
+
+
 class TestSelectDictionaryElement:
     """
     Test select.dictionary_element
