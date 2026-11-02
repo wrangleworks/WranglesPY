@@ -533,9 +533,8 @@ def ai(
       url:
         type: string
         description: |-
-          Override the endpoint for the selected protocol. A chat/completions URL
-          selects the legacy protocol only when protocol is omitted; new recipes
-          should use the configured Responses endpoint.
+          Override the configured Responses API endpoint with a compatible
+          endpoint. Extraction supports only the Responses API.
       provider:
         type: string
         description: AI service provider. Currently only OpenAI is supported.
@@ -544,11 +543,9 @@ def ai(
       protocol:
         type: string
         description: >-
-          OpenAI API protocol. Responses is the configured default and is required
-          for web_search; chat_completions remains available for legacy definitions.
+          OpenAI API protocol. Only Responses is supported.
         enum:
           - responses
-          - chat_completions
       store:
         type: boolean
         description: Whether OpenAI may store Responses API results. Defaults to true.
@@ -793,7 +790,7 @@ def ai(
                 target_columns = exploded_df.columns
             else:
                 # Ensure all the required keys are included in the output,
-                # even if chatGPT doesn't preserve them
+                # even if the AI model doesn't preserve them
                 for col in target_columns:
                   if col not in exploded_df.columns:
                       exploded_df[col] = ""

@@ -15,6 +15,7 @@ from typing import Dict as _Dict
 from typing import List as _List
 from typing import Literal as _Literal
 from typing import Union as _Union
+from urllib.parse import urlsplit as _urlsplit
 
 import requests as _requests
 from pydantic import Field as _Field
@@ -83,16 +84,19 @@ _REQUEST_DEFAULT_KEYS = {
         "max_tool_calls", "parallel_tool_calls", "prompt_cache_retention",
         "safety_identifier", "truncation", "top_logprobs",
     },
-    "chat_completions": {
-        "temperature", "top_p", "max_tokens", "max_completion_tokens",
-        "service_tier", "frequency_penalty", "presence_penalty", "logit_bias",
-        "logprobs", "top_logprobs", "seed", "stop", "user", "parallel_tool_calls",
-    },
 }
+
+
+def validate_endpoint(url: str) -> None:
+    """Reject completion endpoints while allowing Responses-compatible proxies."""
+    if _urlsplit(url).path.rstrip("/").lower().endswith("/completions"):
+        raise ValueError("Only Responses API endpoints are supported.")
 
 
 def request_defaults(policy: dict, protocol: str = "responses") -> dict:
     """Return configured provider options separately from runtime metadata."""
+    if protocol != "responses":
+        raise ValueError("Only Responses API request defaults are supported.")
     return {
         key: _copy.deepcopy(value)
         for key, value in policy.items()
@@ -720,7 +724,7 @@ def prompt_cache_key(namespace: str, model: str, static_prefix: dict) -> str:
 
 def sanitize_request_params(params: dict) -> dict:
     """
-    Translate known Chat Completions parameters and reject ambiguous ones.
+    Translate supported parameter aliases and reject ambiguous options.
 
     This compatibility layer is intentionally explicit and temporary. It emits
     warnings for every legacy parameter it consumes so definitions can be

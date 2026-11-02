@@ -8,7 +8,6 @@ from . import config as _config
 from . import data as _data
 from . import batching as _batching
 from .format import flatten_lists as _flatten_lists
-from . import openai as _openai
 from . import openai_responses as _openai_responses
 from . import ai_config as _ai_config
 from . import ai_definition as _ai_definition
@@ -19,16 +18,12 @@ _LOG = _logging.getLogger(__name__)
 
 def _normalize_ai_protocol(protocol: str) -> str:
     protocol = str(protocol or "").strip().lower().replace("-", "_")
-    aliases = {
-        "responses_api": "responses",
-        "chat": "chat_completions",
-        "chat_completion": "chat_completions",
-    }
-    protocol = aliases.get(protocol, protocol)
-    if protocol not in {"responses", "chat_completions"}:
+    if protocol == "responses_api":
+        protocol = "responses"
+    if protocol != "responses":
         raise ValueError(
-            "protocol must be 'responses' or 'chat_completions'. "
-            f"Received {protocol!r}."
+            "extract.ai supports only the Responses API protocol; "
+            f"received {protocol!r}."
         )
     return protocol
 
@@ -222,7 +217,7 @@ def ai(
     :param verbosity: (Optional) Responses API text verbosity. Defaults to "low" \
         for models that support low verbosity.
     :param provider: (Optional) AI provider. Currently only "openai" is supported.
-    :param protocol: (Optional) API protocol: "responses" or legacy "chat_completions".
+    :param protocol: (Optional) API protocol: "responses".
     :param store: (Optional) Whether OpenAI may store Responses. Defaults to True.
     :param metadata: (Optional) OpenAI log labels, such as recipe_name and wrangles_user.
         Up to 16 string pairs, with keys up to 64 and values up to 512 characters.
@@ -244,32 +239,18 @@ def ai(
         )
 
     if protocol is None:
-        if url and "/chat/completions" in url:
-            protocol = "chat_completions"
-            _LOG.warning(
-                "Inferred legacy protocol 'chat_completions' from url; "
-                "set protocol explicitly while upgrading this definition."
-            )
-        else:
-            protocol = policy.get("protocol", "responses")
+        protocol = policy.get("protocol", "responses")
     protocol = _normalize_ai_protocol(protocol)
     policy = _ai_config.resolve(
         "extract.ai", model=model, provider=provider, protocol=protocol
     )
     if not isinstance(web_search, bool):
         raise ValueError("web_search must be true or false.")
-    if web_search and protocol != "responses":
-        raise ValueError("web_search is supported only with protocol='responses'.")
-
-    if url:
-        if protocol == "responses" and "/chat/completions" in url:
-            raise ValueError("A Chat Completions url cannot be used with protocol='responses'.")
-        if protocol == "chat_completions" and "/responses" in url:
-            raise ValueError("A Responses url cannot be used with protocol='chat_completions'.")
-    else:
+    if not url:
         url = policy.get("endpoints", {}).get(protocol)
     if not url:
         raise ValueError(f"No endpoint is configured for extract.ai protocol {protocol!r}.")
+    _openai_responses.validate_endpoint(url)
 
     model = model or policy.get("model")
     if not isinstance(model, str) or not model.strip():
@@ -387,208 +368,87 @@ def ai(
         for message in compiled.messages
     ]
 
-    if protocol == "responses":
-        schema = _openai_responses.sanitize_schema(
-            root_schema,
-            strict=strict,
-        )
-        instructions = str(
-            policy.get("prompt", {}).get("instructions", "")
-        ).strip()
-        if not instructions:
-            raise ValueError("extract.ai prompt instructions are missing from the AI configuration.")
-        if example_guidance:
-            instructions += "\n\nExamples:\n" + example_guidance
-        if messages:
-            instructions += "\n\nAdditional instructions:\n" + "\n".join(
-                str(message.get("content", ""))
-                for message in messages
-            )
-        if web_search:
-            instructions += "\n\n" + " ".join([
-                "Web search is enabled for this call.",
-                "Information returned by the web search tool is authorized evidence in addition to DATA.",
-                "Use web search only when it helps answer the requested fields, and return null when neither DATA nor web evidence supports a field.",
-            ])
-
-        request_options = {
-            **_openai_responses.sanitize_request_params(request_defaults),
-            **_openai_responses.sanitize_request_params(kwargs),
-        }
-        explicit_text = request_options.pop("text", {})
-        if not isinstance(explicit_text, dict):
-            raise ValueError("extract.ai text must be an object containing Responses text options.")
-        if "format" in explicit_text:
-            raise ValueError("extract.ai controls text.format; define the structured schema with output.")
-        text_options = {**policy.get("text", {}), **explicit_text}
-        configured_verbosity = text_options.pop("verbosity", "low")
-        if verbosity is not None:
-            configured_verbosity = verbosity
-
-        payload = {
-            "model": model,
-            "instructions": instructions,
-            "text": {
-                **text_options,
-                "format": {
-                    "type": "json_schema",
-                    "name": "extract_ai_response",
-                    "schema": schema,
-                    "strict": strict,
-                },
-            },
-            "store": store,
-            **request_options,
-        }
-        if web_search:
-            _enable_responses_web_search(payload)
-        configured_reasoning = (
-            reasoning
-            if reasoning is not None
-            else saved_reasoning or policy.get("reasoning", {"effort": "none"})
-        )
-        # Do not infer reasoning support from a model name or catalog. New
-        # models must not silently fall back to the provider's reasoning default.
-        payload["reasoning"] = {"effort": "none", **configured_reasoning}
-        if _openai_responses.supports_verbosity(model, configured_verbosity):
-            payload["text"]["verbosity"] = configured_verbosity
-        elif verbosity is not None or "verbosity" in explicit_text:
-            _LOG.warning(
-                "Ignoring 'verbosity' parameter: not supported by model '%s'",
-                model,
-            )
-
-        payload["prompt_cache_key"] = _openai_responses.prompt_cache_key(
-            "extract.ai",
-            model,
-            payload,
-        )
-        # Labels affect result-cache attribution, but not the reusable model prompt.
-        if metadata is not None:
-            payload["metadata"] = metadata
-        static_request = {
-            "url": url,
-            "payload": payload,
-            "cache_ttl_seconds": cache_policy.ttl_seconds,
-        }
-        results = _ai_cache.execute_batch(
-            input,
-            key_for=lambda row: _ai_cache.make_key(
-                namespace="extract.ai",
-                provider=provider,
-                protocol=protocol,
-                tenant_secret=api_key,
-                static_request=static_request,
-                data=_openai_responses.format_input_data(row),
-            ),
-            compute=lambda row: _openai_responses.call_structured(
-                row,
-                api_key,
-                payload,
-                url,
-                timeout,
-                retries,
-                list(output.keys()),
-            ),
-            cacheable=_cacheable_ai_result,
-            max_workers=threads,
-            policy=cache_policy,
-            preflight_first=True,
-        )
-
-        if _needs_remap:
-            results = [
-                {_key_to_original.get(k, k): v for k, v in row.items()}
-                if isinstance(row, dict) else row
-                for row in results
-            ]
-
-        if input_was_scalar:
-            if output_generic_key and not web_search:
-                return results[0].get('output', 'Failed')
-            else:
-                return results[0]
-        else:
-            if output_generic_key and not web_search:
-                return [x.get('output', 'Failed') for x in results]
-            else:
-                return results
-
-    stable_messages = [
-        {
-            "role": "system",
-            "content": policy.get("prompt", {}).get("instructions") or " ".join([
-                "You are an expert data analyst.",
-                "Your job is to extract and standardize information as provided by the user.",
-                "The data may be provided as a single value or as YAML syntax with keys and values.",
-                "Return null when the data does not explicitly support a requested field.",
-            ])
-        },
-        {
-            "role": "system",
-            "content": " ".join([
-                "Use the function parse_output to return the data to be submitted.",
-                "Only use the functions you have been provided with.",
-            ])
-        },
-    ]
+    schema = _openai_responses.sanitize_schema(
+        root_schema,
+        strict=strict,
+    )
+    instructions = str(
+        policy.get("prompt", {}).get("instructions", "")
+    ).strip()
+    if not instructions:
+        raise ValueError("extract.ai prompt instructions are missing from the AI configuration.")
     if example_guidance:
-        stable_messages.append({
-            "role": "system",
-            "content": "Examples:\n" + example_guidance,
-        })
-    messages = stable_messages + messages
-    
-    # Blend default settings into kwargs
-    kwargs = {
-        **request_defaults,
-        **kwargs
+        instructions += "\n\nExamples:\n" + example_guidance
+    if messages:
+        instructions += "\n\nAdditional instructions:\n" + "\n".join(
+            str(message.get("content", ""))
+            for message in messages
+        )
+    if web_search:
+        instructions += "\n\n" + " ".join([
+            "Web search is enabled for this call.",
+            "Information returned by the web search tool is authorized evidence in addition to DATA.",
+            "Use web search only when it helps answer the requested fields, and return null when neither DATA nor web evidence supports a field.",
+        ])
+
+    request_options = {
+        **_openai_responses.sanitize_request_params(request_defaults),
+        **_openai_responses.sanitize_request_params(kwargs),
     }
+    explicit_text = request_options.pop("text", {})
+    if not isinstance(explicit_text, dict):
+        raise ValueError("extract.ai text must be an object containing Responses text options.")
+    if "format" in explicit_text:
+        raise ValueError("extract.ai controls text.format; define the structured schema with output.")
+    text_options = {**policy.get("text", {}), **explicit_text}
+    configured_verbosity = text_options.pop("verbosity", "low")
+    if verbosity is not None:
+        configured_verbosity = verbosity
 
-    # The catalog and public arguments use Responses-style names. Translate
-    # their effective values for the legacy endpoint instead of dropping them.
-    explicit_effort = kwargs.pop("reasoning_effort", None)
-    configured_reasoning = (
-        reasoning if reasoning is not None
-        else {"effort": explicit_effort} if explicit_effort is not None
-        else saved_reasoning or policy.get("reasoning", {})
-    )
-    kwargs["reasoning_effort"] = configured_reasoning.get("effort", "none")
-    configured_verbosity = (
-        verbosity if verbosity is not None
-        else policy.get("text", {}).get("verbosity")
-    )
-    if configured_verbosity is not None:
-        if _openai_responses.supports_verbosity(model, configured_verbosity):
-            kwargs["verbosity"] = configured_verbosity
-        else:
-            _LOG.warning(
-                "Ignoring 'verbosity' parameter: not supported by model '%s'",
-                model,
-            )
-
-    settings = {
+    payload = {
         "model": model,
-        "messages": messages,
-        "tools": [{
-            "type": "function",
-            "function": {
-                "name": "parse_output",
-                "description": "Submit the output corresponding to the extracted data in the form the user requires.",
-                "parameters": root_schema,
-                "strict": strict
-            }
-        }],
-        "tool_choice": {"type": "function", "function": {"name": "parse_output"}},
-        **kwargs
+        "instructions": instructions,
+        "text": {
+            **text_options,
+            "format": {
+                "type": "json_schema",
+                "name": "extract_ai_response",
+                "schema": schema,
+                "strict": strict,
+            },
+        },
+        "store": store,
+        **request_options,
     }
-    if metadata is not None:
-        settings["metadata"] = metadata
+    if web_search:
+        _enable_responses_web_search(payload)
+    configured_reasoning = (
+        reasoning
+        if reasoning is not None
+        else saved_reasoning or policy.get("reasoning", {"effort": "none"})
+    )
+    # Do not infer reasoning support from a model name or catalog. New
+    # models must not silently fall back to the provider's reasoning default.
+    payload["reasoning"] = {"effort": "none", **configured_reasoning}
+    if _openai_responses.supports_verbosity(model, configured_verbosity):
+        payload["text"]["verbosity"] = configured_verbosity
+    elif verbosity is not None or "verbosity" in explicit_text:
+        _LOG.warning(
+            "Ignoring 'verbosity' parameter: not supported by model '%s'",
+            model,
+        )
 
-    _logging.info(f": Extracting data using AI model :: model_id :: {model_id}, thread_count :: {threads}")
+    payload["prompt_cache_key"] = _openai_responses.prompt_cache_key(
+        "extract.ai",
+        model,
+        payload,
+    )
+    # Labels affect result-cache attribution, but not the reusable model prompt.
+    if metadata is not None:
+        payload["metadata"] = metadata
     static_request = {
         "url": url,
-        "settings": settings,
+        "payload": payload,
         "cache_ttl_seconds": cache_policy.ttl_seconds,
     }
     results = _ai_cache.execute_batch(
@@ -599,15 +459,16 @@ def ai(
             protocol=protocol,
             tenant_secret=api_key,
             static_request=static_request,
-            data=_openai.format_input_data(row),
+            data=_openai_responses.format_input_data(row),
         ),
-        compute=lambda row: _openai._chatGPT(
+        compute=lambda row: _openai_responses.call_structured(
             row,
             api_key,
-            settings,
+            payload,
             url,
             timeout,
             retries,
+            list(output.keys()),
         ),
         cacheable=_cacheable_ai_result,
         max_workers=threads,
@@ -623,15 +484,16 @@ def ai(
         ]
 
     if input_was_scalar:
-        if output_generic_key:
+        if output_generic_key and not web_search:
             return results[0].get('output', 'Failed')
         else:
             return results[0]
     else:
-        if output_generic_key:
+        if output_generic_key and not web_search:
             return [x.get('output', 'Failed') for x in results]
         else:
             return results
+
 
 def attributes(
     input: _Union[str, list],

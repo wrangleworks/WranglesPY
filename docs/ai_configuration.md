@@ -71,15 +71,15 @@ automatically discovered inventory of every provider model. A provider entry
 does not implement a new adapter. For example, the reserved Anthropic section
 does not enable Anthropic extraction.
 
-Use `protocol_defaults` for tuning that applies only to a specific protocol:
+Use `protocol_defaults` for tuning that applies only to a specific protocol.
+For example, add this block to the existing `gpt-6-luna` model entry to give
+Responses an output-token limit while retaining its current roles,
+defaults, and supported values:
 
 ```yaml
-gpt-4o-mini:
-  status: active
-  default_for: []
-  protocol_defaults:
-    chat_completions:
-      temperature: 0.2
+protocol_defaults:
+  responses:
+    max_output_tokens: 512
 ```
 
 ## Resolution and overrides
@@ -92,9 +92,8 @@ Endpoint overrides remain available in APIs that already expose them.
 
 Packaged operations default to one additional retry after the first attempt,
 except Gemini URL retrieval, which defaults to no retries. Set `retries: 0`
-to disable retries. Temperature is model-specific: modern OpenAI
-models and Gemini URL retrieval leave it unset, while legacy GPT-4o Chat Completions
-keeps `0.2`. Unset temperature uses the provider's default (`1.0` for Gemini 3).
+to disable retries. Packaged OpenAI text models and Gemini URL retrieval leave
+temperature unset. Unset temperature uses the provider's default (`1.0` for Gemini 3).
 
 For extraction, a saved definition's model retains its existing precedence over
 the caller's `model`. Both tuning and runtime defaults are resolved for that
@@ -166,14 +165,15 @@ saved-model service endpoints own their server-side model selection.
 OpenAI embeddings retain `text-embedding-3-small` and their existing dimensions
 unless explicitly configured otherwise.
 
-OpenAI uses complete request URLs in `endpoints`: `/v1/responses`,
-`/v1/chat/completions`, and `/v1/embeddings` on `api.openai.com`.
+OpenAI uses complete request URLs in `endpoints`: `/v1/responses` for text
+extraction/generation and `/v1/embeddings` for embeddings on `api.openai.com`.
 Provider documentation links are not request endpoints.
 
-The public `openai.chatGPT` wrapper has been removed. Legacy Chat Completions
-remains available through `extract.ai(protocol="chat_completions")`. Extraction
-resolves configuration once per operation and uses a private transport for its
-individual rows.
+`extract.ai` uses the Responses API. Omit `protocol` for the configured default
+or set `protocol="responses"` explicitly. Unsupported protocols and completion
+endpoints are rejected before a provider request. Extraction resolves
+configuration once per operation and uses the Responses transport for its
+individual rows. OpenAI and Jina embeddings retain their dedicated transports.
 
 The packaged OpenAI model reasoning defaults are `none`. Extraction and
 generation inherit those model settings without an operation-level reasoning
