@@ -19,7 +19,6 @@ def coalesce(
     type: object
     catalog_id: "40"
     status: active
-    history: {}
     description: Take the first non-empty value from a series of columns or lists.
     additionalProperties: false
     required:
@@ -117,7 +116,6 @@ def concatenate(
     type: object
     catalog_id: "41"
     status: active
-    history: {}
     description: Concatenate a list of columns or a list within a single column.
     additionalProperties: false
     required:
@@ -162,7 +160,6 @@ def dictionaries(df: _pd.DataFrame, input: list, output: str, skip_empty: bool =
     type: object
     catalog_id: "42"
     status: active
-    history: {}
     description: Take dictionaries in multiple columns and merge them to a single dictionary.
     additionalProperties: false
     required:
@@ -210,7 +207,6 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str, skip_empty: boo
     type: object
     catalog_id: "43"
     status: active
-    history: {}
     description: Create a dictionary from keys and values in paired columns e.g. COLUMN_NAME_1, COLUMN_VALUE_1, COLUMN_NAME_2, COLUMN_VALUE_2 ...
     additionalProperties: false
     required:
@@ -288,7 +284,6 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
     type: object
     catalog_id: "44"
     status: active
-    history: {}
     description: Take lists in multiple columns and merge them to a single list.
     additionalProperties: false
     required:
@@ -342,7 +337,6 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
     type: object
     catalog_id: "45"
     status: active
-    history: {}
     description: Take multiple columns and merge them to a dictionary (aka object) using the column headers as keys.
     additionalProperties: false
     required:
@@ -398,7 +392,6 @@ def to_list(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
     type: object
     catalog_id: "46"
     status: active
-    history: {}
     description: Take multiple columns and merge them to a list.
     additionalProperties: false
     required:

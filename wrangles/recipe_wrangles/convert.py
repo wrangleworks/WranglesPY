@@ -78,7 +78,6 @@ def case(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, l
     type: object
     catalog_id: "5"
     status: active
-    history: {}
     description: Change the case of the input.
     additionalProperties: false
     required:
@@ -188,7 +187,6 @@ def data_type(
     type: object
     catalog_id: "6"
     status: active
-    history: {}
     description: Change the data type of the input.
     additionalProperties: false
     required:
@@ -336,7 +334,6 @@ def fraction_to_decimal(
     type: object
     catalog_id: "7"
     status: active
-    history: {}
     description: Convert fractions to decimals
     additionalProperties: false
     required:
@@ -582,7 +579,6 @@ def parse(
     type: object
     catalog_id: "153"
     status: active
-    history: {}
     description: >-
       Parse JSON, Python, YAML, or human-readable JSON-like structures into
       JSON-compatible Python values. YAML-only numeric forms such as 00123
@@ -721,7 +717,6 @@ def from_json(
     type: object
     catalog_id: "8"
     status: active
-    history: {}
     description: Convert a JSON representation into an object.
     required:
       - input
@@ -790,7 +785,6 @@ def to_json(
     type: object
     catalog_id: "10"
     status: active
-    history: {}
     description: Convert an object to a JSON representation.
     required:
       - input
@@ -881,7 +875,6 @@ def from_yaml(
     type: object
     catalog_id: "9"
     status: active
-    history: {}
     description: Convert a YAML representation into an object
     required:
       - input
@@ -957,7 +950,6 @@ def to_yaml(
     type: object
     catalog_id: "11"
     status: active
-    history: {}
     description: Convert an object to a YAML representation.
     required:
       - input

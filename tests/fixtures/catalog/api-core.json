@@ -10,1224 +10,1071 @@
       "catalog_kind": "wrangle",
       "catalog_key": "ai.answers",
       "wranglesPY_key": "ai.answers",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "150",
       "catalog_kind": "wrangle",
       "catalog_key": "ai.choose",
       "wranglesPY_key": "ai.choose",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "151",
       "catalog_kind": "wrangle",
       "catalog_key": "ai.score",
       "wranglesPY_key": "ai.score",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "152",
       "catalog_kind": "wrangle",
       "catalog_key": "ai.true_false",
       "wranglesPY_key": "ai.true_false",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "153",
       "catalog_kind": "wrangle",
       "catalog_key": "convert.parse",
       "wranglesPY_key": "convert.parse",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "154",
       "catalog_kind": "wrangle",
       "catalog_key": "search.ai_mode",
       "wranglesPY_key": "search.ai_mode",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "69",
       "catalog_kind": "wrangle",
       "catalog_key": "accordion",
       "wranglesPY_key": "accordion",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "70",
       "catalog_kind": "wrangle",
       "catalog_key": "batch",
       "wranglesPY_key": "batch",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "71",
       "catalog_kind": "wrangle",
       "catalog_key": "classify",
       "wranglesPY_key": "classify",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "72",
       "catalog_kind": "wrangle",
       "catalog_key": "clean_whitespaces",
       "wranglesPY_key": "clean_whitespaces",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "1",
       "catalog_kind": "wrangle",
       "catalog_key": "compare.lists",
       "wranglesPY_key": "compare.lists",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "2",
       "catalog_kind": "wrangle",
       "catalog_key": "compare.text",
       "wranglesPY_key": "compare.text",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "3",
       "catalog_kind": "wrangle",
       "catalog_key": "compute.case_when",
       "wranglesPY_key": "compute.case_when",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "4",
       "catalog_kind": "wrangle",
       "catalog_key": "compute.score_search_results",
       "wranglesPY_key": "compute.score_search_results",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "73",
       "catalog_kind": "wrangle",
       "catalog_key": "concurrent",
       "wranglesPY_key": "concurrent",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "103",
       "catalog_kind": "connector",
       "catalog_key": "connector.access",
       "wranglesPY_key": "access",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "104",
       "catalog_kind": "connector",
       "catalog_key": "connector.akeneo",
       "wranglesPY_key": "akeneo",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "105",
       "catalog_kind": "connector",
       "catalog_key": "connector.ckan",
       "wranglesPY_key": "ckan",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "106",
       "catalog_kind": "connector",
       "catalog_key": "connector.ckan.download",
       "wranglesPY_key": "ckan.download",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "107",
       "catalog_kind": "connector",
       "catalog_key": "connector.ckan.upload",
       "wranglesPY_key": "ckan.upload",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "147",
       "catalog_kind": "connector",
       "catalog_key": "connector.concatenate",
       "wranglesPY_key": "concatenate",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "108",
       "catalog_kind": "connector",
       "catalog_key": "connector.concurrent",
       "wranglesPY_key": "concurrent",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "148",
       "catalog_kind": "connector",
       "catalog_key": "connector.dataframe",
       "wranglesPY_key": "dataframe",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "109",
       "catalog_kind": "connector",
       "catalog_key": "connector.duckdb",
       "wranglesPY_key": "duckdb",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "110",
       "catalog_kind": "connector",
       "catalog_key": "connector.excel.columns",
       "wranglesPY_key": "excel.columns",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "111",
       "catalog_kind": "connector",
       "catalog_key": "connector.excel.selected_data",
       "wranglesPY_key": "excel.selected_data",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "112",
       "catalog_kind": "connector",
       "catalog_key": "connector.excel.sheet",
       "wranglesPY_key": "excel.sheet",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "113",
       "catalog_kind": "connector",
       "catalog_key": "connector.file",
       "wranglesPY_key": "file",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "114",
       "catalog_kind": "connector",
       "catalog_key": "connector.grid.selected_data",
       "wranglesPY_key": "grid.selected_data",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "115",
       "catalog_kind": "connector",
       "catalog_key": "connector.http",
       "wranglesPY_key": "http",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "116",
       "catalog_kind": "connector",
       "catalog_key": "connector.input",
       "wranglesPY_key": "input",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "117",
       "catalog_kind": "connector",
       "catalog_key": "connector.jinja",
       "wranglesPY_key": "jinja",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "145",
       "catalog_kind": "connector",
       "catalog_key": "connector.join",
       "wranglesPY_key": "join",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "118",
       "catalog_kind": "connector",
       "catalog_key": "connector.matrix",
       "wranglesPY_key": "matrix",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "119",
       "catalog_kind": "connector",
       "catalog_key": "connector.memory",
       "wranglesPY_key": "memory",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "120",
       "catalog_kind": "connector",
       "catalog_key": "connector.mongodb",
       "wranglesPY_key": "mongodb",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "121",
       "catalog_kind": "connector",
       "catalog_key": "connector.mssql",
       "wranglesPY_key": "mssql",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "122",
       "catalog_kind": "connector",
       "catalog_key": "connector.mysql",
       "wranglesPY_key": "mysql",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "123",
       "catalog_kind": "connector",
       "catalog_key": "connector.notification",
       "wranglesPY_key": "notification",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "124",
       "catalog_kind": "connector",
       "catalog_key": "connector.notification.email",
       "wranglesPY_key": "notification.email",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "125",
       "catalog_kind": "connector",
       "catalog_key": "connector.notification.slack",
       "wranglesPY_key": "notification.slack",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "126",
       "catalog_kind": "connector",
       "catalog_key": "connector.notification.telegram",
       "wranglesPY_key": "notification.telegram",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "127",
       "catalog_kind": "connector",
       "catalog_key": "connector.postgres",
       "wranglesPY_key": "postgres",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "128",
       "catalog_kind": "connector",
       "catalog_key": "connector.pricefx",
       "wranglesPY_key": "pricefx",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "129",
       "catalog_kind": "connector",
       "catalog_key": "connector.recipe",
       "wranglesPY_key": "recipe",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "130",
       "catalog_kind": "connector",
       "catalog_key": "connector.s3",
       "wranglesPY_key": "s3",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "131",
       "catalog_kind": "connector",
       "catalog_key": "connector.s3.download_files",
       "wranglesPY_key": "s3.download_files",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "132",
       "catalog_kind": "connector",
       "catalog_key": "connector.s3.upload_files",
       "wranglesPY_key": "s3.upload_files",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "133",
       "catalog_kind": "connector",
       "catalog_key": "connector.salesforce",
       "wranglesPY_key": "salesforce",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "134",
       "catalog_kind": "connector",
       "catalog_key": "connector.sftp",
       "wranglesPY_key": "sftp",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "135",
       "catalog_kind": "connector",
       "catalog_key": "connector.sftp.download_files",
       "wranglesPY_key": "sftp.download_files",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "136",
       "catalog_kind": "connector",
       "catalog_key": "connector.sftp.upload_files",
       "wranglesPY_key": "sftp.upload_files",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "137",
       "catalog_kind": "connector",
       "catalog_key": "connector.sqlite",
       "wranglesPY_key": "sqlite",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "138",
       "catalog_kind": "connector",
       "catalog_key": "connector.ssh",
       "wranglesPY_key": "ssh",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "139",
       "catalog_kind": "connector",
       "catalog_key": "connector.test",
       "wranglesPY_key": "test",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "140",
       "catalog_kind": "connector",
       "catalog_key": "connector.train.classify",
       "wranglesPY_key": "train.classify",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "141",
       "catalog_kind": "connector",
       "catalog_key": "connector.train.extract",
       "wranglesPY_key": "train.extract",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "142",
       "catalog_kind": "connector",
       "catalog_key": "connector.train.lookup",
       "wranglesPY_key": "train.lookup",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "143",
       "catalog_kind": "connector",
       "catalog_key": "connector.train.meta_data",
       "wranglesPY_key": "train.meta_data",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "144",
       "catalog_kind": "connector",
       "catalog_key": "connector.train.standardize",
       "wranglesPY_key": "train.standardize",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "146",
       "catalog_kind": "connector",
       "catalog_key": "connector.union",
       "wranglesPY_key": "union",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "5",
       "catalog_kind": "wrangle",
       "catalog_key": "convert.case",
       "wranglesPY_key": "convert.case",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "6",
       "catalog_kind": "wrangle",
       "catalog_key": "convert.data_type",
       "wranglesPY_key": "convert.data_type",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "7",
       "catalog_kind": "wrangle",
       "catalog_key": "convert.fraction_to_decimal",
       "wranglesPY_key": "convert.fraction_to_decimal",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "8",
       "catalog_kind": "wrangle",
       "catalog_key": "convert.from_json",
       "wranglesPY_key": "convert.from_json",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "9",
       "catalog_kind": "wrangle",
       "catalog_key": "convert.from_yaml",
       "wranglesPY_key": "convert.from_yaml",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "10",
       "catalog_kind": "wrangle",
       "catalog_key": "convert.to_json",
       "wranglesPY_key": "convert.to_json",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "11",
       "catalog_kind": "wrangle",
       "catalog_key": "convert.to_yaml",
       "wranglesPY_key": "convert.to_yaml",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "74",
       "catalog_kind": "wrangle",
       "catalog_key": "copy",
       "wranglesPY_key": "copy",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "12",
       "catalog_kind": "wrangle",
       "catalog_key": "create.bins",
       "wranglesPY_key": "create.bins",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "13",
       "catalog_kind": "wrangle",
       "catalog_key": "create.column",
       "wranglesPY_key": "create.column",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "14",
       "catalog_kind": "wrangle",
       "catalog_key": "create.embeddings",
       "wranglesPY_key": "create.embeddings",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "15",
       "catalog_kind": "wrangle",
       "catalog_key": "create.guid",
       "wranglesPY_key": "create.guid",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "16",
       "catalog_kind": "wrangle",
       "catalog_key": "create.hash",
       "wranglesPY_key": "create.hash",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "17",
       "catalog_kind": "wrangle",
       "catalog_key": "create.index",
       "wranglesPY_key": "create.index",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "18",
       "catalog_kind": "wrangle",
       "catalog_key": "create.jinja",
       "wranglesPY_key": "create.jinja",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "19",
       "catalog_kind": "wrangle",
       "catalog_key": "create.uuid",
       "wranglesPY_key": "create.uuid",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "75",
       "catalog_kind": "wrangle",
       "catalog_key": "date_calculator",
       "wranglesPY_key": "date_calculator",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "76",
       "catalog_kind": "wrangle",
       "catalog_key": "drop",
       "wranglesPY_key": "drop",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "77",
       "catalog_kind": "wrangle",
       "catalog_key": "explode",
       "wranglesPY_key": "explode",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "20",
       "catalog_kind": "wrangle",
       "catalog_key": "extract.address",
       "wranglesPY_key": "extract.address",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "21",
       "catalog_kind": "wrangle",
       "catalog_key": "extract.ai",
       "wranglesPY_key": "extract.ai",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "22",
       "catalog_kind": "wrangle",
       "catalog_key": "extract.attributes",
       "wranglesPY_key": "extract.attributes",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "23",
       "catalog_kind": "wrangle",
       "catalog_key": "extract.brackets",
       "wranglesPY_key": "extract.brackets",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "24",
       "catalog_kind": "wrangle",
       "catalog_key": "extract.codes",
       "wranglesPY_key": "extract.codes",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "25",
       "catalog_kind": "wrangle",
       "catalog_key": "extract.custom",
       "wranglesPY_key": "extract.custom",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "26",
       "catalog_kind": "wrangle",
       "catalog_key": "extract.date_properties",
       "wranglesPY_key": "extract.date_properties",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "27",
       "catalog_kind": "wrangle",
       "catalog_key": "extract.date_range",
       "wranglesPY_key": "extract.date_range",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "28",
       "catalog_kind": "wrangle",
       "catalog_key": "extract.html",
       "wranglesPY_key": "extract.html",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "29",
       "catalog_kind": "wrangle",
       "catalog_key": "extract.properties",
       "wranglesPY_key": "extract.properties",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "30",
       "catalog_kind": "wrangle",
       "catalog_key": "extract.regex",
       "wranglesPY_key": "extract.regex",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "78",
       "catalog_kind": "wrangle",
       "catalog_key": "filter",
       "wranglesPY_key": "filter",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "31",
       "catalog_kind": "wrangle",
       "catalog_key": "format.dates",
       "wranglesPY_key": "format.dates",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "32",
       "catalog_kind": "wrangle",
       "catalog_key": "format.pad",
       "wranglesPY_key": "format.pad",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "33",
       "catalog_kind": "wrangle",
       "catalog_key": "format.prefix",
       "wranglesPY_key": "format.prefix",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "34",
       "catalog_kind": "wrangle",
       "catalog_key": "format.price_breaks",
       "wranglesPY_key": "format.price_breaks",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "35",
       "catalog_kind": "wrangle",
       "catalog_key": "format.remove_duplicates",
       "wranglesPY_key": "format.remove_duplicates",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "36",
       "catalog_kind": "wrangle",
       "catalog_key": "format.significant_figures",
       "wranglesPY_key": "format.significant_figures",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "37",
       "catalog_kind": "wrangle",
       "catalog_key": "format.suffix",
       "wranglesPY_key": "format.suffix",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "38",
       "catalog_kind": "wrangle",
       "catalog_key": "format.trim",
       "wranglesPY_key": "format.trim",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "39",
       "catalog_kind": "wrangle",
       "catalog_key": "generate.ai",
       "wranglesPY_key": "generate.ai",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "79",
       "catalog_kind": "wrangle",
       "catalog_key": "huggingface",
       "wranglesPY_key": "huggingface",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "80",
       "catalog_kind": "wrangle",
       "catalog_key": "log",
       "wranglesPY_key": "log",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "81",
       "catalog_kind": "wrangle",
       "catalog_key": "lookup",
       "wranglesPY_key": "lookup",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "101",
       "catalog_kind": "wrangle",
       "catalog_key": "lookup.key",
       "wranglesPY_key": "lookup",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "102",
       "catalog_kind": "wrangle",
       "catalog_key": "lookup.semantic",
       "wranglesPY_key": "lookup",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "99",
       "catalog_kind": "wrangle",
       "catalog_key": "map",
       "wranglesPY_key": "map",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "82",
       "catalog_kind": "wrangle",
       "catalog_key": "math",
       "wranglesPY_key": "math",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "83",
       "catalog_kind": "wrangle",
       "catalog_key": "maths",
       "wranglesPY_key": "maths",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "84",
       "catalog_kind": "wrangle",
       "catalog_key": "matrix",
       "wranglesPY_key": "matrix",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "40",
       "catalog_kind": "wrangle",
       "catalog_key": "merge.coalesce",
       "wranglesPY_key": "merge.coalesce",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "41",
       "catalog_kind": "wrangle",
       "catalog_key": "merge.concatenate",
       "wranglesPY_key": "merge.concatenate",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "42",
       "catalog_kind": "wrangle",
       "catalog_key": "merge.dictionaries",
       "wranglesPY_key": "merge.dictionaries",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "43",
       "catalog_kind": "wrangle",
       "catalog_key": "merge.key_value_pairs",
       "wranglesPY_key": "merge.key_value_pairs",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "44",
       "catalog_kind": "wrangle",
       "catalog_key": "merge.lists",
       "wranglesPY_key": "merge.lists",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "45",
       "catalog_kind": "wrangle",
       "catalog_key": "merge.to_dict",
       "wranglesPY_key": "merge.to_dict",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "46",
       "catalog_kind": "wrangle",
       "catalog_key": "merge.to_list",
       "wranglesPY_key": "merge.to_list",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "85",
       "catalog_kind": "wrangle",
       "catalog_key": "python",
       "wranglesPY_key": "python",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "86",
       "catalog_kind": "wrangle",
       "catalog_key": "recipe",
       "wranglesPY_key": "recipe",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "87",
       "catalog_kind": "wrangle",
       "catalog_key": "reindex",
       "wranglesPY_key": "reindex",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "88",
       "catalog_kind": "wrangle",
       "catalog_key": "remove_words",
       "wranglesPY_key": "remove_words",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "89",
       "catalog_kind": "wrangle",
       "catalog_key": "rename",
       "wranglesPY_key": "rename",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "90",
       "catalog_kind": "wrangle",
       "catalog_key": "replace",
       "wranglesPY_key": "replace",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "91",
       "catalog_kind": "wrangle",
       "catalog_key": "round",
       "wranglesPY_key": "round",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "47",
       "catalog_kind": "wrangle",
       "catalog_key": "search.find_links",
       "wranglesPY_key": "search.find_links",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "48",
       "catalog_kind": "wrangle",
       "catalog_key": "search.retrieve_link_content",
       "wranglesPY_key": "search.retrieve_link_content",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "49",
       "catalog_kind": "wrangle",
       "catalog_key": "select.columns",
       "wranglesPY_key": "select.columns",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "50",
       "catalog_kind": "wrangle",
       "catalog_key": "select.dictionary_element",
       "wranglesPY_key": "select.dictionary_element",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "51",
       "catalog_kind": "wrangle",
       "catalog_key": "select.element",
       "wranglesPY_key": "select.element",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "52",
       "catalog_kind": "wrangle",
       "catalog_key": "select.group_by",
       "wranglesPY_key": "select.group_by",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "53",
       "catalog_kind": "wrangle",
       "catalog_key": "select.head",
       "wranglesPY_key": "select.head",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "54",
       "catalog_kind": "wrangle",
       "catalog_key": "select.highest_confidence",
       "wranglesPY_key": "select.highest_confidence",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "55",
       "catalog_kind": "wrangle",
       "catalog_key": "select.left",
       "wranglesPY_key": "select.left",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "56",
       "catalog_kind": "wrangle",
       "catalog_key": "select.length",
       "wranglesPY_key": "select.length",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "57",
       "catalog_kind": "wrangle",
       "catalog_key": "select.list_element",
       "wranglesPY_key": "select.list_element",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "58",
       "catalog_kind": "wrangle",
       "catalog_key": "select.right",
       "wranglesPY_key": "select.right",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "59",
       "catalog_kind": "wrangle",
       "catalog_key": "select.sample",
       "wranglesPY_key": "select.sample",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "60",
       "catalog_kind": "wrangle",
       "catalog_key": "select.substring",
       "wranglesPY_key": "select.substring",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "61",
       "catalog_kind": "wrangle",
       "catalog_key": "select.tail",
       "wranglesPY_key": "select.tail",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "62",
       "catalog_kind": "wrangle",
       "catalog_key": "select.threshold",
       "wranglesPY_key": "select.threshold",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "92",
       "catalog_kind": "wrangle",
       "catalog_key": "similarity",
       "wranglesPY_key": "similarity",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "93",
       "catalog_kind": "wrangle",
       "catalog_key": "sort",
       "wranglesPY_key": "sort",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "63",
       "catalog_kind": "wrangle",
       "catalog_key": "split.dictionary",
       "wranglesPY_key": "split.dictionary",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "64",
       "catalog_kind": "wrangle",
       "catalog_key": "split.list",
       "wranglesPY_key": "split.list",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "65",
       "catalog_kind": "wrangle",
       "catalog_key": "split.text",
       "wranglesPY_key": "split.text",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "66",
       "catalog_kind": "wrangle",
       "catalog_key": "split.tokenize",
       "wranglesPY_key": "split.tokenize",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "94",
       "catalog_kind": "wrangle",
       "catalog_key": "sql",
       "wranglesPY_key": "sql",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "95",
       "catalog_kind": "wrangle",
       "catalog_key": "standardize",
       "wranglesPY_key": "standardize",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "67",
       "catalog_kind": "wrangle",
       "catalog_key": "standardize.clean",
       "wranglesPY_key": "standardize.clean",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "68",
       "catalog_kind": "wrangle",
       "catalog_key": "standardize.custom",
       "wranglesPY_key": "standardize.custom",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "96",
       "catalog_kind": "wrangle",
       "catalog_key": "translate",
       "wranglesPY_key": "translate",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "97",
       "catalog_kind": "wrangle",
       "catalog_key": "transpose",
       "wranglesPY_key": "transpose",
-      "status": "active",
-      "history": {}
+      "status": "active"
     },
     {
       "catalog_id": "98",
       "catalog_kind": "wrangle",
       "catalog_key": "try",
       "wranglesPY_key": "try",
-      "status": "active",
-      "history": {}
+      "status": "active"
     }
   ]
 }

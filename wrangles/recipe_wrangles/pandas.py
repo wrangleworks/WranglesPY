@@ -64,7 +64,6 @@ def copy(
     type: object
     catalog_id: "74"
     status: active
-    history: {}
     description: Make a copy of a column or a list of columns
     additionalProperties: false
     required:
@@ -121,7 +120,6 @@ def drop(df: _pd.DataFrame, columns: _Union[str, list]) -> _pd.DataFrame:
     type: object
     catalog_id: "76"
     status: active
-    history: {}
     description: Drop (Delete) selected column(s)
     additionalProperties: true
     required:
@@ -142,7 +140,6 @@ def transpose(df: _pd.DataFrame, header_column = 0) -> _pd.DataFrame:
     type: object
     catalog_id: "97"
     status: active
-    history: {}
     description: Transpose the DataFrame (swap columns to rows)
     additionalProperties: false
     properties:
@@ -180,7 +177,6 @@ def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
     type: object
     catalog_id: "93"
     status: active
-    history: {}
     description: Sort the data
     additionalProperties: true
     required:
@@ -241,7 +237,6 @@ def round(df: _pd.DataFrame, input: _Union[str, int, list], decimals: int = 0, o
     type: object
     catalog_id: "91"
     status: active
-    history: {}
     description: Round column(s) to the specified decimals
     additionalProperties: false
     required:
@@ -289,7 +284,6 @@ def reindex(
     type: object
     catalog_id: "87"
     status: active
-    history: {}
     description: Changes the row labels and column labels of a DataFrame.
     additionalProperties: false
     properties:
@@ -333,7 +327,6 @@ def explode(
     type: object
     catalog_id: "77"
     status: active
-    history: {}
     description: Explode a column of lists into rows
     additionalProperties: false
     required:

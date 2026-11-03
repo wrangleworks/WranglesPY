@@ -19,7 +19,6 @@ def key(
     type: object
     catalog_id: "101"
     status: active
-    history: {}
     description: >-
       Look up values using a saved key lookup model. Requires a WrangleWorks
       account and a model with purpose lookup and stored variant key.
@@ -101,7 +100,6 @@ def semantic(
     type: object
     catalog_id: "102"
     status: active
-    history: {}
     description: >-
       Look up values using a saved semantic lookup model. Requires a WrangleWorks
       account and a model with purpose lookup and stored variant embedding.

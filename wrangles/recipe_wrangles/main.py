@@ -31,13 +31,46 @@ from ..lookup import _validate_lookup_variant
 from .. import extract as _extract
 from .. import recipe as _recipe
 from .. import ai_config as _ai_config
-from .standardize import replace
+from .standardize import replace as _standardize_replace_recipe
 from .convert import to_json as _to_json
 from .convert import from_json as _from_json
 from ..connectors.matrix import _define_permutations
 from ..utils import statement_modifier as _statement_modifier
 from ..utils import delayed_variable_interpretation as _delayed_variable_interpretation
 from ..utils import replace_templated_values as _replace_templated_values
+
+
+def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
+    """
+    type: object
+    catalog_id: "90"
+    status: legacy
+    description: Quick find and replace for simple values. Can use regex if 'input' in params and isinstance(params['input'], list):in the find field.
+    additionalProperties: false
+    required:
+      - input
+      - find
+      - replace
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name or list of input column
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output column
+      find:
+        type: string
+        description: Pattern to find using regex
+      replace:
+        type: string
+        description: Value to replace the pattern found
+    """
+    return _standardize_replace_recipe(df=df, input=input, find=find, replace=replace, output=output)
 
 
 def accordion(
@@ -53,7 +86,6 @@ def accordion(
     type: object
     catalog_id: "69"
     status: active
-    history: {}
     description: >-
       Apply a series of wrangles to column(s) containing lists.
       The wrangles will be applied to each element in the list
@@ -234,7 +266,6 @@ def batch(
     type: object
     catalog_id: "70"
     status: active
-    history: {}
     description: >-
       Split the data into batches for executing a list of wrangles.
       Use this in situations such as where the intermediate data
@@ -347,7 +378,6 @@ def classify(
     type: object
     catalog_id: "71"
     status: active
-    history: {}
     description: |
       Run classify wrangles on the specified columns.
       Requires WrangleWorks Account and Subscription.
@@ -407,7 +437,6 @@ def clean_whitespaces(
     type: object
     catalog_id: "72"
     status: active
-    history: {}
     description: Condense multiple spaces to a single space and convert special space characters to a standard space.
     additionalProperties: false
     required:
@@ -470,7 +499,6 @@ def concurrent(
     type: object
     catalog_id: "73"
     status: active
-    history: {}
     description: >-
       Run multiple wrangles concurrently rather than sequentially.
       Wrangles must specify output columns to be used concurrently.
@@ -548,7 +576,6 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
     type: object
     catalog_id: "75"
     status: active
-    history: {}
     description: Add or Subtract time from a date
     additionalProperties: false
     required:
@@ -643,7 +670,6 @@ def filter(
     type: object
     catalog_id: "78"
     status: active
-    history: {}
     description: |-
       Filter the dataframe based on the contents.
       If multiple filters are specified, all must be correct.
@@ -815,7 +841,6 @@ def huggingface(
     type: object
     catalog_id: "79"
     status: active
-    history: {}
     description: Use a model from huggingface
     required:
       - input
@@ -922,7 +947,6 @@ def log(
     type: object
     catalog_id: "80"
     status: active
-    history: {}
     description: Log the current status of the dataframe.
     additionalProperties: false
     properties:
@@ -1023,7 +1047,6 @@ def lookup(
     type: object
     catalog_id: "81"
     status: active
-    history: {}
     description: >-
       Deprecated: Use lookup.key for key lookup models or lookup.semantic
       for semantic lookup models instead. Lookup values from a saved lookup wrangle.
@@ -1317,7 +1340,6 @@ def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     type: object
     catalog_id: "82"
     status: active
-    history: {}
     description: Apply a mathematical calculation.
     additionalProperties: false
     required:
@@ -1360,7 +1382,6 @@ def matrix(
     type: object
     catalog_id: "84"
     status: active
-    history: {}
     description: |-
       Apply a matrix of wrangles to the dataframe.
       This will run the wrangles for each combination of the variables.
@@ -1419,7 +1440,6 @@ def python(
     type: object
     catalog_id: "85"
     status: active
-    history: {}
     description: |-
       Apply a simple single-line python command. For more complex python use a custom function.
       Note, this evaluates the python command - be especially cautious including
@@ -1571,7 +1591,6 @@ def recipe(
     """
     catalog_id: "86"
     status: active
-    history: {}
     anyOf:
       - "$ref": "#"
       - type: object
@@ -1656,7 +1675,6 @@ def remove_words(
     type: object
     catalog_id: "88"
     status: active
-    history: {}
     description: Remove all the elements that occur in one list from another.
     additionalProperties: false
     required:
@@ -1719,7 +1737,6 @@ def rename(
     type: object
     catalog_id: "89"
     status: active
-    history: {}
     description: Rename a column or list of columns.
     properties:
       input:
@@ -1965,7 +1982,6 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
     type: object
     catalog_id: "92"
     status: active
-    history: {}
     description: Calculate the cosine similarity of two vectors
     additionalProperties: false
     required:
@@ -2052,7 +2068,6 @@ def sql(
     type: object
     catalog_id: "94"
     status: active
-    history: {}
     description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output.
     additionalProperties: false
     required:
@@ -2174,7 +2189,6 @@ def standardize(
     type: object
     catalog_id: "95"
     status: active
-    history: {}
     description: Standardize data using a DIY or bespoke standardization wrangle. Requires WrangleWorks Account and Subscription.
     required:
       - input
@@ -2253,7 +2267,6 @@ def translate(
     type: object
     catalog_id: "96"
     status: active
-    history: {}
     description: Translate the input to a different language. Requires WrangleWorks Account and DeepL API Key (A free account for up to 500,000 characters per month is available).
     additionalProperties: false
     required:
@@ -2368,7 +2381,6 @@ def Try(
     type: object
     catalog_id: "98"
     status: active
-    history: {}
     description: Try a list of wrangles and catch any errors that occur
     required:
       - wrangles

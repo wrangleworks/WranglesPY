@@ -20,7 +20,6 @@ def lists(
     type: object
     catalog_id: "1"
     status: active
-    history: {}
     description: Compare multiple lists and return the intersection, difference, or union
     required:
       - input
@@ -132,7 +131,6 @@ def text(
     type: object
     catalog_id: "2"
     status: active
-    history: {}
     description: Compare two strings and return the intersection or difference, use overlap to find the matching characters between the two strings, or use similarity to get a numeric similarity score.
     required:
       - input

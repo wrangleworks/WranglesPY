@@ -214,7 +214,6 @@ def address(
     type: object
     catalog_id: "20"
     status: active
-    history: {}
     description: Extract parts of addresses. Requires WrangleWorks Account.
     required:
       - input
@@ -308,7 +307,6 @@ def ai(
     type: object
     catalog_id: "21"
     status: active
-    history: {}
     description: >-
       Extract structured data from each input row using an AI model. Define
       the desired fields with output, or reuse a saved definition with model_id.
@@ -836,7 +834,6 @@ def attributes(
     type: object
     catalog_id: "22"
     status: active
-    history: {}
     description: Extract numeric attributes from the input such as weights or lengths. Requires WrangleWorks Account.
     required:
       - input
@@ -1004,7 +1001,6 @@ def brackets(
     type: object
     catalog_id: "23"
     status: active
-    history: {}
     description: Extract text properties in brackets from the input
     additionalProperties: false
     required:
@@ -1128,7 +1124,6 @@ def codes(
     type: object
     catalog_id: "24"
     status: active
-    history: {}
     description: Extract alphanumeric codes from the input. Requires WrangleWorks Account.
     required:
       - input
@@ -1253,7 +1248,6 @@ def custom(
     type: object
     catalog_id: "25"
     status: active
-    history: {}
     description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
     required:
       - input
@@ -1415,7 +1409,6 @@ def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, outp
     type: object
     catalog_id: "26"
     status: active
-    history: {}
     description: Extract date properties from a date (day, month, year, etc...)
     additionalProperties: false
     required:
@@ -1518,7 +1511,6 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
     type: object
     catalog_id: "27"
     status: active
-    history: {}
     description: Extract date range frequency from two dates
     additionalProperties: false
     required:
@@ -1613,7 +1605,6 @@ def html(
     type: object
     catalog_id: "28"
     status: active
-    history: {}
     description: Extract elements from strings containing html. Requires WrangleWorks Account.
     required:
       - input
@@ -1699,7 +1690,6 @@ def properties(
     type: object
     catalog_id: "29"
     status: active
-    history: {}
     description: Extract text properties from the input. Requires WrangleWorks Account.
     required:
       - input
@@ -1831,7 +1821,6 @@ def regex(
     type: object
     catalog_id: "30"
     status: active
-    history: {}
     description: Extract matches or specific capture groups using regex
     additionalProperties: false
     required:

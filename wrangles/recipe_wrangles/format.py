@@ -13,7 +13,6 @@ def dates(df: _pd.DataFrame, input: _Union[str, int, list], format: str, output:
     type: object
     catalog_id: "31"
     status: active
-    history: {}
     description: Format a date
     additionalProperties: false
     required:
@@ -69,7 +68,6 @@ def pad(
     type: object
     catalog_id: "32"
     status: active
-    history: {}
     description: Pad a string to a fixed length
     additionalProperties: false
     required:
@@ -145,7 +143,6 @@ def prefix(
     type: object
     catalog_id: "33"
     status: active
-    history: {}
     description: Add a prefix to a column
     additionalProperties: false
     required:
@@ -200,7 +197,6 @@ def remove_duplicates(df: _pd.DataFrame, input: _Union[str, int, list], output: 
     type: object
     catalog_id: "35"
     status: active
-    history: {}
     description: Remove duplicates from a list. Preserves input order.
     additionalProperties: false
     required:
@@ -245,7 +241,6 @@ def significant_figures(df: _pd.DataFrame, input: _Union[str, int, list], signif
     type: object
     catalog_id: "36"
     status: active
-    history: {}
     description: Format a value to a specific number of significant figures
     additionalProperties: false
     required:
@@ -296,7 +291,6 @@ def suffix(
     type: object
     catalog_id: "37"
     status: active
-    history: {}
     description: Add a suffix to a column
     additionalProperties: false
     required:
@@ -351,7 +345,6 @@ def trim(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, l
     type: object
     catalog_id: "38"
     status: active
-    history: {}
     description: Remove excess whitespace at the start and end of text.
     additionalProperties: false
     required:

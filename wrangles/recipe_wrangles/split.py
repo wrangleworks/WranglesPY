@@ -24,9 +24,7 @@ def dictionary(
     """
     type: object
     catalog_id: "63"
-    status: active
-    history:
-      split.dictionary: legacy
+    status: legacy
     description: |-
       Split one or more dictionaries into columns.
       The dictionary keys will be returned as the new column headers.
@@ -173,9 +171,7 @@ def list(df: _pd.DataFrame, input: _Union[str, int], output: _Union[str, _list])
     """
     type: object
     catalog_id: "64"
-    status: active
-    history:
-      split.list: legacy
+    status: legacy
     description: Split a list in a single column to multiple columns.
     additionalProperties: false
     required:
@@ -239,9 +235,7 @@ def text(
     """
     type: object
     catalog_id: "65"
-    status: active
-    history:
-      split.text: legacy
+    status: legacy
     description: Split a string to multiple columns or a list.
     additionalProperties: false
     required:
@@ -349,9 +343,7 @@ def tokenize(
     """
     type: object
     catalog_id: "66"
-    status: active
-    history:
-      split.tokenize: legacy
+    status: legacy
     description: >-
       Split text into tokens. A variety of methods are available.
       The default method is to split on spaces.

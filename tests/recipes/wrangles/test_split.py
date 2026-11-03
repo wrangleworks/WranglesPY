@@ -1991,7 +1991,11 @@ class TestStructureSplitAliases:
             ("split.text", "structure.split_text", {"char": "|"}),
             ("split.tokenize", "structure.tokenize", {"method": "regex:[,;]"}),
         ]:
-            assert operations[alias] == operations[legacy]
+            assert operations[alias]['status'] == 'active'
+            assert operations[legacy]['status'] == 'legacy'
+            assert {k: v for k, v in operations[alias].items() if k != 'status'} == {
+                k: v for k, v in operations[legacy].items() if k != 'status'
+            }
             for operation in (legacy, alias):
                 jsonschema.validate({"wrangles": [{operation: {
                     "input": "source", "where": "row_id = 1", "if": "row_count > 0", **options,

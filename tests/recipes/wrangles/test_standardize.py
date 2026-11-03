@@ -155,9 +155,12 @@ class TestStandardizeReplace:
         main = importlib.import_module('wrangles.recipe_wrangles.main')
         module = importlib.import_module('wrangles.recipe_wrangles.standardize')
 
-        assert namespace.replace is namespace.standardize.replace
-        assert main.replace is module.replace
+        assert namespace.replace is not namespace.standardize.replace
+        assert main.replace is namespace.replace
+        assert namespace.standardize.replace is module.replace
+        assert yaml.safe_load(namespace.replace.__doc__)['status'] == 'legacy'
         schema = yaml.safe_load(namespace.standardize.replace.__doc__)
+        assert schema['status'] == 'active'
         assert schema['required'] == ['input', 'find', 'replace']
         assert set(schema['properties']) == {'input', 'output', 'find', 'replace'}
 
@@ -175,7 +178,11 @@ class TestStandardizeReplace:
         runpy.run_path(str(root / 'schema/generate_recipe_schema.py'))
         generated = json.loads((tmp_path / 'schema.json').read_text())
         contracts = generated['$defs']['wrangles']['items']['properties']
-        assert contracts['replace'] == contracts['standardize.replace']
+        assert contracts['replace']['status'] == 'legacy'
+        assert contracts['standardize.replace']['status'] == 'active'
+        assert {k: v for k, v in contracts['replace'].items() if k != 'status'} == {
+            k: v for k, v in contracts['standardize.replace'].items() if k != 'status'
+        }
         assert contracts['standardize.replace']['required'] == ['input', 'find', 'replace']
         assert {'standardize', 'standardize.clean', 'standardize.custom'} <= contracts.keys()
 

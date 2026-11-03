@@ -29,7 +29,6 @@ def ai(
     type: object
     catalog_id: "39"
     status: active
-    history: {}
     description: Generate structured AI output for each recipe row.
     additionalProperties: false
     required:
@@ -142,7 +141,7 @@ def ai(
         previous_response=previous_response,
         examples=recipe_examples,
         summary=summary,
-        
+
         **kwargs
     )
 

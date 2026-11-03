@@ -57,7 +57,6 @@ def clean(
     type: object
     catalog_id: "67"
     status: active
-    history: {}
     description: Repair common encoding, Unicode, HTML character reference, control character, and whitespace problems locally.
     required:
       - input
@@ -204,7 +203,6 @@ def custom(
     type: object
     catalog_id: "68"
     status: active
-    history: {}
     description: Standardize data using a DIY or bespoke standardization wrangle. Requires WrangleWorks Account and Subscription.
     required:
       - input
@@ -248,8 +246,6 @@ def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace
     type: object
     catalog_id: "90"
     status: active
-    history:
-      replace: legacy
     description: Quick find and replace for simple values. Can use regex if 'input' in params and isinstance(params['input'], list):in the find field.
     additionalProperties: false
     required:
