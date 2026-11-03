@@ -5,6 +5,65 @@ import json as _json
 import numpy as _np
 
 
+class TestSharedSerializationHelpers:
+    @pytest.fixture(autouse=True)
+    def block_http(self, monkeypatch):
+        def unexpected(*args, **kwargs):
+            pytest.fail('Serialization helpers must not call HTTP')
+        monkeypatch.setattr('requests.sessions.Session.request', unexpected)
+
+    @pytest.mark.parametrize('default,expected', [
+        (None, [None, None]), ([], [[], []]), ([0], [0, 0]),
+        ([1, 2], [1, 2]), ({'a': 1}, [{'a': 1}, {'a': 1}]),
+    ])
+    def test_default_normalizer_has_one_owner_and_keeps_broadcast_rules(self, default, expected):
+        import importlib
+
+        shared = importlib.import_module('wrangles.recipe_wrangles._serialization')
+        canonical = importlib.import_module('wrangles.recipe_wrangles.standardize')
+        convert = wrangles.recipe._recipe_wrangles.convert
+        assert shared._normalize_default_list.__module__ == shared.__name__
+        assert canonical._normalize_default_list is convert._normalize_default_list is shared._normalize_default_list
+        assert shared._normalize_default_list(default, ['a', 'b'], 'convert.parse') == expected
+        with pytest.raises(ValueError, match='same length as input/output for convert.parse'):
+            shared._normalize_default_list([1, 2, 3], ['a', 'b'], 'convert.parse')
+
+    def test_safe_loaders_are_shared_without_changing_parse_resolution(self):
+        from datetime import date
+        import importlib
+        import yaml
+
+        shared = importlib.import_module('wrangles.recipe_wrangles._serialization')
+        canonical = importlib.import_module('wrangles.recipe_wrangles.standardize')
+        convert = wrangles.recipe._recipe_wrangles.convert
+        assert canonical._YAMLLoader is convert._YAMLLoader is shared._YAMLLoader
+        assert canonical._YAMLDumper is convert._YAMLDumper is shared._YAMLDumper
+        assert shared._YAMLLoader is getattr(yaml, 'CSafeLoader', yaml.SafeLoader)
+        frame = pd.DataFrame({'raw': ['yes', '00123', '2024-01-02']})
+        decoded = wrangles.recipe.run({'wrangles': [{'standardize.from_yaml': {'input': 'raw', 'output': 'out'}}]}, dataframe=frame.copy())
+        pd.testing.assert_frame_equal(decoded, frame.assign(out=[True, 83, date(2024, 1, 2)]))
+        parsed = wrangles.recipe.run({'wrangles': [{'convert.parse': {'input': 'raw', 'output': 'out'}}]}, dataframe=frame.copy())
+        pd.testing.assert_frame_equal(parsed, frame.assign(out=frame['raw']))
+
+    def test_pure_python_safe_loader_fallback(self, monkeypatch):
+        import importlib
+        from pathlib import Path
+        import runpy
+        import yaml
+
+        shared = importlib.import_module('wrangles.recipe_wrangles._serialization')
+        monkeypatch.delattr(yaml, 'CSafeLoader', raising=False)
+        monkeypatch.delattr(yaml, 'CSafeDumper', raising=False)
+        fallback = runpy.run_path(str(Path(shared.__file__)))
+        assert fallback['_YAMLLoader'] is yaml.SafeLoader
+        assert fallback['_YAMLDumper'] is yaml.SafeDumper
+        assert yaml.load('yes', Loader=fallback['_YAMLLoader']) is True
+        with pytest.raises(yaml.constructor.ConstructorError):
+            yaml.load('!!python/tuple [1, 2]', Loader=fallback['_YAMLLoader'])
+        text = yaml.dump({'word': 'café'}, Dumper=fallback['_YAMLDumper'], allow_unicode=True)
+        assert text == 'word: café\n'
+
+
 class TestConvertCase:
     """
     Test convert.case wrangles

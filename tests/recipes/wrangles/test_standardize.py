@@ -1,4 +1,5 @@
 import importlib
+from copy import deepcopy
 import logging
 import json
 from pathlib import Path
@@ -14,6 +15,267 @@ import pytest
 import yaml
 
 import wrangles
+
+
+class TestStandardizeSerializationAliases:
+    """Issue #1256: existing serialization behavior through both namespaces."""
+
+    CASES = {
+        'to_json': {
+            'raw': [{'word': 'café'}, [1, 2], 'plain'],
+            'values': ['{"word": "café"}', '[1, 2]', '["plain"]'],
+            'other': [{'number': 2}, ['x'], False],
+            'other_values': ['{"number": 2}', '["x"]', '[false]'],
+        },
+        'from_json': {
+            'raw': ['{"word":"café"}', '[1,2]', '"plain"'],
+            'values': [{'word': 'café'}, [1, 2], 'plain'],
+            'other': ['{"number":2}', '["x"]', 'false'],
+            'other_values': [{'number': 2}, ['x'], False],
+        },
+        'to_yaml': {
+            'raw': [{'word': 'café'}, [1, 2], {'keep': True}],
+            'values': ['word: café\n', '- 1\n- 2\n', 'keep: true\n'],
+            'other': [{'number': 2}, ['x'], {'flag': False}],
+            'other_values': ['number: 2\n', '- x\n', 'flag: false\n'],
+        },
+        'from_yaml': {
+            'raw': ['word: café', '- 1\n- 2', 'plain'],
+            'values': [{'word': 'café'}, [1, 2], 'plain'],
+            'other': ['number: 2', '- x', 'false'],
+            'other_values': [{'number': 2}, ['x'], False],
+        },
+    }
+
+    @pytest.fixture(autouse=True)
+    def block_http(self, monkeypatch):
+        def unexpected(*args, **kwargs):
+            pytest.fail('Serialization recipes must not call HTTP services')
+        monkeypatch.setattr(requests.sessions.Session, 'request', unexpected)
+
+    @pytest.fixture(params=['standardize', 'convert'])
+    def namespace(self, request):
+        return request.param
+
+    @pytest.fixture(params=list(CASES))
+    def serialization_case(self, request):
+        name = request.param
+        spec = deepcopy(self.CASES[name])
+        frame = pd.DataFrame({'raw': spec['raw'], 'Keep': [3, 1, 2]}, index=pd.Index([7, 2, 9], name='row'))
+        return name, spec, frame
+
+    @staticmethod
+    def run_alias(namespace, name, frame, **params):
+        return wrangles.recipe.run({'wrangles': [{f'{namespace}.{name}': params}]}, dataframe=frame.copy(deep=True))
+
+    @pytest.mark.parametrize('mode', ['scalar', 'overwrite', 'list', 'wildcard', 'list_overwrite'])
+    def test_columns_outputs_and_complete_frame(self, namespace, serialization_case, mode):
+        name, spec, frame = serialization_case
+        frame['raw2'] = spec['other']
+        expected = frame.copy(deep=True)
+        if mode == 'scalar':
+            params = {'input': 'raw', 'output': 'out'}
+            expected['out'] = spec['values']
+        elif mode == 'overwrite':
+            params = {'input': 'raw'}
+            expected['raw'] = spec['values']
+        elif mode == 'list_overwrite':
+            params = {'input': ['raw', 'raw2']}
+            expected['raw'] = spec['values']
+            expected['raw2'] = spec['other_values']
+        else:
+            params = {'input': 'raw*' if mode == 'wildcard' else ['raw', 'raw2'], 'output': ['first', 'second']}
+            expected['first'] = spec['values']
+            expected['second'] = spec['other_values']
+        pd.testing.assert_frame_equal(self.run_alias(namespace, name, frame, **params), expected)
+
+    @pytest.mark.parametrize('condition', ['plain', 'list_params', 'dict_params', 'no_rows'])
+    @pytest.mark.parametrize('overwrite', [False, True])
+    def test_where_and_bound_parameters_preserve_other_rows(self, namespace, serialization_case, condition, overwrite):
+        name, spec, frame = serialization_case
+        controls = {
+            'plain': {'where': 'Keep = 3'},
+            'list_params': {'where': 'Keep = ?', 'where_params': [3]},
+            'dict_params': {'where': 'Keep = :value', 'where_params': {'value': 3}},
+            'no_rows': {'where': 'Keep > 100'},
+        }[condition]
+        expected = frame.copy(deep=True)
+        output = 'raw' if overwrite else 'out'
+        if not overwrite:
+            expected[output] = ''
+        if condition != 'no_rows':
+            expected.at[7, output] = spec['values'][0]
+        pd.testing.assert_frame_equal(self.run_alias(namespace, name, frame, input='raw', output=output, **controls), expected)
+
+    @pytest.mark.parametrize('enabled', [True, False])
+    def test_if_true_and_false(self, namespace, serialization_case, enabled):
+        name, spec, frame = serialization_case
+        expected = frame.assign(out=spec['values']) if enabled else frame
+        pd.testing.assert_frame_equal(
+            self.run_alias(namespace, name, frame, input='raw', output='out', **{'if': enabled}), expected,
+        )
+
+    @pytest.mark.parametrize('overwrite', [False, True])
+    def test_empty_frame_preserves_shape_and_dtype(self, namespace, serialization_case, overwrite):
+        name, _, frame = serialization_case
+        frame = frame.head(0)
+        output = 'raw' if overwrite else 'out'
+        expected = frame.copy()
+        expected[output] = pd.Series(index=frame.index, dtype='float64')
+        pd.testing.assert_frame_equal(self.run_alias(namespace, name, frame, input='raw', output=output), expected)
+
+    def test_mismatched_output_lists_keep_existing_error(self, namespace, serialization_case):
+        name, spec, frame = serialization_case
+        with pytest.raises(ValueError, match='The lists for input and output must be the same length'):
+            self.run_alias(namespace, name, frame, input='raw', output=['one', 'two'])
+
+    @pytest.mark.parametrize('name', ['to_json', 'to_yaml'])
+    @pytest.mark.parametrize('rows', [0, 1, 2])
+    def test_many_to_one_retains_current_assignment_behavior(self, namespace, name, rows):
+        frame = pd.DataFrame({'first': ['A'] * rows, 'second': [2] * rows})
+        if rows != 1:
+            with pytest.raises(ValueError, match='Columns must be same length as key'):
+                self.run_alias(namespace, name, frame, input=['first', 'second'], output='out')
+        else:
+            text = '{"first": "A", "second": 2}' if name == 'to_json' else 'first: A\nsecond: 2\n'
+            pd.testing.assert_frame_equal(
+                self.run_alias(namespace, name, frame, input=['first', 'second'], output='out'), frame.assign(out=[text]),
+            )
+
+    @pytest.mark.parametrize('name', ['from_json', 'from_yaml'])
+    def test_decoding_falsy_null_malformed_and_empty_values(self, namespace, name):
+        fallback = {'fallback': True}
+        values = ['', None, '[', 'null', '0', 'false', '[]', '{}', '""']
+        frame = pd.DataFrame({'raw': values})
+        decoded = [fallback, fallback, fallback, '' if name == 'from_json' else fallback, 0, False, [], {}, '']
+        expected = pd.DataFrame({'raw': ['' if value is None else value for value in values], 'out': decoded})
+        result = self.run_alias(namespace, name, frame, input='raw', output='out', default=fallback)
+        pd.testing.assert_frame_equal(result, expected)
+        assert type(result.at[4, 'out']) is int
+        assert type(result.at[5, 'out']) is bool
+
+    @pytest.mark.parametrize('name', ['from_json', 'from_yaml'])
+    @pytest.mark.parametrize('value', ['[', None])
+    def test_invalid_text_without_default_raises(self, namespace, name, value):
+        with pytest.raises(ValueError, match=f'Unable to load all rows as {name[5:].upper()}'):
+            self.run_alias(namespace, name, pd.DataFrame({'raw': [value]}), input='raw', output='out')
+
+    @pytest.mark.parametrize('name', ['from_json', 'from_yaml'])
+    @pytest.mark.parametrize('default,first,second', [
+        ([], [], []), ([0], 0, 0), ([{'a': 1}, ['b']], {'a': 1}, ['b']),
+    ])
+    def test_per_column_and_broadcast_defaults(self, namespace, name, default, first, second):
+        frame = pd.DataFrame({'raw': ['['], 'raw2': ['[']}, index=[7])
+        pd.testing.assert_frame_equal(
+            self.run_alias(namespace, name, frame, input=['raw', 'raw2'], output=['first', 'second'], default=default),
+            frame.assign(first=[first], second=[second]),
+        )
+
+    @pytest.mark.parametrize('name', ['from_json', 'from_yaml'])
+    def test_invalid_default_list_length_keeps_context(self, namespace, name):
+        with pytest.raises(ValueError, match=f'same length as input/output for convert.{name}'):
+            self.run_alias(namespace, name, pd.DataFrame({'raw': ['['], 'raw2': ['[']}), input=['raw', 'raw2'], default=[1, 2, 3])
+
+    def test_json_scalar_wrapping_numpy_and_unicode(self, namespace):
+        import numpy as np
+
+        frame = pd.DataFrame({'raw': pd.Series([None, 7, False, '', np.array([1, 2]), np.int64(8), np.float32(2.5)], dtype=object)})
+        values = ['[null]', '[7]', '[false]', '[""]', '[1, 2]', '[8]', '[2.5]']
+        expected = frame.copy(deep=True)
+        expected.at[0, 'raw'] = ''
+        expected['out'] = values
+        pd.testing.assert_frame_equal(self.run_alias(namespace, 'to_json', frame, input='raw', output='out'), expected)
+
+    def test_yaml_scalars_retain_safe_dumper_representation(self, namespace):
+        frame = pd.DataFrame({'raw': pd.Series([None, 7, False, ''], dtype=object)})
+        result = self.run_alias(namespace, 'to_yaml', frame, input='raw', output='out')
+        assert [value.removesuffix('...\n') for value in result['out']] == ['null\n', '7\n', 'false\n', "''\n"]
+        assert [yaml.safe_load(value) for value in result['out']] == [None, 7, False, '']
+
+    def test_json_serialization_kwargs(self, namespace):
+        frame = pd.DataFrame({'raw': [{'z': 'Київ', 'a': 1}]})
+        result = self.run_alias(namespace, 'to_json', frame, input='raw', output='out', ensure_ascii=True, sort_keys=True, separators=[',', ':'])
+        assert result.at[0, 'out'] == '{"a":1,"z":"\\u041a\\u0438\\u0457\\u0432"}'
+
+    def test_yaml_serialization_kwargs(self, namespace):
+        frame = pd.DataFrame({'raw': [{'z': 'Київ', 'a': 1}]})
+        result = self.run_alias(namespace, 'to_yaml', frame, input='raw', output='out', sort_keys=True, allow_unicode=False, default_flow_style=True)
+        text = result.at[0, 'out']
+        assert text.startswith('{a: 1, z: ')
+        assert 'Київ' not in text
+        assert yaml.safe_load(text) == {'a': 1, 'z': 'Київ'}
+
+    def test_json_loading_kwargs_and_strict_errors(self, namespace):
+        frame = pd.DataFrame({'raw': ['"line\nbreak"']})
+        pd.testing.assert_frame_equal(
+            self.run_alias(namespace, 'from_json', frame, input='raw', output='out', strict=False), frame.assign(out=['line\nbreak']),
+        )
+        with pytest.raises(ValueError, match='Unable to load all rows as JSON'):
+            self.run_alias(namespace, 'from_json', frame, input='raw')
+        with pytest.raises(ValueError, match='Out of range float values'):
+            self.run_alias(namespace, 'to_json', pd.DataFrame({'raw': [float('nan')]}), input='raw', allow_nan=False)
+
+    def test_yaml_loader_remains_safe(self, namespace):
+        frame = pd.DataFrame({'raw': ['!!python/tuple [1, 2]']})
+        with pytest.raises(ValueError, match='Unable to load all rows as YAML'):
+            self.run_alias(namespace, 'from_yaml', frame, input='raw')
+        pd.testing.assert_frame_equal(
+            self.run_alias(namespace, 'from_yaml', frame, input='raw', output='out', default={}), frame.assign(out=[{}]),
+        )
+
+    def test_direct_modules_share_canonical_implementations(self, serialization_case):
+        name, spec, frame = serialization_case
+        canonical = importlib.import_module('wrangles.recipe_wrangles.standardize')
+        legacy = importlib.import_module('wrangles.recipe_wrangles.convert')
+        implementation = getattr(canonical, name)
+        assert implementation.__module__ == canonical.__name__
+        assert getattr(legacy, name) is implementation
+        assert getattr(wrangles.recipe._recipe_wrangles.standardize, name) is implementation
+        for module in (canonical, legacy):
+            pd.testing.assert_frame_equal(getattr(module, name)(frame.copy(deep=True), input='raw', output='out'), frame.assign(out=spec['values']))
+
+    @pytest.mark.parametrize('name', ['from_json', 'from_yaml'])
+    def test_mutable_fallback_identity_is_preserved(self, name):
+        canonical = importlib.import_module('wrangles.recipe_wrangles.standardize')
+        fallback = {'items': []}
+        result = getattr(canonical, name)(pd.DataFrame({'raw': ['[', '[']}), input='raw', output='out', default=fallback)
+        assert result.at[0, 'out'] is fallback
+        assert result.at[1, 'out'] is fallback
+
+    def test_dataframe_accessors_preserve_original(self, namespace, serialization_case):
+        name, spec, frame = serialization_case
+        frame = wrangles.DataFrame(frame)
+        original = frame.copy(deep=True)
+        target = getattr(frame.wrangles, namespace)
+        pd.testing.assert_frame_equal(getattr(target, name)(input='raw', output='out'), frame.assign(out=spec['values']))
+        pd.testing.assert_frame_equal(frame, original)
+
+    def test_callable_namespace_and_parse_are_preserved(self):
+        namespace = wrangles.recipe._recipe_wrangles
+        canonical = importlib.import_module('wrangles.recipe_wrangles.standardize')
+        main = importlib.import_module('wrangles.recipe_wrangles.main')
+        assert namespace.standardize is main.standardize
+        assert callable(namespace.standardize)
+        for name in ('clean', 'custom', 'replace'):
+            assert getattr(namespace.standardize, name) is getattr(canonical, name)
+        assert namespace.convert.parse.__module__ == 'wrangles.recipe_wrangles.convert'
+        assert not hasattr(namespace.standardize, 'parse')
+
+    def test_generated_schema_preserves_legacy_contracts(self, tmp_path, monkeypatch):
+        root = Path(__file__).resolve().parents[3]
+        shutil.copyfile(root / 'schema/recipe_base_schema.json', tmp_path / 'recipe_base_schema.json')
+        monkeypatch.chdir(tmp_path)
+        runpy.run_path(str(root / 'schema/generate_recipe_schema.py'))
+        schema = json.loads((tmp_path / 'schema.json').read_text(encoding='utf-8'))
+        props = schema['$defs']['wrangles']['items']['properties']
+        for name in self.CASES:
+            assert props[f'standardize.{name}'] == props[f'convert.{name}']
+            for namespace in ('standardize', 'convert'):
+                jsonschema.validate({'wrangles': [{f'{namespace}.{name}': {
+                    'input': 'raw', 'output': 'out', 'where': 'Keep = ?', 'where_params': [3], 'if': 'row_count > 0',
+                }}]}, schema)
+        assert 'convert.parse' in props
+        assert 'standardize.parse' not in props
 
 
 class TestStandardizeNamespace:
