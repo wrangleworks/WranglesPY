@@ -202,6 +202,10 @@ and `df.wrangles.replace(...)`.
 
 Recipes are written in YAML and allow a series of Wrangles to be run as an automated sequence.
 
+For combining columns, lists, dictionaries, or key/value pairs, use the
+`structure.*` operations described in [Structural merge recipes](docs/structure_merging.md).
+The existing `merge.*` names remain compatible aliases.
+
 For targeted web content retrieval with prompts that use values from each row,
 see [Retrieve content from links](docs/search_retrieve_link_content.md).
 
