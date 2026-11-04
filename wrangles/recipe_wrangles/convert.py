@@ -15,7 +15,7 @@ import yaml as _yaml
 from ..utils import safe_str_transform as _safe_str_transform
 import wrangles as _wrangles
 from ._serialization import _YAMLLoader, _YAMLDumper, _normalize_default_list
-from .standardize import from_json, to_json, from_yaml, to_yaml
+from .structure import from_json, to_json, from_yaml, to_yaml
 
 _DEFAULT_NOT_SET = object()
 

@@ -16,10 +16,6 @@ wrangles:
 
 """
 from .standardize import clean as _standardize_clean
-from .standardize import from_json as _standardize_from_json
-from .standardize import to_json as _standardize_to_json
-from .standardize import from_yaml as _standardize_from_yaml
-from .standardize import to_yaml as _standardize_to_yaml
 from .standardize import custom as _standardize_custom
 from .standardize import replace as _standardize_replace
 from .lookup import key as _lookup_key
@@ -44,10 +40,6 @@ from . import search
 # The legacy recipe function stays callable while also exposing the new dotted
 # standardize namespace to recipe resolution and schema discovery.
 standardize.clean = _standardize_clean
-standardize.from_json = _standardize_from_json
-standardize.to_json = _standardize_to_json
-standardize.from_yaml = _standardize_from_yaml
-standardize.to_yaml = _standardize_to_yaml
 standardize.custom = _standardize_custom
 standardize.replace = _standardize_replace
 
