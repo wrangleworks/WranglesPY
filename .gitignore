@@ -132,6 +132,7 @@ docs/*
 !docs/search_ai_mode.md
 !docs/search_retrieve_link_content.md
 !docs/search_ai_overview_research.md
+!docs/runtime-manifest.md
 !docs/search_result_scoring.md
 .DS_Store
 
@@ -152,3 +153,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Generated runtime manifest; published as a CI/release artifact
+/schema/wrangle_runtime_manifest.json

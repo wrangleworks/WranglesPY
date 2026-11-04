@@ -15,6 +15,30 @@ except ImportError:
     from yaml import SafeLoader as _YamlLoader
 
 
+def catalog_identity(catalog_id):
+    """Retain a verified decimal-string ID on a callable without wrapping it.
+
+    This annotation never allocates or looks up an identity. Compatibility
+    aliases sharing this identity should use an unannotated forwarding function,
+    so a manifest has one canonical runtime binding per identity.
+    """
+    if (not isinstance(catalog_id, str)
+            or not _re.fullmatch(r"[1-9][0-9]*", catalog_id)
+            or int(catalog_id) > 9223372036854775807):
+        raise ValueError("catalog_id must be a positive BIGINT decimal string")
+
+    def annotate(function):
+        if not callable(function):
+            raise TypeError("catalog_identity requires a callable")
+        existing = getattr(function, "__catalog_id__", catalog_id)
+        if existing != catalog_id:
+            raise ValueError("An existing catalog identity cannot be reassigned")
+        function.__catalog_id__ = catalog_id
+        return function
+
+    return annotate
+
+
 def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
     """
     Finds matching columns for wildcards or regex from all available columns

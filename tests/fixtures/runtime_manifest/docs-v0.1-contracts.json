@@ -1,0 +1,598 @@
+{
+  "source_manifest": "Wrangles-Docs/registry/runtime/wranglespy.json",
+  "source_manifest_sha256": "dc27c1da9b5c5cbd2cb0ed050576b92629f5043c981dd3b35d2f2fa4723e0027",
+  "runtime_source": {
+    "repository": "https://github.com/wrangleworks/WranglesPY",
+    "version": "1.20.2",
+    "revision": "7916bf158e8b7e561270a1bea7b808f88956edc4"
+  },
+  "contracts": [
+    {
+      "runtime_key": "batch",
+      "python_symbol": "wrangles.recipe_wrangles.main.batch",
+      "signature": "(df, wrangles: list, functions: Union[function, list] = [], variables: dict = None, batch_size: int = 1000, threads: int = 1, on_error: dict = None, timeout: float = None, use_multiprocessing: bool = False)",
+      "parameters": [
+        {
+          "name": "wrangles",
+          "kind": "positional_or_keyword",
+          "required": true,
+          "annotation": "list"
+        },
+        {
+          "name": "batch_size",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "int",
+          "default": 1000
+        },
+        {
+          "name": "threads",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "int",
+          "default": 1
+        },
+        {
+          "name": "on_error",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "dict",
+          "default": null
+        },
+        {
+          "name": "timeout",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "float",
+          "default": null
+        },
+        {
+          "name": "use_multiprocessing",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "bool",
+          "default": false
+        }
+      ],
+      "internal_parameters": [
+        "df",
+        "functions",
+        "variables"
+      ],
+      "variadic": {
+        "positional": null,
+        "keyword": null
+      },
+      "capabilities": {
+        "if": true,
+        "where": true,
+        "where_params": true
+      },
+      "where_mode": "filter",
+      "docstring_schema_status": "available",
+      "docstring_schema": {
+        "type": "object",
+        "description": "Split the data into batches for executing a list of wrangles. Use this in situations such as where the intermediate data is too large to fit in memory.",
+        "additionalProperties": false,
+        "required": [
+          "wrangles"
+        ],
+        "properties": {
+          "batch_size": {
+            "type": "integer",
+            "description": "The number of rows to split each batch into",
+            "default": 1000
+          },
+          "wrangles": {
+            "type": "array",
+            "description": "The wrangles to execute on the data. Each series of wrangles\nwill be run agaisnst the data in batches of the size\ndefined by batch_size.",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/wrangles/items"
+            }
+          },
+          "threads": {
+            "type": "integer",
+            "description": "The number of threads to use for parallel processing. Default 1."
+          },
+          "on_error": {
+            "type": "object",
+            "description": "A dictionary of column_name: value to return if an error occurs while attempting to run a batch"
+          },
+          "timeout": {
+            "type": "number",
+            "description": "The number of seconds to wait for a batch to complete before raising an error"
+          }
+        }
+      },
+      "plain_docstring": null
+    },
+    {
+      "runtime_key": "lookup",
+      "python_symbol": "wrangles.recipe_wrangles.main.lookup",
+      "signature": "(df: pandas.core.frame.DataFrame, input: str, output: Union[str, list] = None, model_id: str = None, lookup_mode: str = 'by_row', n: int = None, **kwargs) -> pandas.core.frame.DataFrame",
+      "parameters": [
+        {
+          "name": "input",
+          "kind": "positional_or_keyword",
+          "required": true,
+          "annotation": "str"
+        },
+        {
+          "name": "output",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "Union[str, list]",
+          "default": null
+        },
+        {
+          "name": "model_id",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "str",
+          "default": null
+        },
+        {
+          "name": "lookup_mode",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "str",
+          "default": "by_row"
+        },
+        {
+          "name": "n",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "int",
+          "default": null
+        }
+      ],
+      "internal_parameters": [
+        "df"
+      ],
+      "variadic": {
+        "positional": null,
+        "keyword": "kwargs"
+      },
+      "capabilities": {
+        "if": true,
+        "where": true,
+        "where_params": true
+      },
+      "where_mode": "filter",
+      "docstring_schema_status": "available",
+      "docstring_schema": {
+        "type": "object",
+        "description": "Lookup values from a saved lookup wrangle",
+        "required": [
+          "input",
+          "model_id"
+        ],
+        "properties": {
+          "input": {
+            "type": [
+              "string",
+              "integer"
+            ],
+            "description": "Name of the column(s) to lookup."
+          },
+          "model_id": {
+            "type": "string",
+            "description": "The model_id to use lookup against"
+          },
+          "output": {
+            "type": [
+              "string",
+              "array"
+            ],
+            "description": "Name of the output column(s). When n is provided and the output list length equals n, each output column receives the corresponding match. A single output containing a wildcard (*) is expanded into n columns, e.g. \"Top *\" with n: 3 becomes \"Top 1\", \"Top 2\", \"Top 3\"."
+          },
+          "n": {
+            "type": "integer",
+            "description": "Number of matches to return per input value. When the output list length equals n, each output column receives the corresponding match. Otherwise all n matches are stored as a list in each output column."
+          },
+          "lookup_mode": {
+            "type": "string",
+            "description": "How to perform lookups. 'by_row' (default): lookup each row individually. 'by_dataframe': lookup unique values once, copy results to all rows. 'by_matrix': lookup once per matrix permutation.",
+            "enum": [
+              "by_row",
+              "by_matrix",
+              "by_dataframe"
+            ]
+          }
+        }
+      },
+      "plain_docstring": null
+    },
+    {
+      "runtime_key": "math",
+      "python_symbol": "wrangles.recipe_wrangles.main.math",
+      "signature": "(df: pandas.core.frame.DataFrame, input: str, output: str) -> pandas.core.frame.DataFrame",
+      "parameters": [
+        {
+          "name": "input",
+          "kind": "positional_or_keyword",
+          "required": true,
+          "annotation": "str"
+        },
+        {
+          "name": "output",
+          "kind": "positional_or_keyword",
+          "required": true,
+          "annotation": "str"
+        }
+      ],
+      "internal_parameters": [
+        "df"
+      ],
+      "variadic": {
+        "positional": null,
+        "keyword": null
+      },
+      "capabilities": {
+        "if": true,
+        "where": true,
+        "where_params": true
+      },
+      "where_mode": "filter",
+      "docstring_schema_status": "available",
+      "docstring_schema": {
+        "type": "object",
+        "description": "Apply a mathematical calculation.",
+        "additionalProperties": false,
+        "required": [
+          "input",
+          "output"
+        ],
+        "properties": {
+          "input": {
+            "type": [
+              "string",
+              "integer"
+            ],
+            "description": "The mathematical expression using column names. e.g. column1 * column2\n+ column3.  Note: spaces within column names are replaced by underscores (_).\n"
+          },
+          "output": {
+            "type": "string",
+            "description": "The column to output the results to"
+          }
+        }
+      },
+      "plain_docstring": null
+    },
+    {
+      "runtime_key": "maths",
+      "python_symbol": "wrangles.recipe_wrangles.main.maths",
+      "signature": "(df: pandas.core.frame.DataFrame, input: str, output: str) -> pandas.core.frame.DataFrame",
+      "parameters": [
+        {
+          "name": "input",
+          "kind": "positional_or_keyword",
+          "required": true,
+          "annotation": "str"
+        },
+        {
+          "name": "output",
+          "kind": "positional_or_keyword",
+          "required": true,
+          "annotation": "str"
+        }
+      ],
+      "internal_parameters": [
+        "df"
+      ],
+      "variadic": {
+        "positional": null,
+        "keyword": null
+      },
+      "capabilities": {
+        "if": true,
+        "where": true,
+        "where_params": true
+      },
+      "where_mode": "filter",
+      "docstring_schema_status": "missing",
+      "docstring_schema": null,
+      "plain_docstring": "Deprecated - use math"
+    },
+    {
+      "runtime_key": "matrix",
+      "python_symbol": "wrangles.recipe_wrangles.main.matrix",
+      "signature": "(df: pandas.core.frame.DataFrame, variables: dict, wrangles: list, functions: Union[function, list] = [], strategy: str = 'loop')",
+      "parameters": [
+        {
+          "name": "variables",
+          "kind": "positional_or_keyword",
+          "required": true,
+          "annotation": "dict"
+        },
+        {
+          "name": "wrangles",
+          "kind": "positional_or_keyword",
+          "required": true,
+          "annotation": "list"
+        },
+        {
+          "name": "strategy",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "str",
+          "default": "loop"
+        }
+      ],
+      "internal_parameters": [
+        "df",
+        "functions"
+      ],
+      "variadic": {
+        "positional": null,
+        "keyword": null
+      },
+      "capabilities": {
+        "if": true,
+        "where": true,
+        "where_params": true
+      },
+      "where_mode": "filter",
+      "docstring_schema_status": "available",
+      "docstring_schema": {
+        "type": "object",
+        "description": "Apply a matrix of wrangles to the dataframe.\nThis will run the wrangles for each combination of the variables.",
+        "required": [
+          "variables",
+          "wrangles"
+        ],
+        "properties": {
+          "variables": {
+            "type": "object",
+            "description": "A dictionary of variables to pass to the wrangle.\nThe key is the variable name and the value is a list of values."
+          },
+          "wrangles": {
+            "type": "array",
+            "description": "The wrangles to apply to the dataframe.\nEach wrangle will be run for each combination of the variables.",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/wrangles/items"
+            }
+          },
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "permutations",
+              "loop"
+            ],
+            "description": "Determines how to combine variables when there are multiple. loop (default) iterates over each set of variables, repeating shorter lists  until the longest is completed. permutations uses the combination of all  variables against all other variables."
+          }
+        }
+      },
+      "plain_docstring": null
+    },
+    {
+      "runtime_key": "recipe",
+      "python_symbol": "wrangles.recipe_wrangles.main.recipe",
+      "signature": "(df: pandas.core.frame.DataFrame, input: Union[str, int, list] = None, output: Union[str, list] = None, name: str = None, variables=None, functions: Union[function, list] = [], **kwargs) -> pandas.core.frame.DataFrame",
+      "parameters": [
+        {
+          "name": "input",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "Union[str, int, list]",
+          "default": null
+        },
+        {
+          "name": "output",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "Union[str, list]",
+          "default": null
+        },
+        {
+          "name": "name",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "str",
+          "default": null
+        },
+        {
+          "name": "variables",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "default": null
+        }
+      ],
+      "internal_parameters": [
+        "df",
+        "functions"
+      ],
+      "variadic": {
+        "positional": null,
+        "keyword": "kwargs"
+      },
+      "capabilities": {
+        "if": true,
+        "where": true,
+        "where_params": true
+      },
+      "where_mode": "filter",
+      "docstring_schema_status": "available",
+      "docstring_schema": {
+        "anyOf": [
+          {
+            "$ref": "#"
+          },
+          {
+            "type": "object",
+            "description": "Run a recipe as a Wrangle. Recipe-ception,",
+            "additionalProperties": false,
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "file name of the recipe"
+              },
+              "variables": {
+                "type": "object",
+                "description": "A dictionary of variables to pass to the recipe"
+              }
+            }
+          }
+        ]
+      },
+      "plain_docstring": null
+    },
+    {
+      "runtime_key": "standardize.custom",
+      "python_symbol": "wrangles.recipe_wrangles.standardize.custom",
+      "signature": "(df: pandas.core.frame.DataFrame, input: Union[str, int, list], model_id: Union[str, list], output: Union[str, list] = None, case_sensitive: bool = False, **kwargs) -> pandas.core.frame.DataFrame",
+      "parameters": [
+        {
+          "name": "input",
+          "kind": "positional_or_keyword",
+          "required": true,
+          "annotation": "Union[str, int, list]"
+        },
+        {
+          "name": "model_id",
+          "kind": "positional_or_keyword",
+          "required": true,
+          "annotation": "Union[str, list]"
+        },
+        {
+          "name": "output",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "Union[str, list]",
+          "default": null
+        },
+        {
+          "name": "case_sensitive",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "bool",
+          "default": false
+        }
+      ],
+      "internal_parameters": [
+        "df"
+      ],
+      "variadic": {
+        "positional": null,
+        "keyword": "kwargs"
+      },
+      "capabilities": {
+        "if": true,
+        "where": true,
+        "where_params": true
+      },
+      "where_mode": "filter",
+      "docstring_schema_status": "available",
+      "docstring_schema": {
+        "type": "object",
+        "description": "Standardize data using a DIY or bespoke standardization wrangle. Requires WrangleWorks Account and Subscription.",
+        "required": [
+          "input"
+        ],
+        "properties": {
+          "input": {
+            "type": [
+              "string",
+              "integer",
+              "array"
+            ],
+            "description": "Name or list of input columns."
+          },
+          "output": {
+            "type": [
+              "string",
+              "array"
+            ],
+            "description": "Name or list of output columns"
+          },
+          "model_id": {
+            "type": [
+              "string",
+              "array"
+            ],
+            "description": "The ID of the wrangle to use (do not include 'find' and 'replace')"
+          },
+          "case_sensitive": {
+            "type": "boolean",
+            "description": "Allows the wrangle to be case sensitive if set to True, default is False."
+          }
+        }
+      },
+      "plain_docstring": null
+    },
+    {
+      "runtime_key": "try",
+      "python_symbol": "wrangles.recipe_wrangles.main.Try",
+      "signature": "(df: pandas.core.frame.DataFrame, wrangles: list, functions: Union[function, list, dict] = None, variables: dict = None, retries: int = 0, **kwargs)",
+      "parameters": [
+        {
+          "name": "wrangles",
+          "kind": "positional_or_keyword",
+          "required": true,
+          "annotation": "list"
+        },
+        {
+          "name": "retries",
+          "kind": "positional_or_keyword",
+          "required": false,
+          "annotation": "int",
+          "default": 0
+        }
+      ],
+      "internal_parameters": [
+        "df",
+        "functions",
+        "variables"
+      ],
+      "variadic": {
+        "positional": null,
+        "keyword": "kwargs"
+      },
+      "capabilities": {
+        "if": true,
+        "where": true,
+        "where_params": true
+      },
+      "where_mode": "filter",
+      "docstring_schema_status": "available",
+      "docstring_schema": {
+        "type": "object",
+        "description": "Try a list of wrangles and catch any errors that occur",
+        "required": [
+          "wrangles"
+        ],
+        "properties": {
+          "wrangles": {
+            "type": "array",
+            "description": "List of wrangles to apply",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/wrangles/items"
+            }
+          },
+          "except": {
+            "type": [
+              "object"
+            ],
+            "description": "An action to take if the wrangles encounter an error.\nThis can contain a list of wrangles or a dictionary of column names and values.\nIf except is not provided, the error will be logged and the recipe will continue.",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/wrangles/items"
+            }
+          },
+          "retries": {
+            "type": "integer",
+            "description": "Number of times to retry the wrangles if an error occurs. Default 0.",
+            "minimum": 0
+          }
+        }
+      },
+      "plain_docstring": null
+    }
+  ]
+}
