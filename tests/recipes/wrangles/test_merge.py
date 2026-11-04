@@ -1,6 +1,316 @@
 import wrangles
 import pandas as pd
 import pytest
+from copy import deepcopy
+
+
+class TestStructureMergeAliases:
+    """Issue #1259: structural ownership with unchanged merge recipes."""
+
+    names = {
+        'coalesce': 'coalesce', 'concatenate': 'concatenate',
+        'merge_dictionaries': 'dictionaries', 'key_value_pairs': 'key_value_pairs',
+        'merge_lists': 'lists', 'to_list': 'to_list', 'to_dictionary': 'to_dict',
+    }
+
+    @pytest.fixture(autouse=True)
+    def block_http(self, monkeypatch):
+        def blocked(*args, **kwargs):
+            pytest.fail('Merge alias tests must not contact live services')
+        monkeypatch.setattr('requests.sessions.Session.request', blocked)
+
+    @pytest.fixture(params=list(names))
+    def merge_case(self, request):
+        name = request.param
+        data, options, values = {
+            'coalesce': ({'A': ['', 'second', ''], 'B': ['first', 'fallback', 'third']},
+                         {}, ['first', 'second', 'third']),
+            'concatenate': ({'A': ['a', '', 'c'], 'B': ['x', 'y', '']},
+                            {'char': '|'}, ['a|x', '|y', 'c|']),
+            'merge_dictionaries': ({'A': [{'x': 1}, {}, {'x': 3}], 'B': [{'x': 2, 'y': 4}, {'z': 5}, {}]},
+                                   {}, [{'x': 2, 'y': 4}, {'z': 5}, {'x': 3}]),
+            'merge_lists': ({'A': [['a', 'A'], [], ['c']], 'B': [['a', 'b'], ['z'], []]},
+                            {}, [['a', 'A', 'a', 'b'], ['z'], ['c']]),
+            'key_value_pairs': ({'K1': ['color', 'size', 'empty'], 'V1': ['red', 'M', ''],
+                                 'K2': ['size', 'size', 'tag'], 'V2': ['S', 'L', 'last']},
+                                {'input': {'K1': 'V1', 'K2': 'V2'}},
+                                [{'color': 'red', 'size': 'S'}, {'size': 'L'}, {'empty': '', 'tag': 'last'}]),
+            'to_list': ({'A': ['a', '', 'c'], 'B': ['x', 'y', '']}, {}, [['a', 'x'], ['y'], ['c']]),
+            'to_dictionary': ({'A': ['a', '', 'c'], 'B': ['x', 'y', '']},
+                              {}, [{'A': 'a', 'B': 'x'}, {'B': 'y'}, {'A': 'c'}]),
+        }[name]
+        frame = pd.DataFrame({**data, 'Keep': [3, 1, 2]}, index=pd.Index([9, 2, 7], name='row'))
+        params = {'input': ['A', 'B'], 'output': 'Out', **options}
+        return name, frame, params, frame.assign(Out=values)
+
+    def operations(self, name):
+        return f'merge.{self.names[name]}', f'structure.{name}'
+
+    def run_recipe(self, operation, frame, params, **kwargs):
+        return wrangles.recipe.run({'wrangles': [{operation: deepcopy(params)}]},
+                                   dataframe=deepcopy(frame), **kwargs)
+
+    def assert_frame(self, result, expected):
+        pd.testing.assert_frame_equal(pd.DataFrame(result), pd.DataFrame(expected))
+        # DataFrame equality checks dictionary values but ignores key insertion order.
+        for actual, wanted in zip(result.get('Out', []), expected.get('Out', [])):
+            if isinstance(wanted, dict):
+                assert list(actual) == list(wanted)
+
+    @pytest.mark.parametrize('entrypoint', ['recipe', 'module'])
+    def test_recipe_and_module_results_share_canonical_implementation(self, merge_case, entrypoint):
+        from wrangles import recipe_wrangles
+
+        name, frame, params, expected = merge_case
+        canonical = getattr(recipe_wrangles.structure, name)
+        assert canonical.__module__ == 'wrangles.recipe_wrangles.structure'
+        assert getattr(recipe_wrangles.merge, self.names[name]) is canonical
+        for operation in self.operations(name):
+            if entrypoint == 'recipe':
+                result = self.run_recipe(operation, frame, params)
+            else:
+                namespace, method = operation.split('.')
+                result = getattr(getattr(recipe_wrangles, namespace), method)(deepcopy(frame), **deepcopy(params))
+            self.assert_frame(result, expected)
+
+    def test_existing_merge_accessor_preserves_source(self, merge_case):
+        from wrangles.dataframe import DataFrame
+
+        name, frame, params, expected = merge_case
+        source = DataFrame(deepcopy(frame))
+        result = getattr(source.wrangles.merge, self.names[name])(**deepcopy(params))
+        self.assert_frame(result, expected)
+        self.assert_frame(source, frame)
+
+    @pytest.mark.parametrize('where, bindings', [
+        ('Keep >= 2', {}), ('Keep >= ?', {'where_params': [2]}),
+        ('Keep >= :minimum', {'where_params': {'minimum': 2}}),
+    ])
+    def test_where_and_bound_parameters_merge_back(self, merge_case, where, bindings):
+        name, frame, params, expected = merge_case
+        frame = frame.assign(Out='UNCHANGED')
+        expected.at[2, 'Out'] = 'UNCHANGED'
+        for operation in self.operations(name):
+            self.assert_frame(self.run_recipe(operation, frame, {**params, 'where': where,
+                              'if': 'row_count > 0', **bindings}), expected)
+
+    def test_no_matching_where_retains_original_rows(self, merge_case):
+        name, frame, params, _ = merge_case
+        for operation in self.operations(name):
+            self.assert_frame(self.run_recipe(operation, frame, {**params, 'where': 'Keep > 99'}),
+                              frame.assign(Out=''))
+
+    @pytest.mark.parametrize('enabled', [True, False])
+    def test_conditional_execution(self, merge_case, enabled):
+        name, frame, params, expected = merge_case
+        for operation in self.operations(name):
+            result = self.run_recipe(operation, frame, {**params, 'if': '${enabled}'}, variables={'enabled': enabled})
+            self.assert_frame(result, expected if enabled else frame)
+
+    def test_false_if_skips_invalid_input(self, merge_case):
+        name, frame, _, _ = merge_case
+        for operation in self.operations(name):
+            self.assert_frame(self.run_recipe(operation, frame, {'input': 'Missing*', 'output': 'Out',
+                              'if': 'row_count < 0'}), frame)
+
+    def test_empty_frame_preserves_columns_and_dtypes(self, merge_case):
+        name, frame, params, expected = merge_case
+        expected = expected.iloc[:0].astype({'Out': 'object' if name == 'coalesce' else 'float64'})
+        for operation in self.operations(name):
+            self.assert_frame(self.run_recipe(operation, frame.iloc[:0], params), expected)
+
+    def test_missing_input_preserves_meaningful_error(self, merge_case):
+        name, frame, params, _ = merge_case
+        params['input'] = {'Missing': 'V1'} if name == 'key_value_pairs' else 'Missing'
+        for operation in self.operations(name):
+            with pytest.raises(KeyError, match='Missing'):
+                self.run_recipe(operation, frame, params)
+
+    def test_coalesce_null_empty_zero_false_and_whitespace(self):
+        frame = pd.DataFrame({'A': [None, '', 0, False, '   ', 'kept'],
+                              'B': ['x', 'y', 'zero', 'bool', '  next  ', 'unused']})
+        expected = frame.assign(A=['', '', 0, False, '   ', 'kept'], Out=['x', 'y', 0, False, 'next', 'kept'])
+        for operation in self.operations('coalesce'):
+            result = self.run_recipe(operation, frame, {'input': ['A', 'B'], 'output': 'Out'})
+            self.assert_frame(result, expected)
+            assert type(result.at[2, 'Out']) is int
+            assert type(result.at[3, 'Out']) is bool
+
+    @pytest.mark.parametrize('explicit_output', [False, True])
+    def test_coalesce_single_list_and_default_output(self, explicit_output):
+        frame = pd.DataFrame({'A': [[None, '', 'next'], [0, 'z'], [False, 'z'], ['  ', ' a '], [], ['']]})
+        params = {'input': 'A', **({'output': 'Out'} if explicit_output else {})}
+        expected = frame.assign(**{'Out' if explicit_output else 'A': ['next', 0, False, 'a', '', '']})
+        for operation in self.operations('coalesce'):
+            self.assert_frame(self.run_recipe(operation, frame, params), expected)
+
+    def test_coalesce_multiple_columns_requires_output(self):
+        for operation in self.operations('coalesce'):
+            with pytest.raises(ValueError, match='An output column must be provided'):
+                self.run_recipe(operation, pd.DataFrame({'A': ['a'], 'B': ['b']}), {'input': ['A', 'B']})
+
+    @pytest.mark.parametrize('skip_empty, values', [(False, ['0|False||None|a', '|b', '']),
+                                                   (True, ['a', 'b', ''])])
+    def test_concatenate_list_values_and_skip_empty(self, skip_empty, values):
+        frame = pd.DataFrame({'A': [[0, False, '', None, 'a'], ['', 'b'], []]})
+        for operation in self.operations('concatenate'):
+            result = self.run_recipe(operation, frame, {'input': 'A', 'output': 'Out', 'char': '|', 'skip_empty': skip_empty})
+            self.assert_frame(result, frame.assign(Out=values))
+
+    @pytest.mark.parametrize('skip_empty, values', [(False, ['None|x', '|y', ' |']),
+                                                   (True, ['None|x', 'y', ' '])])
+    def test_concatenate_column_stringification_and_skip_empty(self, skip_empty, values):
+        frame = pd.DataFrame({'A': [None, '', ' '], 'B': ['x', 'y', '']})
+        expected = frame.assign(A=['', '', ' '], Out=values)
+        for operation in self.operations('concatenate'):
+            result = self.run_recipe(operation, frame, {'input': ['A', 'B'], 'output': 'Out', 'char': '|', 'skip_empty': skip_empty})
+            self.assert_frame(result, expected)
+
+    @pytest.mark.parametrize('skip_empty, values', [
+        (False, [{'x': '', 'a': 2}, {'zero': 0, 'false': False, 'none': None, 'blank': '  '}]),
+        (True, [{'x': 1, 'a': 2}, {'zero': 0, 'false': False}]),
+    ])
+    def test_dictionary_conflicts_order_and_skip_empty(self, skip_empty, values):
+        frame = pd.DataFrame({'A': [{'x': 1, 'a': 2}, {'zero': 0, 'false': False, 'none': None, 'blank': '  '}],
+                              'B': [{'x': ''}, {}]})
+        for operation in self.operations('merge_dictionaries'):
+            result = self.run_recipe(operation, frame, {'input': ['A', 'B'], 'output': 'Out', 'skip_empty': skip_empty})
+            self.assert_frame(result, frame.assign(Out=values))
+
+    @pytest.mark.parametrize('options, values', [
+        ({}, [['a', 'A', '', 'a', 'b'], ['0', 'False']]),
+        ({'remove_duplicates': True}, [['a', 'A', '', 'b'], ['0', 'False']]),
+        ({'remove_duplicates': True, 'ignore_case': True}, [['a', '', 'b'], ['0', 'False']]),
+        ({'include_empty': False}, [['a', 'A', 'a', 'b'], ['0', 'False']]),
+    ])
+    def test_merge_lists_duplicates_case_scalars_and_empties(self, options, values):
+        frame = pd.DataFrame({'A': [['a', 'A', ''], 0], 'B': [['a', 'b'], False]})
+        for operation in self.operations('merge_lists'):
+            result = self.run_recipe(operation, frame, {'input': ['A', 'B'], 'output': 'Out', **options})
+            self.assert_frame(result, frame.assign(Out=values))
+
+    @pytest.mark.parametrize('skip_empty', [False, True])
+    def test_key_value_literal_column_mapping(self, skip_empty):
+        frame = pd.DataFrame({'Key [1]': ['Color', ''], 'Value [1]': ['Red', ''], 'Keep': [3, 1]}, index=[7, 2])
+        expected = frame.assign(Out=[{'Color': 'Red'}, {} if skip_empty else {'': ''}])
+        for operation in self.operations('key_value_pairs'):
+            result = self.run_recipe(operation, frame, {'input': {'Key [1]': 'Value [1]'}, 'output': 'Out', 'skip_empty': skip_empty})
+            self.assert_frame(result, expected)
+
+    @pytest.mark.parametrize('skip_empty, values', [
+        (False, [{'x': 'last'}, {'': 'empty', 'y': ''}]),
+        (True, [{'x': 'last'}, {}]),
+    ])
+    def test_key_value_wildcards_conflicts_and_skip_empty(self, skip_empty, values):
+        frame = pd.DataFrame({'K1': ['x', ''], 'K2': ['x', 'y'],
+                              'V1': ['first', 'empty'], 'V2': ['last', '']})
+        for operation in self.operations('key_value_pairs'):
+            result = self.run_recipe(operation, frame, {'input': {'K*': 'V*'}, 'output': 'Out', 'skip_empty': skip_empty})
+            self.assert_frame(result, frame.assign(Out=values))
+            empty = self.run_recipe(operation, frame, {'input': {'MissingK*': 'MissingV*'}, 'output': 'Out'})
+            self.assert_frame(empty, frame.assign(Out=[{}, {}]))
+
+    def test_key_value_boolean_conversion_preserves_source_mutation(self):
+        frame = pd.DataFrame({'K': ['a', 'b', 'c'], 'V': [True, False, None]})
+        expected = pd.DataFrame({'K': ['a', 'b', 'c'], 'V': ['True', 'False', 'None'],
+                                 'Out': [{'a': True}, {'b': False}, {'c': 'None'}]})
+        for operation in self.operations('key_value_pairs'):
+            result = self.run_recipe(operation, frame, {'input': {'K': 'V'}, 'output': 'Out', 'skip_empty': True})
+            self.assert_frame(result, expected)
+
+    @pytest.mark.parametrize('include_empty', [False, True])
+    def test_to_list_falsy_values_and_include_empty(self, include_empty):
+        frame = pd.DataFrame({'A': pd.Series([0, False, None, ''], dtype=object), 'B': ['x', 'y', 'z', '']})
+        values = [[0, 'x'], [False, 'y'], [None, 'z'], ['', '']] if include_empty else [['x'], ['y'], ['z'], []]
+        expected = frame.assign(A=[0, False, '', ''], Out=values)
+        for operation in self.operations('to_list'):
+            self.assert_frame(self.run_recipe(operation, frame, {'input': ['A', 'B'], 'output': 'Out',
+                              'include_empty': include_empty}), expected)
+
+    @pytest.mark.parametrize('include_empty', [False, True])
+    def test_to_dictionary_boolean_none_source_conversion(self, include_empty):
+        frame = pd.DataFrame({'A': pd.Series([0, False, None, ''], dtype=object), 'B': ['x', 'y', 'z', '']})
+        values = [{'A': '0', 'B': 'x'}, {'A': False, 'B': 'y'}, {'A': None, 'B': 'z'},
+                  {'A': '', 'B': ''} if include_empty else {}]
+        expected = frame.assign(A=['0', 'False', 'None', ''], Out=values)
+        for operation in self.operations('to_dictionary'):
+            result = self.run_recipe(operation, frame, {'input': ['A', 'B'], 'output': 'Out', 'include_empty': include_empty})
+            self.assert_frame(result, expected)
+
+    @pytest.mark.parametrize('pattern', [True, False])
+    def test_wildcard_expansion_and_input_order(self, merge_case, pattern):
+        name, frame, params, expected = merge_case
+        if name == 'key_value_pairs':
+            params['input'] = {'K*': 'V*'}
+        elif pattern:
+            params['input'] = 'regex:^(A|B)$'
+        else:
+            params['input'] = ['B', 'A']
+            expected['Out'] = {
+                'coalesce': ['first', 'fallback', 'third'],
+                'concatenate': ['x|a', 'y|', '|c'],
+                'merge_dictionaries': [{'x': 1, 'y': 4}, {'z': 5}, {'x': 3}],
+                'merge_lists': [['a', 'b', 'a', 'A'], ['z'], ['c']],
+                'to_list': [['x', 'a'], ['y'], ['c']],
+                'to_dictionary': [{'B': 'x', 'A': 'a'}, {'B': 'y'}, {'A': 'c'}],
+            }[name]
+        for operation in self.operations(name):
+            self.assert_frame(self.run_recipe(operation, frame, params), expected)
+
+    @pytest.mark.parametrize('name, data, value', [
+        ('coalesce', {'A': [''], 'B': ['first']}, 'first'),
+        ('concatenate', {'A': ['a'], 'B': ['b']}, 'a,b'),
+        ('merge_dictionaries', {'A': [{}], 'B': [{}]}, {}),
+        ('merge_lists', {'A': [[]], 'B': [[]]}, []),
+        ('key_value_pairs', {'A': ['a'], 'B': ['b']}, {}),
+        ('to_list', {'A': [''], 'B': ['']}, []),
+        ('to_dictionary', {'A': [''], 'B': ['']}, {}),
+    ])
+    def test_empty_input_keeps_existing_dispatch_semantics(self, name, data, value):
+        frame = pd.DataFrame(data)
+        params = {'input': {} if name == 'key_value_pairs' else [], 'output': 'Out'}
+        for operation in self.operations(name):
+            self.assert_frame(self.run_recipe(operation, frame, params), frame.assign(Out=[value]))
+
+    @pytest.mark.parametrize('name, data, options, error, message', [
+        ('merge_dictionaries', {'A': [None], 'B': [{}]}, {}, AttributeError, 'items'),
+        ('merge_lists', {'A': [[1]], 'B': [[]]}, {'remove_duplicates': True, 'ignore_case': True}, AttributeError, 'lower'),
+    ])
+    def test_invalid_values_preserve_existing_errors(self, name, data, options, error, message):
+        for operation in self.operations(name):
+            with pytest.raises(error, match=message):
+                self.run_recipe(operation, pd.DataFrame(data), {'input': ['A', 'B'], 'output': 'Out', **options})
+
+    def test_generated_schema_preserves_all_alias_contracts(self, tmp_path, monkeypatch):
+        import json
+        import runpy
+        from pathlib import Path
+        import jsonschema
+
+        root = Path(__file__).resolve().parents[3]
+        (tmp_path / 'recipe_base_schema.json').write_bytes((root / 'schema/recipe_base_schema.json').read_bytes())
+        monkeypatch.chdir(tmp_path)
+        runpy.run_path(str(root / 'schema/generate_recipe_schema.py'))
+        schema = json.loads((tmp_path / 'schema.json').read_text(encoding='utf-8'))
+        props = schema['$defs']['wrangles']['items']['properties']
+        for name in self.names:
+            legacy, canonical = self.operations(name)
+            assert props[canonical] == props[legacy]
+            params = {'input': {'K*': 'V*'} if name == 'key_value_pairs' else ['A', 'B'], 'output': 'Out',
+                      'where': 'Keep >= :minimum', 'where_params': {'minimum': 2}, 'if': 'row_count > 0'}
+            if name == 'concatenate':
+                params['char'] = '|'
+            for operation in (legacy, canonical):
+                jsonschema.validate({'wrangles': [{operation: params}]}, schema)
+        for catalog_only_name in ('structure.dictionaries', 'structure.lists', 'structure.to_dict'):
+            assert catalog_only_name not in props
+
+    def test_existing_structure_split_exports_are_preserved(self):
+        from wrangles.recipe_wrangles import split, structure
+
+        for legacy, canonical in [('dictionary', 'split_dictionary'), ('list', 'split_list'),
+                                   ('text', 'split_text'), ('tokenize', 'tokenize')]:
+            assert getattr(structure, canonical) is getattr(split, legacy)
 
 
 class TestMergeCoalesce:
@@ -1543,4 +1853,3 @@ class TestMergeDictionaries:
         
         expected = [{}, {}, {}]  
         assert df['out'].tolist() == expected
-        
