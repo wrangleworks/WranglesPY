@@ -46,6 +46,37 @@ def test_write_recipe_connector():
   assert df['Find2'].iloc[0] == 'brg'
 
 
+def test_write_recipe_connector_returns_nested_dataframe():
+  """
+  A nested recipe used as a write: - recipe: step can shape the
+  return value of the outer recipe via its own write: - dataframe: step.
+  https://github.com/wrangleworks/WranglesPY/issues/1157
+  """
+  recipe = """
+  read:
+    - test:
+        rows: 1
+        values:
+          Col1: Val1
+          Col2: Val2
+
+  write:
+    - recipe:
+        wrangles:
+          - create.column:
+              output: Col3
+              value: Val3
+        write:
+          - dataframe:
+              columns:
+                - Col2
+                - Col3
+  """
+  df = wrangles.recipe.run(recipe)
+  assert list(df.columns) == ['Col2', 'Col3']
+  assert df['Col3'].iloc[0] == 'Val3'
+
+
 # Running recipe
 def test_run_recipe_connector():
   recipe = """
