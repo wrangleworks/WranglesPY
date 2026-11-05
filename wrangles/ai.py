@@ -1,7 +1,8 @@
 """Structured answers to common questions about text or records.
 
 ``choose``, ``score``, and ``true_false`` answer one question type at a time;
-``answers`` supports any combination of these types.
+``decisions`` supports any combination of these types; ``answers`` remains a
+compatible alias.
 Each input record is evaluated in one request. Python results are dictionaries
 of named answers; recipe wrappers project their fields into columns.
 """
@@ -15,6 +16,7 @@ from urllib.parse import urlsplit as _urlsplit
 
 from . import ai_cache as _cache
 from . import ai_config as _config
+from .clients import openrouter as _openrouter
 from .clients import typesafe as _typesafe
 
 
@@ -320,10 +322,17 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
         results = [_project_answers({"answers": {}}, plan) for plan in plans]
         return results if isinstance(data, list) else results[0]
 
+    # Keep the established role and cache namespace for both composite names,
+    # including user catalogs written before ai.decisions was introduced.
     operation = f"ai.{kind or 'answers'}"
     settings = _config.resolve(operation, model=model, provider=provider, protocol=protocol)
-    if settings["provider"] != "typesafe" or settings["protocol"] != "systemone":
-        raise ValueError("AI answer wrangles currently require provider typesafe and protocol systemone.")
+    providers = {
+        "typesafe": ("Typesafe", "TYPESAFE_API_KEY", _typesafe),
+        "openrouter": ("OpenRouter", "OPENROUTER_API_KEY", _openrouter),
+    }
+    if settings["provider"] not in providers or settings["protocol"] != "systemone":
+        raise ValueError("AI decision wrangles require provider typesafe or openrouter and protocol systemone.")
+    provider_name, key_environment, client = providers[settings["provider"]]
     workers = threads if threads is not None else settings.get("default_concurrency")
     if type(workers) is not int or workers < 1:
         raise ValueError("threads/default_concurrency must be a positive integer.")
@@ -340,14 +349,14 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
     except ValueError:
         valid_url = False
     if not valid_url:
-        raise ValueError("The Typesafe systemone endpoint must be an HTTPS URL without embedded credentials or fragments.")
+        raise ValueError(f"The {provider_name} systemone endpoint must be an HTTPS URL without embedded credentials or fragments.")
 
-    secret = api_key if api_key is not None else _os.getenv("TYPESAFE_API_KEY")
+    secret = api_key if api_key is not None else _os.getenv(key_environment)
     if not isinstance(secret, str) or not secret.strip():
-        raise ValueError("Set api_key or TYPESAFE_API_KEY for AI answer wrangles.")
+        raise ValueError(f"Set api_key or {key_environment} for {provider_name} AI decision wrangles.")
     secret = secret.strip()
     if any(ord(char) < 33 or ord(char) > 126 for char in secret):
-        raise ValueError("The Typesafe API key must contain only printable ASCII without whitespace.")
+        raise ValueError(f"The {provider_name} API key must contain only printable ASCII without whitespace.")
     if cache_ttl is not None:
         _positive_number(cache_ttl, "cache_ttl")
     policy = _cache.resolve_policy(settings.get("cache", {}), enabled=cache, ttl_seconds=cache_ttl,
@@ -361,8 +370,8 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
                                static_request=static_request, data=plan["state"])
 
     def compute(plan):
-        return _typesafe.call_systemone(state=plan["state"], questions=plan["wire"], model=settings["model"],
-                                       api_key=secret, url=url, timeout=request_timeout, retries=attempts)
+        return client.call_systemone(state=plan["state"], questions=plan["wire"], model=settings["model"],
+                                     api_key=secret, url=url, timeout=request_timeout, retries=attempts)
 
     responses = _cache.execute_batch(pending, key_for=key_for, compute=compute, cacheable=lambda result: True,
                                     max_workers=workers, policy=policy, preflight_first=True)
@@ -424,8 +433,8 @@ def true_false(data, questions, api_key=None, *, model=None, provider=None, prot
                 cache=cache, cache_ttl=cache_ttl)
 
 
-def answers(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
-            threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
+def decisions(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
+              threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
     """Provide structured answers to common question types about each input.
 
     Each question declares type choose, score, or true_false with its instructions
@@ -433,7 +442,17 @@ def answers(data, questions, api_key=None, *, model=None, provider=None, protoco
     input record. Instructions and criteria support input-record templates and
     ``for_each`` as described in :func:`choose`. Outputs follow the corresponding
     individual wrangles; repeated results retain their source collection shape.
+    Configuration and cache identity retain the ``ai.answers`` role for
+    compatibility with existing catalogs and calls.
     """
     return _run(data, questions, None, api_key=api_key, model=model, provider=provider,
                 protocol=protocol, threads=threads, timeout=timeout, retries=retries,
                 cache=cache, cache_ttl=cache_ttl)
+
+
+def answers(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
+            threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
+    """Compatibility alias for :func:`decisions`, with identical inputs and outputs."""
+    return decisions(data, questions, api_key=api_key, model=model, provider=provider,
+                     protocol=protocol, threads=threads, timeout=timeout, retries=retries,
+                     cache=cache, cache_ttl=cache_ttl)

@@ -7,7 +7,7 @@ import pytest
 import yaml
 
 from wrangles import ai, ai_cache, ai_config
-from wrangles.clients import typesafe
+from wrangles.clients import openrouter, typesafe
 
 
 SCORE = {"severity": {"instructions": "How severe?", "criteria": ["Cosmetic", "Workaround", "Blocking"]}}
@@ -21,6 +21,7 @@ def isolate(monkeypatch):
         if name.startswith(("WRANGLES_AI_CACHE_", "WRANGLES_EXTRACT_AI_CACHE_")):
             monkeypatch.delenv(name)
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("WRANGLES_AI_CONFIG", raising=False)
     ai_config.clear_cache()
     ai_cache.clear()
@@ -52,6 +53,7 @@ def transport(monkeypatch):
         return {"model": kwargs["model"], "answers": answers, "usage": {"input_tokens": 10}}
 
     monkeypatch.setattr(typesafe, "call_systemone", call)
+    monkeypatch.setattr(openrouter, "call_systemone", call)
     return calls
 
 
@@ -62,7 +64,9 @@ def save_config(config, monkeypatch, tmp_path):
     ai_config.clear_cache()
 
 
-def test_named_mixed_questions_share_one_request_and_preserve_native_values(transport):
+@pytest.mark.parametrize("method", ["decisions", "answers"])
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
+def test_named_mixed_questions_share_one_request_and_preserve_native_values(transport, method, provider):
     questions = {
         **{key: {**value, "type": "score"} for key, value in SCORE.items()},
         **{key: {**value, "type": "choose"} for key, value in CHOICE.items()},
@@ -70,7 +74,7 @@ def test_named_mixed_questions_share_one_request_and_preserve_native_values(tran
     }
     questions["severity"]["output"] = ["Result", "Certainty", "Distribution"]
     original = copy.deepcopy(questions)
-    result = ai.answers({"Description": "broken"}, questions, api_key="synthetic-key")
+    result = getattr(ai, method)({"Description": "broken"}, questions, api_key="synthetic-key", provider=provider)
     assert len(transport) == 1
     assert list(result) == ["severity", "team", "repeat"]
     assert result["severity"] == {
@@ -221,6 +225,81 @@ def test_local_environment_key_and_explicit_key_precedence(transport, monkeypatc
         ai.true_false("three", NOUL, api_key="")
 
 
+@pytest.mark.parametrize("method", ["choose", "score", "true_false", "decisions", "answers"])
+def test_openrouter_dispatch_selects_provider_default_and_keeps_cache_off(method, transport, monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "synthetic-openrouter-key")
+    monkeypatch.setattr(typesafe, "call_systemone", lambda **kwargs: pytest.fail("Wrong provider"))
+    definitions = {"choose": CHOICE, "score": SCORE, "true_false": NOUL}.get(method)
+    if definitions is None:
+        definitions = {"repeat": {**NOUL["repeat"], "type": "true_false"}}
+    for _ in range(2):
+        getattr(ai, method)("state", definitions, provider="openrouter")
+    assert len(transport) == 2
+    assert all(call["model"] == "microsoft/microsoft-decision-1"
+               and call["url"] == "https://openrouter.ai/api/alpha/decisions"
+               and call["api_key"] == "synthetic-openrouter-key" for call in transport)
+
+
+def test_openrouter_uses_its_own_environment_key_and_explicit_override(transport, monkeypatch):
+    monkeypatch.setenv("TYPESAFE_API_KEY", "synthetic-typesafe-key")
+    with pytest.raises(ValueError, match="OPENROUTER_API_KEY"):
+        ai.true_false("state", NOUL, provider="openrouter")
+    assert transport == []
+    monkeypatch.setenv("OPENROUTER_API_KEY", "synthetic-environment-key")
+    ai.true_false("one", NOUL, provider="openrouter")
+    ai.true_false("two", NOUL, provider="openrouter", api_key="synthetic-explicit-key")
+    assert [call["api_key"] for call in transport] == ["synthetic-environment-key", "synthetic-explicit-key"]
+    with pytest.raises(ValueError, match="OPENROUTER_API_KEY"):
+        ai.true_false("three", NOUL, provider="openrouter", api_key="")
+    with pytest.raises(ValueError, match="OpenRouter API key"):
+        ai.true_false("four", NOUL, provider="openrouter", api_key="private key")
+    assert len(transport) == 2
+
+
+def test_composite_aliases_keep_legacy_catalog_role_runtime_defaults_and_cache(transport, monkeypatch, tmp_path):
+    config = ai_config.load()
+    # An existing version-2 catalog need not add a provider, operation, or role.
+    config["providers"].pop("openrouter", None)
+    assert "ai.decisions" not in config["operations"]
+    models = config["providers"]["typesafe"]["models"]
+    models["jev-1.13.0"]["default_for"].remove("ai.answers")
+    models["legacy-composite-model"] = {"status": "active", "default_for": ["ai.answers"]}
+    defaults = config["operations"]["ai.answers"]["defaults"]
+    defaults.update(default_concurrency=1, request_timeout_seconds=7, retries=0)
+    defaults["cache"]["enabled"] = True
+    save_config(config, monkeypatch, tmp_path)
+    original = ai_config.resolve
+    operations = []
+
+    def resolve(operation, **kwargs):
+        operations.append(operation)
+        return original(operation, **kwargs)
+
+    monkeypatch.setattr(ai_config, "resolve", resolve)
+    questions = {"repeat": {**NOUL["repeat"], "type": "true_false"}}
+    old_result = ai.answers("state", questions, api_key="synthetic-key")
+    new_result = ai.decisions("state", questions, api_key="synthetic-key")
+    assert old_result == new_result == {"repeat": {"probability_true": 0.94, "true_criteria": ""}}
+    assert operations == ["ai.answers", "ai.answers"]
+    assert len(transport) == 1
+    assert transport[0]["model"] == "legacy-composite-model"
+    assert transport[0]["timeout"] == 7
+    assert transport[0]["retries"] == 0
+
+
+def test_cache_identity_separates_providers_even_with_same_endpoint_model_and_key(transport, monkeypatch, tmp_path):
+    config = ai_config.load()
+    endpoint = "https://shared.example/systemone"
+    for provider in ("typesafe", "openrouter"):
+        config["providers"][provider]["endpoints"]["systemone"] = endpoint
+    save_config(config, monkeypatch, tmp_path)
+    for provider in ("typesafe", "openrouter", "typesafe", "openrouter"):
+        ai.true_false("state", NOUL, provider=provider, model="shared-model",
+                      api_key="synthetic-shared-key", cache=True)
+    assert len(transport) == 2
+    assert all(call["url"] == endpoint and call["model"] == "shared-model" for call in transport)
+
+
 @pytest.mark.parametrize("overrides", [
     {"threads": 0}, {"threads": True}, {"timeout": 0}, {"timeout": float("nan")},
     {"timeout": 10 ** 1000}, {"cache_ttl": 10 ** 1000},
@@ -233,12 +312,14 @@ def test_invalid_runtime_settings_fail_before_requests(transport, overrides):
     assert transport == []
 
 
-def test_unusable_endpoint_error_does_not_disclose_credentials(transport, monkeypatch, tmp_path):
+@pytest.mark.parametrize("provider,name", [("typesafe", "Typesafe"), ("openrouter", "OpenRouter")])
+def test_unusable_endpoint_error_does_not_disclose_credentials(transport, monkeypatch, tmp_path, provider, name):
     config = ai_config.load()
-    config["providers"]["typesafe"]["endpoints"]["systemone"] = "https://user:private-value@example.com"
+    config["providers"][provider]["endpoints"]["systemone"] = "https://user:private-value@example.com"
     save_config(config, monkeypatch, tmp_path)
     with pytest.raises(ValueError) as exc:
-        ai.true_false("private-state", NOUL, api_key="private-key")
+        ai.true_false("private-state", NOUL, api_key="private-key", provider=provider)
+    assert name in str(exc.value)
     assert "private" not in str(exc.value)
     assert transport == []
 
@@ -307,19 +388,20 @@ def expanded_question(kind="score", **overrides):
             "for_each": {"values": "Candidate Categories", "variable": "category"}, **overrides}
 
 
-@pytest.mark.parametrize("method", ["choose", "score", "true_false", "answers"])
+@pytest.mark.parametrize("method", ["choose", "score", "true_false", "decisions", "answers"])
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
 @pytest.mark.parametrize("keyed", [False, True])
-def test_templates_expand_each_row_into_one_request_and_preserve_candidate_values(method, keyed, transport):
-    kind = "score" if method == "answers" else method
+def test_templates_expand_each_row_into_one_request_and_preserve_candidate_values(method, provider, keyed, transport):
+    kind = "score" if method in {"decisions", "answers"} else method
     definition = expanded_question(kind)
-    if method == "answers":
+    if method in {"decisions", "answers"}:
         definition["type"] = kind
     definitions = {"fits": definition}
     candidates = {"category_7": "Containers", "category_2": "Shelves"} if keyed else ["Containers", "Shelves"]
     row = {"Product Description": "Metal container", "Candidate Categories": candidates}
     original = copy.deepcopy((row, definitions))
 
-    result = getattr(ai, method)(row, definitions, api_key="synthetic-key")
+    result = getattr(ai, method)(row, definitions, api_key="synthetic-key", provider=provider)
 
     assert len(transport) == 1
     assert transport[0]["state"] == row
@@ -342,12 +424,12 @@ def test_templates_expand_each_row_into_one_request_and_preserve_candidate_value
     assert (row, definitions) == original
 
 
-@pytest.mark.parametrize("method", ["choose", "score", "true_false", "answers"])
+@pytest.mark.parametrize("method", ["choose", "score", "true_false", "decisions", "answers"])
 @pytest.mark.parametrize("keyed", [False, True])
 def test_blank_candidate_strings_preserve_empty_slots_without_provider_questions(method, keyed, transport):
-    kind = "score" if method == "answers" else method
+    kind = "score" if method in {"decisions", "answers"} else method
     definition = expanded_question(kind)
-    if method == "answers":
+    if method in {"decisions", "answers"}:
         definition["type"] = kind
     values = ["", "Containers", " \t\n", "Shelves", ""]
     keys = ["category_1", "category_2", "category_3", "category_4", "category_5"]
