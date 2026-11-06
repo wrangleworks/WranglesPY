@@ -9,6 +9,12 @@ use an AI model. It evaluates the supplied titles, snippets, URLs, and search
 metadata. A high score is a useful ranking signal, not proof that a page describes
 the correct product.
 
+When MPNs or part codes are supplied, the scorer uses `extract.codes` on the
+retained titles, snippets, and URLs. This requires a WrangleWorks account and
+access to its extraction API. Distinct fields are prepared in a batch per scorer
+call; extraction errors propagate rather than falling back to text matching.
+Empty extraction results provide no part-code evidence.
+
 Three kinds of information describe different aspects of a result:
 
 | Information | Purpose |
@@ -167,9 +173,9 @@ recognized other code contributes 6 points. Only one identity contribution is
 used, regardless of how many codes or sources match.
 
 The scorer uses a broad meaning of **exact**: a normalized candidate of at least
-four characters contained anywhere in a normalized field receives the exact
+four characters contained in an individual extracted code receives the exact
 score, even when it is embedded in a longer identifier. Shorter codes require
-matching normalized tokens. The partial/variant scoring settings and categories
+an equal normalized extracted code. The partial/variant scoring settings and categories
 are retained, but ordinary longer-code containment already receives exact
 points rather than a partial score.
 
@@ -412,6 +418,12 @@ The keys in each record appear in this order:
 | `matched_code` | The matching text from the result, preserving its case and separators. |
 | `input_code` | The input candidate, with surrounding whitespace removed. |
 
+Only extracted codes are evidence: ordinary text and matches crossing separate
+codes are not. Context matching still uses the original text, so a word such as
+`blank` may contribute context points without being a part-code match.
+The original extracted value and its standardized form are retained together,
+so evidence preserves its original code and source field.
+
 Matching is case-insensitive. `exact` means the complete source code matches the
 input apart from case. `stripped` means the codes match after alphanumeric
 normalization, which removes punctuation and spaces and folds supported
@@ -424,7 +436,7 @@ characters to avoid incidental matches for short codes.
 | `NATV6-PP-A` | `natv6-pp-a` | `exact` |
 | `LBBR14-2LS` | `LBBR 14-2LS` | `stripped` |
 | `NATV6` | `NATV6-X-PP-A` | `partial` |
-| `085-196-225` | `085-196-225.` | `exact`; sentence punctuation does not extend the code. |
+| `085-196-225` | `085-196-225` | `exact`; the extractor supplies the code without sentence punctuation. |
 | `085-196-225 M10` | `085-196-225 M100` | `partial`; the larger source code is retained. |
 
 Evidence is independent of score weights and eligibility flags. Its precise

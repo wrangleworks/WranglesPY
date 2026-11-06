@@ -1,4 +1,3 @@
-import re
 from typing import List, Tuple, Dict
 from urllib.parse import urlsplit
 
@@ -38,68 +37,92 @@ def _get_supplier_site_score(supplier_names: list, netloc: str) -> int:
     return 0
 
 
+def _prepare_part_codes(results: list) -> dict:
+    """Extract and normalize each distinct result field in one recipe run."""
+    from . import recipe
+    import pandas as pd
+
+    texts = list(dict.fromkeys(
+        str(item.get(key, ""))
+        for item in results
+        for key in ("title", "snippet", "link")
+        if item.get(key, "")
+    ))
+    if not texts:
+        return {}
+
+    prepared = recipe.run(
+        """
+        wrangles:
+          - extract.codes:
+              input: text
+              output: original
+          - explode:
+              input: original
+              drop_empty: true
+          - standardize.clean:
+              input: original
+              output: normalized
+              normalization: NFKD
+              fix_encoding: false
+              unescape_html: false
+              fix_character_width: false
+              uncurl_quotes: false
+              remove_control_chars: false
+              collapse_whitespace: false
+              trim: false
+          - convert.case:
+              input: normalized
+              case: lower
+          - standardize.replace:
+              input: normalized
+              find: "ß"
+              replace: ss
+          - standardize.replace:
+              input: normalized
+              find: "[^a-z0-9]"
+              replace: ""
+          - merge.lists:
+              input: [original, normalized]
+              output: variants
+              remove_duplicates: true
+              include_empty: false
+        """,
+        dataframe=pd.DataFrame({"text": texts}),
+    )
+    fields = {text: [] for text in texts}
+    for text, normalized, variants in prepared[["text", "normalized", "variants"]].itertuples(index=False, name=None):
+        if normalized:
+            code = (variants[0], variants[-1])
+            if code not in fields[text]:
+                fields[text].append(code)
+    return fields
+
+
 def _evaluate_part_code_match(
-    candidates: list,
-    fields_tokens: dict,
-    squashed_fields: dict,   # <--- NEW PARAMETER
+    matches: list,
     exact_score: float,
-    partial_base: float,
     entity_name: str,
-    min_length_for_substring: int = 4, # Bumped to 4 to protect 3-char codes
-    min_partial_ratio: float = 0.50
+    min_length_for_substring: int = 4,
 ) -> tuple:
     """
     Specialized evaluator for Part Codes and MPNs.
     Returns: (score, reason, ratio, visual_match_string)
     """
-    best_score, best_ratio = 0.0, 0.0
-    best_reason = f"No {entity_name} Match"
-    best_visual = ""
+    if not matches:
+        return 0.0, f"No {entity_name} Match", 0.0, ""
 
-    if not candidates:
-        return best_score, best_reason, best_ratio, best_visual
-
-    for candidate in candidates:
-        norm_cand = _compare.normalize_alphanum(candidate)
-        if not norm_cand: continue
-
-        cand_len = len(norm_cand)
-        is_short_code = cand_len < min_length_for_substring
-
-        # --- THE FIX: The Long-Code Bypass ---
-        # If the code is 4+ chars, it's safe to check the squashed text for a perfect embedded match
-        if not is_short_code and squashed_fields:
-            for field_name, squashed_text in squashed_fields.items():
-                if squashed_text and norm_cand in squashed_text:
-                    return exact_score, f"Exact Match '{candidate}' ({entity_name}) in {field_name}", 1.0, f"**{candidate}**"
-
-        # --- ORIGINAL LOGIC: Token Check (for short codes and variants) ---
-        if fields_tokens:
-            for field_name, tokens in fields_tokens.items():
-                for token in tokens:
-                    if not token: continue
-                    token_len = len(token)
-
-                    # 1. Exact Token Match
-                    if norm_cand == token:
-                        return exact_score, f"Exact Match '{candidate}' ({entity_name}) in {field_name}", 1.0, f"**{norm_cand}**"
-
-                    # 2. Variant / Substring Match (e.g., '555' inside 'LM555CN')
-                    elif not is_short_code and norm_cand in token:
-                        ratio = cand_len / token_len
-                        if ratio >= min_partial_ratio:
-                            score = round(ratio * partial_base, 2)
-                            if score > best_score:
-                                best_score, best_ratio = score, ratio
-                                best_reason = f"Variant Match '{candidate}' ({entity_name}) in {field_name} [{ratio:.2f}]"
-                                best_visual = token.replace(norm_cand, f"**{norm_cand}**")
-
-    return best_score, best_reason, best_ratio, best_visual
+    match = matches[0]
+    candidate = match["input_code"]
+    norm_cand = _compare.normalize_alphanum(candidate)
+    visual = candidate if len(norm_cand) >= min_length_for_substring else norm_cand
+    field_name = {"title": "Title", "snippet": "Snippet", "url": "URL"}[match["match_source"]]
+    return exact_score, f"Exact Match '{candidate}' ({entity_name}) in {field_name}", 1.0, f"**{visual}**"
 
 
 def _find_part_code_matches(
     candidates: list,
-    raw_fields: dict,
+    fields_codes: dict,
     match_type: str,
     min_length_for_substring: int = 4
 ) -> list:
@@ -111,41 +134,6 @@ def _find_part_code_matches(
     - stripped: the candidate matches after removing non-alphanumeric characters
     - partial: the normalized candidate is embedded in a larger normalized string
     """
-    def _find_partial_source_code(source_text: str, norm_cand: str) -> str:
-        code_tokens = list(re.finditer(
-            r"[a-z0-9]+(?:[-._][a-z0-9]+)*",
-            source_text,
-            re.IGNORECASE
-        ))
-        for token_match in code_tokens:
-            token = token_match.group()
-            if norm_cand in _compare.normalize_alphanum(token):
-                return token
-
-        normalized_chars = []
-        source_indexes = []
-        for index, char in enumerate(source_text):
-            normalized_char = _compare.normalize_alphanum(char)
-            if normalized_char:
-                normalized_chars.extend(normalized_char)
-                source_indexes.extend([index] * len(normalized_char))
-
-        match_start = "".join(normalized_chars).find(norm_cand)
-        if match_start < 0:
-            return ""
-
-        match_end = match_start + len(norm_cand) - 1
-        source_start = source_indexes[match_start]
-        source_end = source_indexes[match_end] + 1
-        # Include the whole source code when the overlap crosses whitespace.
-        # Otherwise M10 inside M100 would look like an exact match.
-        for token_match in code_tokens:
-            if token_match.start() <= source_start < token_match.end():
-                source_start = token_match.start()
-            if token_match.start() < source_end <= token_match.end():
-                source_end = token_match.end()
-        return source_text[source_start:source_end]
-
     matches = []
     seen = set()
 
@@ -155,48 +143,23 @@ def _find_part_code_matches(
         if not norm_cand:
             continue
 
-        # A period is internal to a code only when it connects alphanumerics.
-        # Sentence punctuation must not hide exact evidence behind a variant.
-        left_boundary = r"(?<![a-z0-9_-])(?<![a-z0-9]\.)"
-        right_boundary = r"(?![a-z0-9_-]|\.[a-z0-9])"
-        exact_pattern = re.compile(
-            rf"{left_boundary}{re.escape(candidate_text)}{right_boundary}",
-            re.IGNORECASE
-        )
-        stripped_pattern = re.compile(
-            rf"{left_boundary}"
-            rf"{'[^a-z0-9]*'.join(map(re.escape, norm_cand))}"
-            rf"{right_boundary}",
-            re.IGNORECASE
-        )
-
-        for field_name, field_text in (raw_fields or {}).items():
-            source_text = str(field_text or "")
-            match_level = None
-            matched_code = ""
-
-            exact_match = exact_pattern.search(source_text)
-            stripped_match = stripped_pattern.search(source_text)
-
-            if exact_match:
-                match_level = "exact"
-                matched_code = exact_match.group()
-            elif stripped_match:
-                match_level = "stripped"
-                matched_code = stripped_match.group()
-            else:
-                squashed_text = _compare.normalize_alphanum(source_text)
-                if norm_cand in squashed_text:
-                    matched_code = _find_partial_source_code(source_text, norm_cand)
-                    if matched_code.casefold() == candidate_text.casefold():
-                        match_level = "exact"
-                    elif _compare.normalize_alphanum(matched_code) == norm_cand:
-                        match_level = "stripped"
-                    elif len(norm_cand) >= min_length_for_substring:
-                        match_level = "partial"
-
-            if not match_level:
+        for field_name, codes in fields_codes.items():
+            field_matches = []
+            for matched_code, normalized in codes:
+                if matched_code.casefold() == candidate_text.casefold():
+                    match_level = "exact"
+                elif normalized == norm_cand:
+                    match_level = "stripped"
+                elif len(norm_cand) >= min_length_for_substring and norm_cand in normalized:
+                    match_level = "partial"
+                else:
+                    continue
+                field_matches.append((match_level, matched_code))
+            if not field_matches:
                 continue
+            match_level, matched_code = max(
+                field_matches, key=lambda match: {"exact": 3, "stripped": 2, "partial": 1}[match[0]]
+            )
 
             match = {
                 "match_type": match_type,
@@ -433,6 +396,7 @@ def score_search_results(
                 deduped_map[norm_link] = item
 
     unique_raw_results = list(deduped_map.values())
+    prepared_codes = _prepare_part_codes(unique_raw_results) if mpns or part_codes else {}
     scored_flat_results = []
 
     def _get_tokens(text: str) -> list:
@@ -452,10 +416,9 @@ def score_search_results(
             "URL": str(item.get("link", ""))
         }
 
-        # 2. Squashed version for the complex Part Code bypass
-        squashed_fields = {k: _compare.normalize_alphanum(v) for k, v in raw_fields.items()}
+        fields_codes = {name: prepared_codes.get(text, []) for name, text in raw_fields.items()}
 
-        # 3. Create the tokenized version for the short Part Codes & Context Matchers
+        # Context matching retains its existing token-based behavior.
         fields_tokens = {k: _get_tokens(v) for k, v in raw_fields.items()}
 
 
@@ -502,12 +465,11 @@ def score_search_results(
             context_score_reason = "No context terms matched"
 
         # Entity Scoring
-        mpn_score, mpn_reason, mpn_ratio, mpn_vis = _evaluate_part_code_match(mpns, fields_tokens, squashed_fields, mpn_exact_score, mpn_partial_base, "MPN")
-        pc_score, pc_reason, pc_ratio, pc_vis = _evaluate_part_code_match(part_codes, fields_tokens, squashed_fields, part_code_exact_score, part_code_partial_base, "Part Code")
-        raw_part_code_matches = (
-            _find_part_code_matches(mpns, raw_fields, "MPN")
-            + _find_part_code_matches(part_codes, raw_fields, "Codes")
-        )
+        mpn_matches = _find_part_code_matches(mpns, fields_codes, "MPN")
+        code_matches = _find_part_code_matches(part_codes, fields_codes, "Codes")
+        mpn_score, mpn_reason, mpn_ratio, mpn_vis = _evaluate_part_code_match(mpn_matches, mpn_exact_score, "MPN")
+        pc_score, pc_reason, pc_ratio, pc_vis = _evaluate_part_code_match(code_matches, part_code_exact_score, "Part Code")
+        raw_part_code_matches = mpn_matches + code_matches
         part_code_match_count = len(raw_part_code_matches)
         part_code_matches = _reduce_part_code_matches(raw_part_code_matches)
 

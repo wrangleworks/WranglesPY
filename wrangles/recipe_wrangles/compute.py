@@ -90,9 +90,10 @@ def score_search_results(
       the end, with each group sorted by descending score. Each result contains
       summary, scoring_details, pricing, metadata, reduced part_code_matches,
       and part_code_match_count before evidence reduction. Numeric part-match
-      categories use broad normalized containment and can differ from the exact,
+      categories use normalized containment within extracted codes and can differ from the exact,
       stripped, and partial diagnostic evidence levels. Does not search again or
-      visit result pages. See docs/search_result_scoring.md for the full contract.
+      visit result pages. Extracting codes requires a WrangleWorks account and API
+      access. See docs/search_result_scoring.md for the full contract.
     additionalProperties: false
     required:
       - input
@@ -137,7 +138,7 @@ def score_search_results(
         default: true
         description: >-
           Allow the mpn_exact scoring category. Containment of an MPN with at
-          least four normalized characters can receive this category even when its
+          least four normalized characters within an extracted code can receive this category even when its
           diagnostic evidence is partial. Does not change scores or evidence.
       allow_mpn_partial:
         type: boolean

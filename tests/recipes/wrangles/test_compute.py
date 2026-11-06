@@ -331,6 +331,150 @@ class TestScoreSearchResults:
               name: tests/temp/pra_score_test_data.json
         """)
 
+    @pytest.fixture(autouse=True)
+    def mock_code_extraction(self, monkeypatch):
+        codes = [
+            "085-196-225 M100", "085-196-225 M10", "085-196-225",
+            "NATV6-X-PP-A", "NATV6-PP-A", "LBBR 14-2LS", "LBBR-14-2LS",
+            "AB-123", "AB123X", "AB123", "ZX900", "6202-2RS",
+        ]
+
+        def extract(texts, *args, **kwargs):
+            results = []
+            for text in texts:
+                found = []
+                remaining = text.casefold()
+                for code in codes:
+                    if code.casefold() in remaining:
+                        start = remaining.index(code.casefold())
+                        found.append(text[start:start + len(code)])
+                        remaining = remaining[:start] + " " * len(code) + remaining[start + len(code):]
+                results.append(found)
+            return results
+
+        monkeypatch.setattr(wrangles.extract, "codes", extract)
+
+    @pytest.mark.parametrize("candidate_column", ["mpns", "part_codes"])
+    def test_prose_is_not_code_evidence(self, candidate_column, monkeypatch):
+        monkeypatch.setattr(wrangles.extract, "codes", lambda texts, *args, **kwargs: [[] for _ in texts])
+        payloads = [{"search_results": [{
+            "title": "Brand blank replacement", "snippet": "blank",
+            "link": "https://brand.com/products/blank",
+        }]}]
+        result = compute.score_search_results(
+            payloads, suppliers=["Brand"], **{candidate_column: ["blank"]}
+        )[0]
+        assert result["summary"]["part_code_found"] == "none"
+        assert result["summary"]["filtered"] is True
+        assert result["part_code_matches"] == []
+        assert result["part_code_match_count"] == 0
+        assert result["scoring_details"]["part_match_score"] == 0
+        assert result["summary"]["brand_found"] is True
+        assert "blank" in result["summary"]["matches"]
+
+    @pytest.mark.parametrize("field,original,input_code,level", [
+        ("title", "AB-123", "AB-123", "exact"),
+        ("snippet", "AB-123", "ab123", "stripped"),
+        ("link", "AB-123X", "AB-123", "partial"),
+        ("title", "Üß-123", "uss123", "stripped"),
+    ])
+    @pytest.mark.parametrize("candidate_column,match_type,category", [
+        ("mpns", "MPN", "mpn_exact"),
+        ("part_codes", "Codes", "other_code_exact"),
+    ])
+    def test_extracted_evidence_controls_scores(self, field, original, input_code, level,
+                                               candidate_column, match_type, category, monkeypatch):
+        item = {"title": "Unrelated", "snippet": "", "link": "https://example.com/product"}
+        item[field] = f"https://example.com/{original}" if field == "link" else f"Result {original}"
+        monkeypatch.setattr(
+            wrangles.extract, "codes",
+            lambda texts, *args, **kwargs: [[original] if original in text else [] for text in texts],
+        )
+        result = compute.score_search_results(
+            [{"search_results": [item]}], **{candidate_column: [input_code]}
+        )[0]
+        assert result["summary"]["part_code_found"] == category
+        assert result["summary"]["filtered"] is False
+        assert result["part_code_match_count"] == 1
+        assert result["part_code_matches"] == [{
+            "match_type": match_type, "match_level": level,
+            "match_source": "url" if field == "link" else field,
+            "matched_code": original, "input_code": input_code,
+        }]
+
+    def test_extraction_batches_unique_fields_and_retains_field_provenance(self, monkeypatch):
+        calls = []
+
+        def extract(texts, *args, **kwargs):
+            calls.append(texts)
+            return [["AB-123", "AB-123"] if text == "AB-123" else [] for text in texts]
+
+        monkeypatch.setattr(wrangles.extract, "codes", extract)
+        payloads = [{"search_results": [
+            {"title": "AB-123", "snippet": "AB-123", "link": "https://one.com/item"},
+            {"title": "AB-123", "snippet": "AB-123", "link": "https://two.com/item"},
+            {"title": "discarded", "link": "https://one.com/item"},
+        ]}]
+        results = compute.score_search_results(payloads, part_codes=["AB123"])
+        assert len(calls) == 1
+        assert calls[0].count("AB-123") == 1
+        assert "discarded" not in calls[0]
+        assert len(results) == 2
+        assert all(result["part_code_match_count"] == 2 for result in results)
+        assert all(result["part_code_matches"][0]["match_source"] == "title" for result in results)
+
+    def test_extraction_error_propagates(self, monkeypatch):
+        def fail(*args, **kwargs):
+            raise RuntimeError("extraction unavailable")
+
+        monkeypatch.setattr(wrangles.extract, "codes", fail)
+        with pytest.raises(RuntimeError, match="extraction unavailable"):
+            compute.score_search_results(
+                [{"search_results": [{"title": "AB123", "link": "https://example.com/item"}]}],
+                mpns=["AB123"],
+            )
+
+    def test_separate_extracted_codes_cannot_form_one_match(self, monkeypatch):
+        monkeypatch.setattr(
+            wrangles.extract, "codes",
+            lambda texts, *args, **kwargs: [["AB12", "CD34"] if text == "AB12 CD34" else [] for text in texts],
+        )
+        result = compute.score_search_results(
+            [{"search_results": [{"title": "AB12 CD34", "link": "https://example.com/item"}]}],
+            mpns=["AB12CD34"],
+        )[0]
+        assert result["summary"]["part_code_found"] == "none"
+        assert result["part_code_match_count"] == 0
+        assert result["scoring_details"]["part_match_score"] == 0
+
+    def test_no_candidates_skips_extraction(self, monkeypatch):
+        def fail(*args, **kwargs):
+            pytest.fail("Extraction is unnecessary without candidates")
+
+        monkeypatch.setattr(wrangles.extract, "codes", fail)
+        result = compute.score_search_results(
+            [{"search_results": [{"title": "Brand blank", "link": "https://brand.com/item"}]}],
+            suppliers=["Brand"], must_match_part_code=False,
+        )[0]
+        assert result["summary"]["brand_found"] is True
+        assert result["part_code_match_count"] == 0
+
+    def test_recipe_filter_uses_extracted_evidence(self, monkeypatch):
+        monkeypatch.setattr(wrangles.extract, "codes", lambda texts, *args, **kwargs: [[] for _ in texts])
+        result = wrangles.recipe._recipe_wrangles.compute.score_search_results(
+            pd.DataFrame([{
+                "results": [{"search_results": [{"title": "blank", "snippet": "", "link": "https://example.com/blank"}]}],
+                "suppliers": [], "codes": ["blank"],
+            }]),
+            input=["results", "suppliers", "codes"], output=["scored", "formatted"],
+        ).iloc[0]
+        scored = result["scored"][0]
+        assert scored["summary"]["part_match_type"] == "none"
+        assert scored["summary"]["part_code_found"] is False
+        assert scored["summary"]["filtered"] is True
+        assert scored["part_code_matches"] == []
+        assert len(result["formatted"]) == 1
+
     def test_search_score(self):
         """
         Test score_search_results
@@ -535,17 +679,17 @@ class TestScoreSearchResults:
             "input_code": "085-196-225",
         }]
 
-    @pytest.mark.parametrize("input_code,source_text,expected_level", [
-        ("085-196-225 M10", "085-196-225 M100", "partial"),
-        ("ABCD", "XYZAB CD1", "partial"),
-        ("ABC", "ABC.", "exact"),
-        ("ABC", "LMABC123", None),
+    @pytest.mark.parametrize("input_code,source_codes,expected_level", [
+        ("085-196-225 M10", ["085-196-225 M100"], "partial"),
+        ("ABCD", ["XYZAB", "CD1"], None),
+        ("ABC", ["ABC"], "exact"),
+        ("ABC", ["LMABC123"], None),
     ])
     def test_part_code_match_fallback_respects_complete_code_boundaries(
-        self, input_code, source_text, expected_level
+        self, input_code, source_codes, expected_level
     ):
         matches = compute._find_part_code_matches(
-            [input_code], {"Snippet": source_text}, "Codes"
+            [input_code], {"Snippet": [(code, compute._compare.normalize_alphanum(code)) for code in source_codes]}, "Codes"
         )
 
         if expected_level is None:
@@ -553,10 +697,7 @@ class TestScoreSearchResults:
         else:
             assert len(matches) == 1
             assert matches[0]["match_level"] == expected_level
-            assert matches[0]["matched_code"] == (
-                source_text.rstrip(".") if expected_level == "exact"
-                else source_text
-            )
+            assert matches[0]["matched_code"] == source_codes[0]
 
     def test_part_code_matches_keep_only_one_best_mpn(self):
         payloads = [{
@@ -584,7 +725,7 @@ class TestScoreSearchResults:
 
     def test_sentence_punctuation_does_not_hide_stronger_exact_evidence(self):
         matches = compute._find_part_code_matches(
-            ["AB-123"], {"Snippet": "AB-123. Alternative AB123"}, "Codes"
+            ["AB-123"], {"Snippet": [("AB-123", "ab123"), ("AB123", "ab123")]}, "Codes"
         )
 
         assert matches[0]["match_level"] == "exact"
@@ -725,7 +866,7 @@ class TestScoreSearchResults:
         assert isinstance(result.iloc[0]["scored_results"][0]["part_code_match_count"], int)
 
     @pytest.mark.parametrize("must_match_part_code", [True, False])
-    def test_part_code_evidence_does_not_change_scoring_or_filtering(
+    def test_part_code_evidence_controls_scoring_and_filtering(
         self, monkeypatch, must_match_part_code
     ):
         payloads = [{
@@ -755,13 +896,8 @@ class TestScoreSearchResults:
         monkeypatch.setattr(compute, "_find_part_code_matches", lambda *args: [])
         without_evidence = compute.score_search_results(payloads, **kwargs)
 
-        def without_diagnostics(results):
-            return [{
-                key: value for key, value in result.items()
-                if key not in {"part_code_matches", "part_code_match_count"}
-            } for result in results]
-
-        assert without_diagnostics(with_evidence) == without_diagnostics(without_evidence)
+        assert all(result["scoring_details"]["part_match_score"] == 0 for result in without_evidence)
+        assert all(result["summary"]["filtered"] == must_match_part_code for result in without_evidence)
 
     def test_scoring_schema_documents_every_argument_and_default(self):
         function = wrangles.recipe._recipe_wrangles.compute.score_search_results
