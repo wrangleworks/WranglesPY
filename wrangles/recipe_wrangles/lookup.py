@@ -98,7 +98,7 @@ def semantic(
 ) -> _pd.DataFrame:
     """
     type: object
-    catalog_id: "102"
+    catalog_id: "81"
     status: active
     description: >-
       Look up values using a saved semantic lookup model. Requires a WrangleWorks
