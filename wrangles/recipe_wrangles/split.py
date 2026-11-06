@@ -100,7 +100,7 @@ def dictionary(
             except:
                 pass
         raise ValueError(f'{val} is not a valid Dictionary') from None
-        
+
 
     # Validate defaults separately so invalid configuration cannot use fallback.
     default = dict(_parse_dict_or_json(default))
@@ -166,7 +166,7 @@ def dictionary(
 
     return df
 
-    
+
 def list(df: _pd.DataFrame, input: _Union[str, int], output: _Union[str, _list]) -> _pd.DataFrame:
     """
     type: object
@@ -267,7 +267,7 @@ def text(
           Choose whether to pad to ensure a consistent length.
           Default true if outputting to columns, false for lists.
       element:
-        type: 
+        type:
           - integer
           - string
         description: >-
@@ -329,7 +329,7 @@ def text(
     else:
         # Direct assignment for single column
         df[output] = results
-        
+
     return df
 
 
@@ -358,7 +358,7 @@ def tokenize(
           - array
         description: Column(s) to be split into tokens
       output:
-        type: 
+        type:
           - string
           - array
         description: Name of the output column
@@ -383,7 +383,7 @@ def tokenize(
     """
     if functions is None: functions = {}
     if output is None: output = input
-    
+
     # Ensure input and outputs are lists
     if not isinstance(input, _list): input = [input]
     if not isinstance(output, _list): output = [output]
@@ -393,7 +393,7 @@ def tokenize(
         raise ValueError('The list of inputs and outputs must be the same length for split.tokenize')
 
     _logging.debug(f": Tokenizing :: input :: {input}")
-    
+
     func = None
     pattern = None
 
@@ -414,5 +414,5 @@ def tokenize(
 
     for in_col, out_col in zip(input, output):
         df[out_col] = _format.tokenize(df[in_col].values.tolist(), method, func, pattern)
-            
+
     return df
