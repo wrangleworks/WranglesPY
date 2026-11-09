@@ -415,9 +415,10 @@ def test_out_of_order_provider_completion_preserves_row_order(monkeypatch):
 
 @pytest.mark.parametrize("output_format,mime_type", [("json", "application/json"), ("markdown", "text/plain")])
 def test_row_prompts_and_options_reach_real_google_sdk_without_network(monkeypatch, output_format, mime_type):
-    import httpx
     from google import genai
     from google.genai import _api_client, errors, types
+
+    httpx = getattr(_api_client, "httpx2", None) or _api_client.httpx
 
     requests = []
     client_options = []

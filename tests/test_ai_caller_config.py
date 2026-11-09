@@ -709,10 +709,11 @@ def test_google_explicit_unlisted_model_does_not_require_model_defaults(google_t
 @pytest.mark.parametrize("custom_endpoint", [False, True])
 def test_google_sdk_builds_configured_request_url(configured_ai, monkeypatch, model, custom_endpoint):
     """Exercise the installed SDK's URL construction without sending a request."""
-    import httpx
     from google import genai
     from google.genai import errors, types
     from google.genai import _api_client
+
+    httpx = getattr(_api_client, "httpx2", None) or _api_client.httpx
 
     config, save = configured_ai
     base_url = "https://proxy.example/google" if custom_endpoint else "https://generativelanguage.googleapis.com"
@@ -824,8 +825,9 @@ def test_google_kwargs_cannot_override_retrieval_controls(configured_ai, google_
     assert google_transport["clients"] == []
 
 
-def test_google_http_timeout_has_useful_row_error(configured_ai, google_transport):
-    import httpx
+@pytest.mark.parametrize("http_module", ["httpx", "httpx2"])
+def test_google_http_timeout_has_useful_row_error(configured_ai, google_transport, http_module):
+    httpx = pytest.importorskip(http_module)
 
     async def timeout(**request):
         raise httpx.ReadTimeout("")
@@ -838,9 +840,10 @@ def test_google_http_timeout_has_useful_row_error(configured_ai, google_transpor
 
 
 def test_google_deadline_includes_sdk_retry_backoff(configured_ai, monkeypatch):
-    import httpx
     from google import genai
     from google.genai import _api_client, errors, types
+
+    httpx = getattr(_api_client, "httpx2", None) or _api_client.httpx
 
     requests_sent = []
     clients = []
