@@ -358,7 +358,9 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
         
         # If the column is in the cols changed then convert values to strings
         if cols in cols_changed:
-            df[cols] = df[cols].astype(str)
+            # Python stringification retains the None/boolean markers used
+            # below; pandas 3 astype(str) preserves missing values instead.
+            df[cols] = df[cols].map(str)
     
     output_list = []
     column_headers = df[input].columns

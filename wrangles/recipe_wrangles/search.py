@@ -397,11 +397,13 @@ def retrieve_link_content(
         raise ValueError("search.retrieve_link_content must have an equal number of input and output columns, OR exactly one input and two outputs (e.g., output: [page_data, page_text]).")
 
     def _extract_url(v) -> str:
-        if not v: return ""
         if isinstance(v, dict):
             if "summary" in v and isinstance(v["summary"], dict):
-                return v["summary"].get("link", "")
-            return v.get("link", v.get("url", ""))
+                return _extract_url(v["summary"].get("link", ""))
+            return _extract_url(v.get("link", v.get("url", "")))
+        if _pd.api.types.is_scalar(v) and _pd.isna(v):
+            return ""
+        if not v: return ""
         return str(v).strip()
 
     def _to_url_list(v) -> list[str]:

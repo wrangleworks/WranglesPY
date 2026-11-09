@@ -191,7 +191,8 @@ def test_url_lists_dictionaries_blanks_and_dual_outputs_remain_aligned(retrieval
     first, second, third = [f"https://product.example/{number}" for number in (1, 2, 3)]
     result = _run(pd.DataFrame({
         "URL": [
-            [None, "", {"summary": {"link": first}}, {"url": second}],
+            [None, float("nan"), pd.NA, "", {"summary": {"link": pd.NA}},
+             {"url": float("nan")}, {"summary": {"link": first}}, {"url": second}],
             None,
             ({"link": third}, "  "),
             "",

@@ -1892,7 +1892,10 @@ class TestStructureSplitAliases:
             # Recipes normalize the original null cell after the transform.
             expected.at[1, "source"] = ""
         for column, values in outputs.items():
-            expected[column] = pd.Series(values, dtype=object)
+            # Pure text follows pandas' default string dtype; mixed/list and
+            # numeric outputs retain the legacy object-column contract.
+            dtype = 'str' if all(isinstance(value, str) for value in values) else object
+            expected[column] = pd.Series(values, dtype=dtype)
         return f"split.{request.param}", alias, frame, options, expected
 
     def _run(self, operation, frame, options, **kwargs):
