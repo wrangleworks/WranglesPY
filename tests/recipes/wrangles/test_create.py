@@ -159,12 +159,13 @@ class TestCreateColumn:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert list(df['col']) == ['replaced', 'replaced']
 
-    def test_column_exists_value_if_exists_coalesce(self):
+    @pytest.mark.parametrize('dtype', [None, object, 'string'])
+    def test_column_exists_value_if_exists_coalesce(self, dtype):
         """
         value_if_exists: coalesce fills only null/empty cells, leaving non-null
         cells intact.
         """
-        data = pd.DataFrame({'col': ['keep', None, '']})
+        data = pd.DataFrame({'col': pd.Series(['keep', None, ''], dtype=dtype)})
         recipe = """
         wrangles:
         - create.column:
@@ -209,20 +210,19 @@ class TestCreateColumn:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert list(df['col']) == ['new_value', 'new_value']
 
-    def test_column_exists_coalesce_value_new_fallback(self):
+    @pytest.mark.parametrize('value', [None, ''])
+    def test_column_exists_coalesce_value_new_fallback(self, value):
         """
         coalesce_value: new falls back to the existing value when the new
         value is empty/null.
         """
         data = pd.DataFrame({'col': ['keep1', 'keep2']})
-        recipe = """
-        wrangles:
-        - create.column:
-            output: col
-            value:
-            value_if_exists: coalesce
-            coalesce_value: new
-        """
+        recipe = {'wrangles': [{'create.column': {
+            'output': 'col',
+            'value': value,
+            'value_if_exists': 'coalesce',
+            'coalesce_value': 'new',
+        }}]}
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert list(df['col']) == ['keep1', 'keep2']
 
