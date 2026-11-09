@@ -49,6 +49,14 @@ dictionary-valued cells readable; the input columns remain in the result.
 The numbers illustrate the output format and are not results from a live run.
 Probabilities and confidence values use `0`–`1`, not percentages.
 
+Returned scores, confidence values, and probabilities are rounded to two decimal
+places for every provider, including probabilities inside dictionaries and
+`for_each` answers. Values remain numeric; trailing zeros depend on the display
+format. Rounding applies after response validation and does not change input
+values, criterion descriptions, or the raw response held in the cache. Each
+probability is rounded independently, so displayed distributions can sum to
+slightly more or less than one; they are not renormalized after rounding.
+
 The first three examples use Typesafe; the `ai.decisions` example uses Microsoft
 through OpenRouter. Set the corresponding `TYPESAFE_API_KEY` or
 `OPENROUTER_API_KEY` environment variable locally, or supply the managed secret

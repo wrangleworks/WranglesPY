@@ -268,24 +268,26 @@ def _project_answers(response, plan):
 
 
 def _answers(response, prepared):
+    """Project validated provider metrics at two-decimal output precision."""
     result = {}
     for label, question in prepared.items():
         answer = response["answers"][label]
         kind = question["type"]
         if kind == "true_false":
             result[label] = {
-                "probability_true": answer["noul"],
+                "probability_true": round(answer["noul"], 2),
                 "true_criteria": _copy.deepcopy(question.get("criteria", {}).get("true", "")),
             }
         else:
             value_field = _FIELDS[kind][0]
             probabilities = answer["probabilities"]
             if kind == "score":
-                probabilities = {description: probabilities[str(index)]
+                probabilities = {description: round(probabilities[str(index)], 2)
                                  for index, description in enumerate(question["criteria"])}
             else:
-                probabilities = {option: probabilities[option] for option in question["criteria"]}
-            result[label] = {value_field: answer[value_field], "confidence": answer["confidence"],
+                probabilities = {option: round(probabilities[option], 2) for option in question["criteria"]}
+            value = round(answer[value_field], 2) if kind == "score" else answer[value_field]
+            result[label] = {value_field: value, "confidence": round(answer["confidence"], 2),
                              "probabilities": probabilities}
     return result
 
