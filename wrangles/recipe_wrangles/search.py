@@ -115,11 +115,15 @@ def find_links(
         raise ValueError("search.find_links must have an equal number of query and output columns, OR 1 query column and 2 output columns [dicts, strings].")
 
     def _to_query_list(v) -> list[str]:
-        if v is None: return []
-        if isinstance(v, (list, tuple)):
-            return [str(x).strip() for x in v if x is not None and str(x).strip()]
-        s = str(v).strip()
-        return [s] if s else []
+        values = v if isinstance(v, (list, tuple)) else [v]
+        queries = []
+        for value in values:
+            if _pd.api.types.is_scalar(value) and _pd.isna(value):
+                continue
+            query = str(value).strip()
+            if query:
+                queries.append(query)
+        return queries
 
     row_ids = df[id].tolist() if id in df.columns else [None] * len(df)
 

@@ -265,6 +265,64 @@ def test_classic_find_links_returns_available_results_up_to_limit(ai_mode_provid
     assert ai_mode_provider[1][0]["num"] == 7
 
 
+@pytest.mark.parametrize("dtype", [None, object, "string"])
+def test_classic_find_links_skips_missing_scalar_queries(ai_mode_provider, dtype):
+    ai_mode_provider[0]["classic"] = {
+        "search_metadata": {"status": "Success"},
+        "organic_results": [{"title": "Part", "link": "https://example.invalid/part"}],
+    }
+    data = pd.DataFrame({
+        "query": pd.Series(["", "classic", None, float("nan"), pd.NA], dtype=dtype),
+        "ID": [1, 2, 3, 4, 5],
+    })
+    result = wrangles.recipe.run({"wrangles": [{"search.find_links": {
+        "queries": "query", "id": "ID", "output": ["result", "text"], "threads": 1,
+    }}]}, dataframe=data)
+
+    assert [len(cell) for cell in result["result"]] == [0, 1, 0, 0, 0]
+    assert result["text"].iloc[[0, 2, 3, 4]].tolist() == [""] * 4
+    assert result["result"].iloc[1][0]["search_results"][0]["input_row_id"] == 2
+    assert [call["q"] for call in ai_mode_provider[1]] == ["classic"]
+
+
+@pytest.mark.parametrize("container", [list, tuple])
+def test_classic_find_links_filters_missing_values_in_query_lists(ai_mode_provider, container):
+    for query in ("classic", "nanoparts", "0"):
+        ai_mode_provider[0][query] = {
+            "search_metadata": {"status": "Success"},
+            "organic_results": [{"title": "Part", "link": "https://example.invalid/part"}],
+        }
+    missing = [None, float("nan"), pd.NA, pd.NaT, "", "  "]
+    data = pd.DataFrame({
+        "query": [container(missing + [" classic ", "nanoparts", 0]), container(missing)],
+        "ID": [9, 10],
+    })
+    result = wrangles.recipe.run({"wrangles": [{"search.find_links": {
+        "queries": "query", "id": "ID", "output": ["result", "text"], "threads": 1,
+    }}]}, dataframe=data)
+
+    assert [item["search_metadata"]["query"] for item in result["result"].iloc[0]] == ["classic", "nanoparts", "0"]
+    assert [item["search_metadata"]["query_index"] for item in result["result"].iloc[0]] == [1, 2, 3]
+    assert result["result"].iloc[1] == []
+    assert result["text"].iloc[1] == ""
+    assert [call["q"] for call in ai_mode_provider[1]] == ["classic", "nanoparts", "0"]
+
+
+def test_classic_find_links_all_missing_queries_skip_provider(ai_mode_provider, monkeypatch):
+    monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
+    data = pd.DataFrame({
+        "query": pd.Series([None, float("nan"), pd.NA, ""], dtype="string"),
+        "ID": [1, 2, 3, 4],
+    })
+    result = wrangles.recipe.run({"wrangles": [{"search.find_links": {
+        "queries": "query", "id": "ID", "output": ["result", "text"],
+    }}]}, dataframe=data)
+
+    assert result["result"].tolist() == [[], [], [], []]
+    assert result["text"].tolist() == [""] * 4
+    assert ai_mode_provider[1] == []
+
+
 def test_find_links_locale_conflict_is_unchanged():
     data = pd.DataFrame({"query": ["classic"], "ID": [1]})
     with pytest.raises(ValueError, match="google_domain cannot be combined"):
