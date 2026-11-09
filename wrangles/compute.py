@@ -54,8 +54,12 @@ def _prepare_part_codes(results: list) -> dict:
     prepared = recipe.run(
         """
         wrangles:
-          - extract.codes:
+          - convert.case:
               input: text
+              output: uppercase
+              case: upper
+          - extract.codes:
+              input: uppercase
               output: original
           - explode:
               input: original
@@ -93,7 +97,18 @@ def _prepare_part_codes(results: list) -> dict:
     fields = {text: [] for text in texts}
     for text, normalized, variants in prepared[["text", "normalized", "variants"]].itertuples(index=False, name=None):
         if normalized:
-            code = (variants[0], variants[-1])
+            extracted_code = variants[0]
+            source_position = text.casefold().find(extracted_code.casefold())
+            source_match = (
+                text[source_position:source_position + len(extracted_code)]
+                if source_position >= 0 else ""
+            )
+            source_code = (
+                source_match
+                if source_match.casefold() == extracted_code.casefold()
+                else extracted_code
+            )
+            code = (source_code, variants[-1])
             if code not in fields[text]:
                 fields[text].append(code)
     return fields

@@ -388,7 +388,10 @@ class TestScoreSearchResults:
         item[field] = f"https://example.com/{original}" if field == "link" else f"Result {original}"
         monkeypatch.setattr(
             wrangles.extract, "codes",
-            lambda texts, *args, **kwargs: [[original] if original in text else [] for text in texts],
+            lambda texts, *args, **kwargs: [
+                [original] if original.casefold() in text.casefold() else []
+                for text in texts
+            ],
         )
         result = compute.score_search_results(
             [{"search_results": [item]}], **{candidate_column: [input_code]}
@@ -968,3 +971,73 @@ class TestScoreSearchResults:
             else:
                 assert scored[field] == expected
         assert result.iloc[0]["Score Summary"][0] == expected_summary
+
+
+@pytest.mark.skipif(
+    not (wrangles.config.api_user and wrangles.config.api_password),
+    reason="Requires WRANGLES_USER and WRANGLES_PASSWORD for extract.codes API",
+)
+class TestScoreSearchResultsLiveExtraction:
+    """Verify scorer behavior with the live WrangleWorks code extractor."""
+
+    @pytest.mark.parametrize(
+        "url,matched_code",
+        [
+            (
+                "https://www.familyhardware.com/product/stanley-tradecut-15-in-blade-9-ppi-bi-material-hand-saw-stht20348/386294",
+                "stht20348",
+            ),
+            (
+                "https://WWW.FAMILYHARDWARE.COM/PRODUCT/STANLEY-TRADECUT-15-IN-BLADE-9-PPI-BI-MATERIAL-HAND-SAW-STHT20348/386294",
+                "STHT20348",
+            ),
+        ],
+        ids=["lowercase-url", "uppercase-url"],
+    )
+    def test_extracts_mpn_from_lowercase_and_uppercase_product_urls(self, url, matched_code):
+        """Match a saw MPN in either URL casing without altering result fields."""
+        title = "Stanley Tradecut hand saw, 15-in, 9 PPI"
+        snippet = "Bi-material handle for comfortable cutting."
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": title,
+                "snippet": snippet,
+                "link": url,
+                "google_rank": 1,
+            }],
+        }]
+
+        result = compute.score_search_results(payloads, mpns=["STHT20348"])[0]
+
+        assert result["summary"]["part_code_found"] == "mpn_exact"
+        assert result["summary"]["filtered"] is False
+        assert result["summary"]["link"] == url
+        assert result["summary"]["title"] == title
+        assert result["summary"]["snippet"] == snippet
+        assert result["part_code_matches"] == [{
+            "match_type": "MPN",
+            "match_level": "exact",
+            "match_source": "url",
+            "matched_code": matched_code,
+            "input_code": "STHT20348",
+        }]
+
+    def test_does_not_match_blank_in_product_prose(self):
+        """Do not treat ordinary prose mentioning blank as a part-code match."""
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "Product details",
+                "snippet": "The product information is blank while the listing is updated.",
+                "link": "https://example.com/products/blank",
+                "google_rank": 1,
+            }],
+        }]
+
+        result = compute.score_search_results(payloads, part_codes=["blank"])[0]
+
+        assert result["summary"]["part_code_found"] == "none"
+        assert result["summary"]["filtered"] is True
+        assert result["part_code_matches"] == []
+        assert result["part_code_match_count"] == 0

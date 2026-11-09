@@ -13,7 +13,10 @@ When MPNs or part codes are supplied, the scorer uses `extract.codes` on the
 retained titles, snippets, and URLs. This requires a WrangleWorks account and
 access to its extraction API. Distinct fields are prepared in a batch per scorer
 call; extraction errors propagate rather than falling back to text matching.
-Empty extraction results provide no part-code evidence.
+Uppercase working copies are sent to extraction; the original payload fields
+remain unchanged, and matched code spelling is taken from the original field
+when it can be found case-insensitively. Empty extraction results provide no
+part-code evidence.
 
 Three kinds of information describe different aspects of a result:
 
