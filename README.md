@@ -9,6 +9,11 @@ Wrangles supports Python 3.11, 3.12, 3.13, and 3.14. Pull requests targeting
 3.13, and 3.14 on Ubuntu and Windows. Tagged releases run tests on Python 3.13
 and 3.14 on Ubuntu and macOS, plus package-install checks on Ubuntu.
 
+Wrangles supports pandas 2.3 and 3.0 (`pandas>=2.3,<3.1`). A credential-free
+CI job tests pandas 2.3.3 and 3.0.0 on Python 3.13. The CI test image pins
+pandas 3.0.0 and NumPy 2.4.6. Pandas versions below 2.3 and the 3.1 series
+are outside the validated compatibility range.
+
 ## Local development
 
 The standard local development environment uses Python 3.13. On Windows,
