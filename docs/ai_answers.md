@@ -49,13 +49,38 @@ dictionary-valued cells readable; the input columns remain in the result.
 The numbers illustrate the output format and are not results from a live run.
 Probabilities and confidence values use `0`–`1`, not percentages.
 
-Returned scores, confidence values, and probabilities are rounded to two decimal
+Returned scores, confidence values, and probabilities default to two decimal
 places for every provider, including probabilities inside dictionaries and
-`for_each` answers. Values remain numeric; trailing zeros depend on the display
+`for_each` answers. Set `decimals` on any decision wrangle to override the
+precision with a non-negative integer: `0` for whole numbers, `4` for four
+decimal places. The same keyword is available in Python calls and DataFrame
+accessors. Values remain numeric; trailing zeros depend on the display
 format. Rounding applies after response validation and does not change input
 values, criterion descriptions, or the raw response held in the cache. Each
-probability is rounded independently, so displayed distributions can sum to
-slightly more or less than one; they are not renormalized after rounding.
+probability is rounded independently, so displayed distributions need not sum
+to one; they are not renormalized after rounding.
+
+```yaml
+wrangles:
+  - ai.score:
+      input: Message
+      provider: openrouter
+      api_key: ${OPENROUTER_API_KEY}
+      decimals: 4  # Omit for the default of 2; applies to all metrics in this step.
+      questions:
+        severity:
+          instructions: How much does this issue prevent work?
+          criteria:
+            - Work is unaffected.
+            - Work is affected but can continue.
+            - Work cannot continue.
+```
+
+Precision affects output projection only: it is not sent to the provider and
+does not change cache identity. A cached raw response can be returned at
+different precisions without another provider request. Invalid precision values
+(including negative numbers, Booleans, fractional numbers, strings, and `null`)
+raise an error before a provider call.
 
 The first three examples use Typesafe; the `ai.decisions` example uses Microsoft
 through OpenRouter. Set the corresponding `TYPESAFE_API_KEY` or

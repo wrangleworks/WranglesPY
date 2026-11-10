@@ -249,8 +249,8 @@ def _row_plan(state, context, prepared):
     return {"state": state, "prepared": rendered, "wire": _wire_questions(rendered), "groups": groups}
 
 
-def _project_answers(response, plan):
-    answers = _answers(response, plan["prepared"])
+def _project_answers(response, plan, decimals=2):
+    answers = _answers(response, plan["prepared"], decimals)
     result = {}
     for label, group in plan["groups"].items():
         if group is None:
@@ -267,27 +267,27 @@ def _project_answers(response, plan):
     return result
 
 
-def _answers(response, prepared):
-    """Project validated provider metrics at two-decimal output precision."""
+def _answers(response, prepared, decimals=2):
+    """Project validated provider metrics at the requested output precision."""
     result = {}
     for label, question in prepared.items():
         answer = response["answers"][label]
         kind = question["type"]
         if kind == "true_false":
             result[label] = {
-                "probability_true": round(answer["noul"], 2),
+                "probability_true": round(answer["noul"], decimals),
                 "true_criteria": _copy.deepcopy(question.get("criteria", {}).get("true", "")),
             }
         else:
             value_field = _FIELDS[kind][0]
             probabilities = answer["probabilities"]
             if kind == "score":
-                probabilities = {description: round(probabilities[str(index)], 2)
+                probabilities = {description: round(probabilities[str(index)], decimals)
                                  for index, description in enumerate(question["criteria"])}
             else:
-                probabilities = {option: round(probabilities[option], 2) for option in question["criteria"]}
-            value = round(answer[value_field], 2) if kind == "score" else answer[value_field]
-            result[label] = {value_field: value, "confidence": round(answer["confidence"], 2),
+                probabilities = {option: round(probabilities[option], decimals) for option in question["criteria"]}
+            value = round(answer[value_field], decimals) if kind == "score" else answer[value_field]
+            result[label] = {value_field: value, "confidence": round(answer["confidence"], decimals),
                              "probabilities": probabilities}
     return result
 
@@ -302,8 +302,14 @@ def _positive_number(value, name):
     return value
 
 
+def _validate_decimals(decimals):
+    if type(decimals) is not int or decimals < 0:
+        raise ValueError("decimals must be a non-negative integer.")
+
+
 def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
-         timeout, retries, cache, cache_ttl, contexts=None):
+         timeout, retries, cache, cache_ttl, contexts=None, decimals=2):
+    _validate_decimals(decimals)
     prepared = _prepare_questions(questions, kind)
     rows = data if isinstance(data, list) else [data]
     for row in rows:
@@ -321,7 +327,7 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
         return []
     pending = [plan for plan in plans if plan["wire"]]
     if not pending:
-        results = [_project_answers({"answers": {}}, plan) for plan in plans]
+        results = [_project_answers({"answers": {}}, plan, decimals) for plan in plans]
         return results if isinstance(data, list) else results[0]
 
     # Keep the established role and cache namespace for both composite names,
@@ -378,13 +384,13 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
     responses = _cache.execute_batch(pending, key_for=key_for, compute=compute, cacheable=lambda result: True,
                                     max_workers=workers, policy=policy, preflight_first=True)
     responses = iter(responses)
-    results = [_project_answers(next(responses) if plan["wire"] else {"answers": {}}, plan)
+    results = [_project_answers(next(responses) if plan["wire"] else {"answers": {}}, plan, decimals)
                for plan in plans]
     return results if isinstance(data, list) else results[0]
 
 
 def choose(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
-           threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
+           threads=None, timeout=None, retries=None, cache=None, cache_ttl=None, decimals=2):
     """Answer which option best fits; return choice, confidence, and probabilities.
 
     ``data`` is text/a record, or a list of input records. Each question supplies
@@ -401,14 +407,17 @@ def choose(data, questions, api_key=None, *, model=None, provider=None, protocol
     without generating a provider question.
     Python calls using these features must supply the referenced fields in
     their input records.
+
+    ``decimals`` sets non-negative output precision for scores, confidence, and
+    probabilities across all providers; the default is 2.
     """
     return _run(data, questions, "choose", api_key=api_key, model=model, provider=provider,
                 protocol=protocol, threads=threads, timeout=timeout, retries=retries,
-                cache=cache, cache_ttl=cache_ttl)
+                cache=cache, cache_ttl=cache_ttl, decimals=decimals)
 
 
 def score(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
-          threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
+          threads=None, timeout=None, retries=None, cache=None, cache_ttl=None, decimals=2):
     """Answer where the input falls along ordered, unique criterion descriptions.
 
     Scores retain the provider's native 0..N-1 scale. Confidence and complete
@@ -418,11 +427,11 @@ def score(data, questions, api_key=None, *, model=None, provider=None, protocol=
     """
     return _run(data, questions, "score", api_key=api_key, model=model, provider=provider,
                 protocol=protocol, threads=threads, timeout=timeout, retries=retries,
-                cache=cache, cache_ttl=cache_ttl)
+                cache=cache, cache_ttl=cache_ttl, decimals=decimals)
 
 
 def true_false(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
-               threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
+               threads=None, timeout=None, retries=None, cache=None, cache_ttl=None, decimals=2):
     """Answer how likely statements are to be true for the supplied input.
 
     Each named answer includes probability_true and the supplied true_criteria.
@@ -432,11 +441,11 @@ def true_false(data, questions, api_key=None, *, model=None, provider=None, prot
     """
     return _run(data, questions, "true_false", api_key=api_key, model=model, provider=provider,
                 protocol=protocol, threads=threads, timeout=timeout, retries=retries,
-                cache=cache, cache_ttl=cache_ttl)
+                cache=cache, cache_ttl=cache_ttl, decimals=decimals)
 
 
 def decisions(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
-              threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
+              threads=None, timeout=None, retries=None, cache=None, cache_ttl=None, decimals=2):
     """Provide structured answers to common question types about each input.
 
     Each question declares type choose, score, or true_false with its instructions
@@ -449,12 +458,12 @@ def decisions(data, questions, api_key=None, *, model=None, provider=None, proto
     """
     return _run(data, questions, None, api_key=api_key, model=model, provider=provider,
                 protocol=protocol, threads=threads, timeout=timeout, retries=retries,
-                cache=cache, cache_ttl=cache_ttl)
+                cache=cache, cache_ttl=cache_ttl, decimals=decimals)
 
 
 def answers(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
-            threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
+            threads=None, timeout=None, retries=None, cache=None, cache_ttl=None, decimals=2):
     """Compatibility alias for :func:`decisions`, with identical inputs and outputs."""
     return decisions(data, questions, api_key=api_key, model=model, provider=provider,
                      protocol=protocol, threads=threads, timeout=timeout, retries=retries,
-                     cache=cache, cache_ttl=cache_ttl)
+                     cache=cache, cache_ttl=cache_ttl, decimals=decimals)

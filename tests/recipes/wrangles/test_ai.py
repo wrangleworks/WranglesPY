@@ -262,9 +262,26 @@ def test_schema_exposes_public_parameters_and_accepts_named_questions(kind):
         definition["type"] = "choose"
     jsonschema.validate({"questions": {"Question": definition}}, schema)
     jsonschema.validate({"questions": {"Question": definition}, "provider": "openrouter"}, schema)
+    assert schema["properties"]["decimals"]["type"] == "integer"
+    assert schema["properties"]["decimals"]["minimum"] == 0
+    assert schema["properties"]["decimals"]["default"] == 2
+    for decimals in (0, 4):
+        jsonschema.validate({"questions": {"Question": definition}, "decimals": decimals}, schema)
+    for invalid in (-1, 1.5, True, "4", None):
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate({"questions": {"Question": definition}, "decimals": invalid}, schema)
     definition["output"] = ["wrong length"]
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate({"questions": {"Question": definition}}, schema)
+
+
+@pytest.mark.parametrize("method", ["choose", "score", "true_false", "decisions", "answers"])
+def test_empty_recipe_frame_rejects_invalid_decimals(method, core_calls):
+    kind = "score" if method in {"decisions", "answers"} else method
+    definitions = {"q": question(kind, type=kind)}
+    with pytest.raises(ValueError, match="decimals must be a non-negative integer"):
+        getattr(recipe_ai, method)(pd.DataFrame(), definitions, decimals=-1)
+    assert core_calls == []
 
 
 def test_declared_output_helper_preserves_ordinary_wrangle_shapes():

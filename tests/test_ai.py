@@ -161,6 +161,104 @@ def test_expanded_decision_metrics_round_without_changing_candidate_values(kind,
     assert len(precise_transport[0]) == 1
 
 
+@pytest.mark.parametrize("decimals,expected", [
+    (0, {
+        "team": {"choice": "Support", "confidence": 1.0, "probabilities": {"Support": 1.0, "Billing": 0.0}},
+        "severity": {"score": 1.0, "confidence": 1.0, "probabilities": {"Cosmetic": 0.0, "Workaround": 0.0, "Blocking": 0.0}},
+        "repeat": {"probability_true": 1.0, "true_criteria": ""},
+    }),
+    (4, {
+        "team": {"choice": "Support", "confidence": 0.8765, "probabilities": {"Support": 0.8765, "Billing": 0.1235}},
+        "severity": {"score": 1.3615, "confidence": 0.9174, "probabilities": {"Cosmetic": 0.1235, "Workaround": 0.3916, "Blocking": 0.4849}},
+        "repeat": {"probability_true": 0.9073, "true_criteria": ""},
+    }),
+])
+@pytest.mark.parametrize("method", ["choose", "score", "true_false", "decisions", "answers"])
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
+def test_configured_decimals_apply_to_all_decision_metrics(decimals, expected, method, provider, precise_transport):
+    definitions = {"team": {**CHOICE["team"], "type": "choose"},
+                   "severity": {**SCORE["severity"], "type": "score"},
+                   "repeat": {**NOUL["repeat"], "type": "true_false"}}
+    if method not in {"decisions", "answers"}:
+        definitions = {key: value for key, value in definitions.items() if value["type"] == method}
+        expected = {key: expected[key] for key in definitions}
+    result = getattr(ai, method)("state", definitions, api_key="synthetic-key", provider=provider, decimals=decimals)
+    assert result == expected
+    calls, _ = precise_transport
+    assert len(calls) == 1
+    assert "decimals" not in calls[0]
+
+
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
+@pytest.mark.parametrize("keyed", [False, True])
+def test_configured_decimals_reach_nested_answers_and_preserve_values(provider, keyed, precise_transport):
+    values = {"first": 0.123456, "blank": ""} if keyed else [0.123456, ""]
+    definitions = {"fit": {**SCORE["severity"], "for_each": {"values": "Candidates", "variable": "candidate"}}}
+    result = ai.score({"Candidates": values}, definitions, api_key="synthetic-key", provider=provider, decimals=4)
+    expected_answer = {"value": 0.123456, "score": 1.3615, "confidence": 0.9174,
+                       "probabilities": {"Cosmetic": 0.1235, "Workaround": 0.3916, "Blocking": 0.4849}}
+    assert result["fit"] == ({"first": expected_answer, "blank": {}} if keyed else [expected_answer, {}])
+
+
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
+def test_cached_response_can_be_projected_at_different_precisions(provider, precise_transport):
+    definitions = {"severity": {**SCORE["severity"], "type": "score"}}
+    options = {"api_key": "synthetic-key", "provider": provider, "cache": True}
+    first = ai.decisions("state", definitions, decimals=0, **options)
+    second = ai.answers("state", definitions, decimals=4, **options)
+    default = ai.decisions("state", definitions, **options)
+    assert first["severity"]["score"] == 1.0
+    assert second["severity"] == {"score": 1.3615, "confidence": 0.9174,
+                                   "probabilities": {"Cosmetic": 0.1235, "Workaround": 0.3916, "Blocking": 0.4849}}
+    assert default["severity"]["score"] == 1.36
+    calls, responses = precise_transport
+    assert len(calls) == 1
+    assert responses[0]["answers"]["severity"]["score"] == 1.361478
+
+
+@pytest.mark.parametrize("value", [-1, 1.5, True, False, "4", None])
+@pytest.mark.parametrize("method", ["choose", "score", "true_false", "decisions", "answers"])
+def test_invalid_decimals_fail_before_provider_calls(value, method, precise_transport):
+    kind = "score" if method in {"decisions", "answers"} else method
+    definition = {"choose": CHOICE["team"], "score": SCORE["severity"], "true_false": NOUL["repeat"]}[kind]
+    with pytest.raises(ValueError, match="decimals must be a non-negative integer"):
+        getattr(ai, method)("state", {"q": {**definition, "type": kind}}, decimals=value)
+    assert precise_transport[0] == []
+
+
+@pytest.mark.parametrize("data", [[], {"Candidates": []}])
+def test_empty_input_still_validates_decimals(data, precise_transport):
+    definition = {**SCORE["severity"], "for_each": {"values": "Candidates", "variable": "candidate"}}
+    with pytest.raises(ValueError, match="decimals must be a non-negative integer"):
+        ai.score(data, {"fit": definition}, decimals=-1)
+    assert precise_transport[0] == []
+
+
+@pytest.mark.parametrize("method", ["choose", "score", "true_false", "decisions", "answers"])
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
+def test_yaml_decimals_reach_every_decision_entry_point(method, provider, precise_transport, monkeypatch):
+    monkeypatch.setattr(recipe._auth, "get_applied_permission_group", lambda: None)
+    kind = "score" if method in {"decisions", "answers"} else method
+    definition = {"choose": CHOICE["team"], "score": SCORE["severity"], "true_false": NOUL["repeat"]}[kind]
+    definitions = {"q": {**definition, "type": kind}}
+    recipe_text = yaml.safe_dump({"wrangles": [{f"ai.{method}": {
+        "input": "Description", "questions": definitions, "provider": provider,
+        "api_key": "synthetic-key", "decimals": 4,
+    }}]})
+    result = recipe.run(recipe_text, dataframe=pd.DataFrame({"Description": ["broken"]}))
+    if kind == "score":
+        assert result["q"].tolist() == [1.3615]
+        assert result["q_confidence"].tolist() == [0.9174]
+        assert result["q_probabilities"].tolist() == [{"Cosmetic": 0.1235, "Workaround": 0.3916, "Blocking": 0.4849}]
+    elif kind == "choose":
+        assert result["q"].tolist() == ["Support"]
+        assert result["q_confidence"].tolist() == [0.8765]
+        assert result["q_probabilities"].tolist() == [{"Support": 0.8765, "Billing": 0.1235}]
+    else:
+        assert result["q"].tolist() == [0.9073]
+    assert len(precise_transport[0]) == 1
+
+
 @pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
 def test_recipe_projects_rounded_decision_metrics_to_numeric_columns(provider, precise_transport, monkeypatch):
     monkeypatch.setattr(recipe._auth, "get_applied_permission_group", lambda: None)

@@ -15,6 +15,7 @@ def _output_columns(questions, kind=None):
 
 
 def _run(df, questions, kind, input=None, **settings):
+    _ai._validate_decimals(settings.get("decimals", 2))
     prepared = _ai._prepare_questions(questions, kind=kind)
     if df.empty:
         for question in prepared.values():
@@ -41,42 +42,42 @@ def _run(df, questions, kind, input=None, **settings):
 
 def choose(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
            model=None, provider=None, protocol=None, threads=None, timeout=None,
-           retries=None, cache=None, cache_ttl=None) -> _pd.DataFrame:
+           retries=None, cache=None, cache_ttl=None, decimals=2) -> _pd.DataFrame:
     return _run(df, questions, "choose", input=input, api_key=api_key,
                 model=model, provider=provider, protocol=protocol, threads=threads,
-                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl)
+                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl, decimals=decimals)
 
 
 def score(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
           model=None, provider=None, protocol=None, threads=None, timeout=None,
-          retries=None, cache=None, cache_ttl=None) -> _pd.DataFrame:
+          retries=None, cache=None, cache_ttl=None, decimals=2) -> _pd.DataFrame:
     return _run(df, questions, "score", input=input, api_key=api_key,
                 model=model, provider=provider, protocol=protocol, threads=threads,
-                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl)
+                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl, decimals=decimals)
 
 
 def true_false(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
                model=None, provider=None, protocol=None, threads=None, timeout=None,
-               retries=None, cache=None, cache_ttl=None) -> _pd.DataFrame:
+               retries=None, cache=None, cache_ttl=None, decimals=2) -> _pd.DataFrame:
     return _run(df, questions, "true_false", input=input, api_key=api_key,
                 model=model, provider=provider, protocol=protocol, threads=threads,
-                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl)
+                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl, decimals=decimals)
 
 
 def decisions(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
               model=None, provider=None, protocol=None, threads=None, timeout=None,
-              retries=None, cache=None, cache_ttl=None) -> _pd.DataFrame:
+              retries=None, cache=None, cache_ttl=None, decimals=2) -> _pd.DataFrame:
     return _run(df, questions, None, input=input, api_key=api_key,
                 model=model, provider=provider, protocol=protocol, threads=threads,
-                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl)
+                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl, decimals=decimals)
 
 
 def answers(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
             model=None, provider=None, protocol=None, threads=None, timeout=None,
-            retries=None, cache=None, cache_ttl=None) -> _pd.DataFrame:
+            retries=None, cache=None, cache_ttl=None, decimals=2) -> _pd.DataFrame:
     return decisions(df, questions, input=input, api_key=api_key,
                      model=model, provider=provider, protocol=protocol, threads=threads,
-                     timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl)
+                     timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl, decimals=decimals)
 
 
 def _description_schema(nullable=False):
@@ -264,6 +265,8 @@ def _schema(kind):
                         "description": "Per-attempt request timeout in seconds; defaults to the AI catalog."},
             "retries": {"type": "integer", "minimum": 0,
                         "description": "Additional attempts for retryable failures; defaults to the AI catalog."},
+            "decimals": {"type": "integer", "minimum": 0, "default": 2,
+                         "description": "Decimal places for returned scores, confidence, and probabilities, including for_each answers. Defaults to 2 for every provider; affects output only."},
             "cache": {"type": "boolean", "description": "Reuse identical successful requests through the shared AI cache. Off by default for these wrangles; set true to enable."},
             "cache_ttl": {"type": "number", "exclusiveMinimum": 0,
                           "description": "Override the cache result lifetime in seconds."},
