@@ -1,9 +1,12 @@
-# AI answers
+# AI decisions
 
-`ai.choose`, `ai.score`, `ai.true_false`, and `ai.answers` provide structured
+`ai.choose`, `ai.score`, `ai.true_false`, and `ai.decisions` provide structured
 answers to common types of questions about each input record, including
-probabilities and confidence where supported. They use
-[Typesafe](https://docs.typesafe.ai/introduction) to answer the questions.
+probabilities and confidence. They support
+[Typesafe](https://docs.typesafe.ai/introduction) and
+[Microsoft Decision through OpenRouter](https://openrouter.ai/microsoft/microsoft-decision-1).
+`ai.answers` remains a compatibility alias for `ai.decisions`, in recipes and
+Python calls.
 
 The existing [AI model catalog](ai_configuration.md) supplies
 `provider: typesafe`, `protocol: systemone`, and the pinned model `jev-1.13.0`
@@ -11,7 +14,7 @@ as defaults. `extract.ai` keeps its current API and behavior.
 
 All four wrangles support [question templates](#questions-from-row-values):
 insert row values with `{{ column_name }}`, or use `for_each` to ask a question
-about each candidate in a row's list or dictionary. Typesafe caching is
+about each candidate in a row's list or dictionary. Caching is
 [off by default](#runtime-settings-and-compatibility).
 
 ## Input and output schema
@@ -26,7 +29,7 @@ Objects must have string keys, and all supplied values must be JSON-compatible.
 | `ai.choose` | A mapping of 1–255 nonblank option labels to descriptions. Descriptions can be nonempty strings, JSON objects, JSON arrays, or `null`. | `choice` → `<label>`; `confidence` → `<label>_confidence`; `probabilities` → `<label>_probabilities` |
 | `ai.score` | An ordered list of 2–10 unique nonblank strings describing the scoring levels. | `score` → `<label>`; `confidence` → `<label>_confidence`; `probabilities` → `<label>_probabilities` |
 | `ai.true_false` | Optional `"true"` and/or `"false"` descriptions, supplied as nonempty strings, JSON objects, or JSON arrays. Quote these keys in YAML. | `probability_true` → `<label>`; `true_criteria` → `<label>_true_criteria` |
-| `ai.answers` | Each question declares `type: choose`, `type: score`, or `type: true_false` and uses that type's criteria. | The columns for each question's type. |
+| `ai.decisions` | Each question declares `type: choose`, `type: score`, or `type: true_false` and uses that type's criteria. | The columns for each question's type. |
 
 `input` selects the columns to send for each row: one column name, a zero-based
 column position, or a list of names/positions. Omit `input` to send all columns.
@@ -36,7 +39,7 @@ are evaluated together in one request per input row.
 
 `ai.choose`, `ai.score`, and `ai.true_false` each accept multiple questions of
 their own type. Their nested `type` field is optional; if supplied, it must
-match the wrangle. `ai.answers` accepts any combination of these question types
+match the wrangle. `ai.decisions` accepts any combination of these question types
 and requires a `type` for every question, including when all questions share
 the same type.
 
@@ -46,8 +49,43 @@ dictionary-valued cells readable; the input columns remain in the result.
 The numbers illustrate the output format and are not results from a live run.
 Probabilities and confidence values use `0`–`1`, not percentages.
 
-The examples use `api_key: ${TYPESAFE_API_KEY}`. Set that environment variable
-locally or supply the managed secret as a recipe variable in a hosted recipe.
+Returned scores, confidence values, and probabilities default to two decimal
+places for every provider, including probabilities inside dictionaries and
+`for_each` answers. Set `decimals` on any decision wrangle to override the
+precision with a non-negative integer: `0` for whole numbers, `4` for four
+decimal places. The same keyword is available in Python calls and DataFrame
+accessors. Values remain numeric; trailing zeros depend on the display
+format. Rounding applies after response validation and does not change input
+values, criterion descriptions, or the raw response held in the cache. Each
+probability is rounded independently, so displayed distributions need not sum
+to one; they are not renormalized after rounding.
+
+```yaml
+wrangles:
+  - ai.score:
+      input: Message
+      provider: openrouter
+      api_key: ${OPENROUTER_API_KEY}
+      decimals: 4  # Omit for the default of 2; applies to all metrics in this step.
+      questions:
+        severity:
+          instructions: How much does this issue prevent work?
+          criteria:
+            - Work is unaffected.
+            - Work is affected but can continue.
+            - Work cannot continue.
+```
+
+Precision affects output projection only: it is not sent to the provider and
+does not change cache identity. A cached raw response can be returned at
+different precisions without another provider request. Invalid precision values
+(including negative numbers, Booleans, fractional numbers, strings, and `null`)
+raise an error before a provider call.
+
+The first three examples use Typesafe; the `ai.decisions` example uses Microsoft
+through OpenRouter. Set the corresponding `TYPESAFE_API_KEY` or
+`OPENROUTER_API_KEY` environment variable locally, or supply the managed secret
+as a recipe variable in a hosted recipe.
 
 ## `ai.choose`
 
@@ -173,6 +211,10 @@ omitted. It does not generate a Boolean, `probability_false`,
 or a confidence column. See Typesafe's
 [Noul documentation](https://docs.typesafe.ai/primitives/noul).
 
+For OpenRouter, supply both `"true"` and `"false"` descriptions when specifying
+`criteria`, or omit `criteria` entirely. See its
+[decision request reference](https://github.com/OpenRouterTeam/skills/blob/main/skills/openrouter-decisions/references/decisions-api.md).
+
 **Example input**
 
 | Message |
@@ -215,14 +257,25 @@ wrangles:
 `is_repeat_contact: 0.94` is the probability that the statement is true.
 The question label is the column name, not a separate value in the output.
 
-## `ai.answers`
+## `ai.decisions`
 
-`ai.answers` answers any combination of `choose`, `score`, and `true_false`
+`ai.decisions` answers any combination of `choose`, `score`, and `true_false`
 questions together in one call. Questions may share a type or use different
 types. Each question uses the same input record and retains its type's output
 fields. See Typesafe's
 [Primitives documentation](https://docs.typesafe.ai/primitives) for combining
 question types.
+
+This example selects Microsoft Decision through OpenRouter. The same question
+definitions, templates, `for_each` behavior, and output columns apply to both
+providers. To use the packaged Typesafe default, omit `provider` and `model`
+and change the credential to `api_key: ${TYPESAFE_API_KEY}`.
+OpenRouter uses its [alpha Decisions API](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-request).
+The wrangles require native probabilities and confidence for `choose` and
+`score`, plus a matching criterion legend for `score`. An incomplete provider
+response raises an error rather than inventing these values. Confidence describes
+the concentration of the answer distribution, not a guarantee that the decision
+is correct. Evaluate existing approval thresholds when changing models.
 
 **Example input**
 
@@ -234,9 +287,11 @@ question types.
 
 ```yaml
 wrangles:
-  - ai.answers:
+  - ai.decisions:
       input: [Message, Browser]  # Both columns form one record for every question.
-      api_key: ${TYPESAFE_API_KEY}
+      provider: openrouter
+      model: microsoft/microsoft-decision-1
+      api_key: ${OPENROUTER_API_KEY}
       questions:
         issue_type:
           type: choose  # Required here: choose, score, or true_false.
@@ -257,6 +312,7 @@ wrangles:
           instructions: Has the customer contacted support about this before?
           criteria:  # The same optional descriptions used by ai.true_false.
             "true": Mentions an earlier attempt to contact support.
+            "false": Gives no indication of an earlier contact.
       # Each question can have its own output override; there is no outer output.
 ```
 
@@ -363,7 +419,7 @@ over a column with the same name within that question.
 wrangles:
   - ai.score:
       input: Description  # Shared input sent to the provider.
-      # cache: true  # Optional opt-in; Typesafe caching defaults to off.
+      # cache: true  # Optional opt-in; caching defaults to off for both providers.
       questions:
         category_fit:
           for_each:
@@ -488,7 +544,7 @@ are 10 threads, 30 seconds, and one retry. Use `retries: 0` to disable retries.
 Only transient failures are retried; invalid credentials, question definitions,
 and malformed results fail. Errors do not become fabricated answers.
 
-Caching is off by default for all four Typesafe answer wrangles. Set
+Caching is off by default for all four decision wrangles with either provider. Set
 `cache: true` in a recipe or `cache=True` in Python to enable it. When enabled,
 successful results are cached in memory by request identity, and concurrent
 duplicate requests share one in-flight request. The configured limits are a
@@ -512,7 +568,14 @@ disabled by default for these wrangles.
 
 A version-1 AI configuration uses packaged defaults for the new wrangles.
 A version-2 replacement file must include their provider and operation entries;
-missing entries are not silently merged. Only Typesafe's `systemone` adapter is
-implemented for these functions, even if another provider appears in the catalog.
-Explicit Typesafe model names may be supplied; the provider determines whether
-that model is available.
+missing entries are not silently merged. These functions support
+`provider: typesafe` and `provider: openrouter`, using the existing
+`protocol: systemone` configuration. OpenRouter's `endpoints.systemone` points
+to its full alpha Decisions URL. Explicit model names may be supplied; the
+provider determines whether that model is available. See
+[provider settings](ai_configuration.md#provider-settings) for configuration.
+
+For compatibility, `ai.decisions` and its `ai.answers` alias resolve the existing
+`ai.answers` operation, model `default_for` role, and cache namespace. Keep that
+configuration key in custom catalogs. Renaming the internal key is deferred to
+the broader provider configuration refactor.

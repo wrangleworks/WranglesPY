@@ -583,7 +583,7 @@ def _read_data(
     else:
         return results
 
-_NAMED_AI_WRANGLES = {"ai.choose", "ai.score", "ai.true_false", "ai.answers"}
+_NAMED_AI_WRANGLES = {"ai.choose", "ai.score", "ai.true_false", "ai.decisions", "ai.answers"}
 
 
 def _declared_output_columns(wrangle: str, params: dict):
@@ -595,7 +595,7 @@ def _declared_output_columns(wrangle: str, params: dict):
     if wrangle in _NAMED_AI_WRANGLES:
         kind = wrangle.split(".", 1)[1]
         return _recipe_wrangles.ai._output_columns(
-            params.get("questions"), kind=None if kind == "answers" else kind,
+            params.get("questions"), kind=None if kind in {"decisions", "answers"} else kind,
         )
     if "output" not in params:
         return None

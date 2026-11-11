@@ -50,7 +50,10 @@ pymysql
 
 # AI / LLM
 openai
-google-genai>=1.64.0
+# Gemini retrieval handles httpx timeouts directly; keep its transport explicit.
+httpx>=0.28.1,<1.0
+# GenAI 3 defaults to httpx2; the current adapter and transport tests use httpx.
+google-genai>=1.64.0,<3.0
 
 # Search
 serpapi

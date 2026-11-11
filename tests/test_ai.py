@@ -5,9 +5,10 @@ import traceback
 
 import pytest
 import yaml
+import pandas as pd
 
-from wrangles import ai, ai_cache, ai_config
-from wrangles.clients import typesafe
+from wrangles import ai, ai_cache, ai_config, recipe
+from wrangles.clients import openrouter, typesafe
 
 
 SCORE = {"severity": {"instructions": "How severe?", "criteria": ["Cosmetic", "Workaround", "Blocking"]}}
@@ -21,6 +22,7 @@ def isolate(monkeypatch):
         if name.startswith(("WRANGLES_AI_CACHE_", "WRANGLES_EXTRACT_AI_CACHE_")):
             monkeypatch.delenv(name)
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("WRANGLES_AI_CONFIG", raising=False)
     ai_config.clear_cache()
     ai_cache.clear()
@@ -52,6 +54,7 @@ def transport(monkeypatch):
         return {"model": kwargs["model"], "answers": answers, "usage": {"input_tokens": 10}}
 
     monkeypatch.setattr(typesafe, "call_systemone", call)
+    monkeypatch.setattr(openrouter, "call_systemone", call)
     return calls
 
 
@@ -62,7 +65,240 @@ def save_config(config, monkeypatch, tmp_path):
     ai_config.clear_cache()
 
 
-def test_named_mixed_questions_share_one_request_and_preserve_native_values(transport):
+@pytest.fixture
+def precise_transport(monkeypatch):
+    calls, responses = [], []
+
+    def call(**kwargs):
+        calls.append(copy.deepcopy(kwargs))
+        answers = {}
+        for label, question in kwargs["questions"].items():
+            kind = question["type"]
+            if kind == "choice":
+                answers[label] = {
+                    "type": kind, "choice": "Support", "confidence": 0.876543,
+                    "probabilities": {"Support": 0.876543, "Billing": 0.123457},
+                }
+            elif kind == "score":
+                answers[label] = {
+                    "type": kind, "score": 1.361478, "confidence": 0.917356,
+                    "probabilities": {"0": 0.123456, "1": 0.39161, "2": 0.484934},
+                    "legend": dict(enumerate(question["criteria"])),
+                }
+            else:
+                answers[label] = {"type": kind, "noul": 0.907316}
+        response = {"model": kwargs["model"], "answers": answers, "usage": {"input_tokens": 10}}
+        responses.append(response)
+        return response
+
+    monkeypatch.setattr(typesafe, "call_systemone", call)
+    monkeypatch.setattr(openrouter, "call_systemone", call)
+    return calls, responses
+
+
+@pytest.mark.parametrize("method", ["choose", "score", "true_false", "decisions", "answers"])
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
+def test_decision_metrics_round_to_two_places_for_every_provider(method, provider, precise_transport):
+    definitions = {
+        "team": {**CHOICE["team"], "type": "choose"},
+        "severity": {**SCORE["severity"], "type": "score"},
+        "repeat": {**NOUL["repeat"], "type": "true_false",
+                   "criteria": {"true": {"threshold": 0.123456}, "false": "No prior contact"}},
+    }
+    expected = {
+        "team": {"choice": "Support", "confidence": 0.88,
+                 "probabilities": {"Support": 0.88, "Billing": 0.12}},
+        "severity": {"score": 1.36, "confidence": 0.92,
+                     "probabilities": {"Cosmetic": 0.12, "Workaround": 0.39, "Blocking": 0.48}},
+        "repeat": {"probability_true": 0.91, "true_criteria": {"threshold": 0.123456}},
+    }
+    if method not in {"decisions", "answers"}:
+        definitions = {key: value for key, value in definitions.items() if value["type"] == method}
+        expected = {key: expected[key] for key in definitions}
+    original = copy.deepcopy(definitions)
+    result = getattr(ai, method)("state", definitions, api_key="synthetic-key", provider=provider, cache=True)
+    assert result == expected
+    assert definitions == original
+    # Reprojection of a cached response must use the same rounding policy.
+    result_again = getattr(ai, method)("state", definitions, api_key="synthetic-key", provider=provider, cache=True)
+    assert result_again == expected
+    calls, responses = precise_transport
+    assert len(calls) == 1
+    for key, value in responses[0]["answers"].items():
+        field = {"choice": "confidence", "score": "score", "noul": "noul"}[value["type"]]
+        assert value[field] == {"choice": 0.876543, "score": 1.361478, "noul": 0.907316}[value["type"]]
+
+
+@pytest.mark.parametrize("kind", ["choose", "score", "true_false"])
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
+@pytest.mark.parametrize("keyed", [False, True])
+def test_expanded_decision_metrics_round_without_changing_candidate_values(kind, provider, keyed, precise_transport):
+    definitions = {"choose": CHOICE["team"], "score": SCORE["severity"], "true_false": NOUL["repeat"]}
+    definition = {**definitions[kind], "for_each": {"values": "Candidates", "variable": "candidate"}}
+    candidates = {"first": 0.123456, "blank": "", "last": {"weight": 0.987654}}
+    if not keyed:
+        candidates = list(candidates.values())
+    row = {"Candidates": candidates}
+    original = copy.deepcopy(row)
+    result = getattr(ai, kind)(row, {"fits": definition}, api_key="synthetic-key", provider=provider)
+    entries = list(result["fits"].values()) if keyed else result["fits"]
+    if keyed:
+        assert list(result["fits"]) == ["first", "blank", "last"]
+    assert entries[1] == {}
+    assert entries[0]["value"] == 0.123456
+    assert entries[2]["value"] == {"weight": 0.987654}
+    for entry in (entries[0], entries[2]):
+        if kind == "choose":
+            assert entry["confidence"] == 0.88
+            assert entry["probabilities"] == {"Support": 0.88, "Billing": 0.12}
+        elif kind == "score":
+            assert entry["score"] == 1.36
+            assert entry["confidence"] == 0.92
+            assert entry["probabilities"] == {"Cosmetic": 0.12, "Workaround": 0.39, "Blocking": 0.48}
+        else:
+            assert entry["probability_true"] == 0.91
+    assert row == original
+    assert len(precise_transport[0]) == 1
+
+
+@pytest.mark.parametrize("decimals,expected", [
+    (0, {
+        "team": {"choice": "Support", "confidence": 1.0, "probabilities": {"Support": 1.0, "Billing": 0.0}},
+        "severity": {"score": 1.0, "confidence": 1.0, "probabilities": {"Cosmetic": 0.0, "Workaround": 0.0, "Blocking": 0.0}},
+        "repeat": {"probability_true": 1.0, "true_criteria": ""},
+    }),
+    (4, {
+        "team": {"choice": "Support", "confidence": 0.8765, "probabilities": {"Support": 0.8765, "Billing": 0.1235}},
+        "severity": {"score": 1.3615, "confidence": 0.9174, "probabilities": {"Cosmetic": 0.1235, "Workaround": 0.3916, "Blocking": 0.4849}},
+        "repeat": {"probability_true": 0.9073, "true_criteria": ""},
+    }),
+])
+@pytest.mark.parametrize("method", ["choose", "score", "true_false", "decisions", "answers"])
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
+def test_configured_decimals_apply_to_all_decision_metrics(decimals, expected, method, provider, precise_transport):
+    definitions = {"team": {**CHOICE["team"], "type": "choose"},
+                   "severity": {**SCORE["severity"], "type": "score"},
+                   "repeat": {**NOUL["repeat"], "type": "true_false"}}
+    if method not in {"decisions", "answers"}:
+        definitions = {key: value for key, value in definitions.items() if value["type"] == method}
+        expected = {key: expected[key] for key in definitions}
+    result = getattr(ai, method)("state", definitions, api_key="synthetic-key", provider=provider, decimals=decimals)
+    assert result == expected
+    calls, _ = precise_transport
+    assert len(calls) == 1
+    assert "decimals" not in calls[0]
+
+
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
+@pytest.mark.parametrize("keyed", [False, True])
+def test_configured_decimals_reach_nested_answers_and_preserve_values(provider, keyed, precise_transport):
+    values = {"first": 0.123456, "blank": ""} if keyed else [0.123456, ""]
+    definitions = {"fit": {**SCORE["severity"], "for_each": {"values": "Candidates", "variable": "candidate"}}}
+    result = ai.score({"Candidates": values}, definitions, api_key="synthetic-key", provider=provider, decimals=4)
+    expected_answer = {"value": 0.123456, "score": 1.3615, "confidence": 0.9174,
+                       "probabilities": {"Cosmetic": 0.1235, "Workaround": 0.3916, "Blocking": 0.4849}}
+    assert result["fit"] == ({"first": expected_answer, "blank": {}} if keyed else [expected_answer, {}])
+
+
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
+def test_cached_response_can_be_projected_at_different_precisions(provider, precise_transport):
+    definitions = {"severity": {**SCORE["severity"], "type": "score"}}
+    options = {"api_key": "synthetic-key", "provider": provider, "cache": True}
+    first = ai.decisions("state", definitions, decimals=0, **options)
+    second = ai.answers("state", definitions, decimals=4, **options)
+    default = ai.decisions("state", definitions, **options)
+    assert first["severity"]["score"] == 1.0
+    assert second["severity"] == {"score": 1.3615, "confidence": 0.9174,
+                                   "probabilities": {"Cosmetic": 0.1235, "Workaround": 0.3916, "Blocking": 0.4849}}
+    assert default["severity"]["score"] == 1.36
+    calls, responses = precise_transport
+    assert len(calls) == 1
+    assert responses[0]["answers"]["severity"]["score"] == 1.361478
+
+
+@pytest.mark.parametrize("value", [-1, 1.5, True, False, "4", None])
+@pytest.mark.parametrize("method", ["choose", "score", "true_false", "decisions", "answers"])
+def test_invalid_decimals_fail_before_provider_calls(value, method, precise_transport):
+    kind = "score" if method in {"decisions", "answers"} else method
+    definition = {"choose": CHOICE["team"], "score": SCORE["severity"], "true_false": NOUL["repeat"]}[kind]
+    with pytest.raises(ValueError, match="decimals must be a non-negative integer"):
+        getattr(ai, method)("state", {"q": {**definition, "type": kind}}, decimals=value)
+    assert precise_transport[0] == []
+
+
+@pytest.mark.parametrize("data", [[], {"Candidates": []}])
+def test_empty_input_still_validates_decimals(data, precise_transport):
+    definition = {**SCORE["severity"], "for_each": {"values": "Candidates", "variable": "candidate"}}
+    with pytest.raises(ValueError, match="decimals must be a non-negative integer"):
+        ai.score(data, {"fit": definition}, decimals=-1)
+    assert precise_transport[0] == []
+
+
+@pytest.mark.parametrize("method", ["choose", "score", "true_false", "decisions", "answers"])
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
+def test_yaml_decimals_reach_every_decision_entry_point(method, provider, precise_transport, monkeypatch):
+    monkeypatch.setattr(recipe._auth, "get_applied_permission_group", lambda: None)
+    kind = "score" if method in {"decisions", "answers"} else method
+    definition = {"choose": CHOICE["team"], "score": SCORE["severity"], "true_false": NOUL["repeat"]}[kind]
+    definitions = {"q": {**definition, "type": kind}}
+    recipe_text = yaml.safe_dump({"wrangles": [{f"ai.{method}": {
+        "input": "Description", "questions": definitions, "provider": provider,
+        "api_key": "synthetic-key", "decimals": 4,
+    }}]})
+    result = recipe.run(recipe_text, dataframe=pd.DataFrame({"Description": ["broken"]}))
+    if kind == "score":
+        assert result["q"].tolist() == [1.3615]
+        assert result["q_confidence"].tolist() == [0.9174]
+        assert result["q_probabilities"].tolist() == [{"Cosmetic": 0.1235, "Workaround": 0.3916, "Blocking": 0.4849}]
+    elif kind == "choose":
+        assert result["q"].tolist() == ["Support"]
+        assert result["q_confidence"].tolist() == [0.8765]
+        assert result["q_probabilities"].tolist() == [{"Support": 0.8765, "Billing": 0.1235}]
+    else:
+        assert result["q"].tolist() == [0.9073]
+    assert len(precise_transport[0]) == 1
+
+
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
+def test_recipe_projects_rounded_decision_metrics_to_numeric_columns(provider, precise_transport, monkeypatch):
+    monkeypatch.setattr(recipe._auth, "get_applied_permission_group", lambda: None)
+    result = recipe.run({"wrangles": [{"ai.decisions": {
+        "input": "Description", "provider": provider, "api_key": "synthetic-key",
+        "questions": {
+            "Team": {**CHOICE["team"], "type": "choose"},
+            "Severity": {**SCORE["severity"], "type": "score", "output": ["Score", "Confidence", "Distribution"]},
+            "Repeat": {**NOUL["repeat"], "type": "true_false"},
+        },
+    }}]}, dataframe=pd.DataFrame({"Description": ["broken"], "Original": [0.123456]}))
+    assert result["Team"].tolist() == ["Support"]
+    assert result["Team_confidence"].tolist() == [0.88]
+    assert result["Team_probabilities"].tolist() == [{"Support": 0.88, "Billing": 0.12}]
+    assert result["Score"].tolist() == [1.36]
+    assert result["Confidence"].tolist() == [0.92]
+    assert result["Distribution"].tolist() == [{"Cosmetic": 0.12, "Workaround": 0.39, "Blocking": 0.48}]
+    assert result["Repeat"].tolist() == [0.91]
+    assert result["Original"].tolist() == [0.123456]
+    assert pd.api.types.is_numeric_dtype(result["Score"])
+    assert len(precise_transport[0]) == 1
+
+
+@pytest.mark.parametrize("value,expected", [(0.0, 0.0), (1.0, 1.0), (0.000004, 0.0),
+                                          (0.999996, 1.0), (0.124, 0.12), (0.126, 0.13)])
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
+def test_probability_rounding_preserves_endpoints_and_rounds_in_both_directions(value, expected, provider, monkeypatch):
+    def call(**kwargs):
+        return {"answers": {"repeat": {"type": "noul", "noul": value}}}
+
+    client = openrouter if provider == "openrouter" else typesafe
+    monkeypatch.setattr(client, "call_systemone", call)
+    result = ai.true_false("state", NOUL, api_key="synthetic-key", provider=provider)
+    assert result["repeat"] == {"probability_true": expected, "true_criteria": ""}
+    assert isinstance(result["repeat"]["probability_true"], float)
+
+
+@pytest.mark.parametrize("method", ["decisions", "answers"])
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
+def test_named_mixed_questions_share_one_request_and_preserve_native_values(transport, method, provider):
     questions = {
         **{key: {**value, "type": "score"} for key, value in SCORE.items()},
         **{key: {**value, "type": "choose"} for key, value in CHOICE.items()},
@@ -70,7 +306,7 @@ def test_named_mixed_questions_share_one_request_and_preserve_native_values(tran
     }
     questions["severity"]["output"] = ["Result", "Certainty", "Distribution"]
     original = copy.deepcopy(questions)
-    result = ai.answers({"Description": "broken"}, questions, api_key="synthetic-key")
+    result = getattr(ai, method)({"Description": "broken"}, questions, api_key="synthetic-key", provider=provider)
     assert len(transport) == 1
     assert list(result) == ["severity", "team", "repeat"]
     assert result["severity"] == {
@@ -221,6 +457,81 @@ def test_local_environment_key_and_explicit_key_precedence(transport, monkeypatc
         ai.true_false("three", NOUL, api_key="")
 
 
+@pytest.mark.parametrize("method", ["choose", "score", "true_false", "decisions", "answers"])
+def test_openrouter_dispatch_selects_provider_default_and_keeps_cache_off(method, transport, monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "synthetic-openrouter-key")
+    monkeypatch.setattr(typesafe, "call_systemone", lambda **kwargs: pytest.fail("Wrong provider"))
+    definitions = {"choose": CHOICE, "score": SCORE, "true_false": NOUL}.get(method)
+    if definitions is None:
+        definitions = {"repeat": {**NOUL["repeat"], "type": "true_false"}}
+    for _ in range(2):
+        getattr(ai, method)("state", definitions, provider="openrouter")
+    assert len(transport) == 2
+    assert all(call["model"] == "microsoft/microsoft-decision-1"
+               and call["url"] == "https://openrouter.ai/api/alpha/decisions"
+               and call["api_key"] == "synthetic-openrouter-key" for call in transport)
+
+
+def test_openrouter_uses_its_own_environment_key_and_explicit_override(transport, monkeypatch):
+    monkeypatch.setenv("TYPESAFE_API_KEY", "synthetic-typesafe-key")
+    with pytest.raises(ValueError, match="OPENROUTER_API_KEY"):
+        ai.true_false("state", NOUL, provider="openrouter")
+    assert transport == []
+    monkeypatch.setenv("OPENROUTER_API_KEY", "synthetic-environment-key")
+    ai.true_false("one", NOUL, provider="openrouter")
+    ai.true_false("two", NOUL, provider="openrouter", api_key="synthetic-explicit-key")
+    assert [call["api_key"] for call in transport] == ["synthetic-environment-key", "synthetic-explicit-key"]
+    with pytest.raises(ValueError, match="OPENROUTER_API_KEY"):
+        ai.true_false("three", NOUL, provider="openrouter", api_key="")
+    with pytest.raises(ValueError, match="OpenRouter API key"):
+        ai.true_false("four", NOUL, provider="openrouter", api_key="private key")
+    assert len(transport) == 2
+
+
+def test_composite_aliases_keep_legacy_catalog_role_runtime_defaults_and_cache(transport, monkeypatch, tmp_path):
+    config = ai_config.load()
+    # An existing version-2 catalog need not add a provider, operation, or role.
+    config["providers"].pop("openrouter", None)
+    assert "ai.decisions" not in config["operations"]
+    models = config["providers"]["typesafe"]["models"]
+    models["jev-1.13.0"]["default_for"].remove("ai.answers")
+    models["legacy-composite-model"] = {"status": "active", "default_for": ["ai.answers"]}
+    defaults = config["operations"]["ai.answers"]["defaults"]
+    defaults.update(default_concurrency=1, request_timeout_seconds=7, retries=0)
+    defaults["cache"]["enabled"] = True
+    save_config(config, monkeypatch, tmp_path)
+    original = ai_config.resolve
+    operations = []
+
+    def resolve(operation, **kwargs):
+        operations.append(operation)
+        return original(operation, **kwargs)
+
+    monkeypatch.setattr(ai_config, "resolve", resolve)
+    questions = {"repeat": {**NOUL["repeat"], "type": "true_false"}}
+    old_result = ai.answers("state", questions, api_key="synthetic-key")
+    new_result = ai.decisions("state", questions, api_key="synthetic-key")
+    assert old_result == new_result == {"repeat": {"probability_true": 0.94, "true_criteria": ""}}
+    assert operations == ["ai.answers", "ai.answers"]
+    assert len(transport) == 1
+    assert transport[0]["model"] == "legacy-composite-model"
+    assert transport[0]["timeout"] == 7
+    assert transport[0]["retries"] == 0
+
+
+def test_cache_identity_separates_providers_even_with_same_endpoint_model_and_key(transport, monkeypatch, tmp_path):
+    config = ai_config.load()
+    endpoint = "https://shared.example/systemone"
+    for provider in ("typesafe", "openrouter"):
+        config["providers"][provider]["endpoints"]["systemone"] = endpoint
+    save_config(config, monkeypatch, tmp_path)
+    for provider in ("typesafe", "openrouter", "typesafe", "openrouter"):
+        ai.true_false("state", NOUL, provider=provider, model="shared-model",
+                      api_key="synthetic-shared-key", cache=True)
+    assert len(transport) == 2
+    assert all(call["url"] == endpoint and call["model"] == "shared-model" for call in transport)
+
+
 @pytest.mark.parametrize("overrides", [
     {"threads": 0}, {"threads": True}, {"timeout": 0}, {"timeout": float("nan")},
     {"timeout": 10 ** 1000}, {"cache_ttl": 10 ** 1000},
@@ -233,12 +544,14 @@ def test_invalid_runtime_settings_fail_before_requests(transport, overrides):
     assert transport == []
 
 
-def test_unusable_endpoint_error_does_not_disclose_credentials(transport, monkeypatch, tmp_path):
+@pytest.mark.parametrize("provider,name", [("typesafe", "Typesafe"), ("openrouter", "OpenRouter")])
+def test_unusable_endpoint_error_does_not_disclose_credentials(transport, monkeypatch, tmp_path, provider, name):
     config = ai_config.load()
-    config["providers"]["typesafe"]["endpoints"]["systemone"] = "https://user:private-value@example.com"
+    config["providers"][provider]["endpoints"]["systemone"] = "https://user:private-value@example.com"
     save_config(config, monkeypatch, tmp_path)
     with pytest.raises(ValueError) as exc:
-        ai.true_false("private-state", NOUL, api_key="private-key")
+        ai.true_false("private-state", NOUL, api_key="private-key", provider=provider)
+    assert name in str(exc.value)
     assert "private" not in str(exc.value)
     assert transport == []
 
@@ -307,19 +620,20 @@ def expanded_question(kind="score", **overrides):
             "for_each": {"values": "Candidate Categories", "variable": "category"}, **overrides}
 
 
-@pytest.mark.parametrize("method", ["choose", "score", "true_false", "answers"])
+@pytest.mark.parametrize("method", ["choose", "score", "true_false", "decisions", "answers"])
+@pytest.mark.parametrize("provider", ["typesafe", "openrouter"])
 @pytest.mark.parametrize("keyed", [False, True])
-def test_templates_expand_each_row_into_one_request_and_preserve_candidate_values(method, keyed, transport):
-    kind = "score" if method == "answers" else method
+def test_templates_expand_each_row_into_one_request_and_preserve_candidate_values(method, provider, keyed, transport):
+    kind = "score" if method in {"decisions", "answers"} else method
     definition = expanded_question(kind)
-    if method == "answers":
+    if method in {"decisions", "answers"}:
         definition["type"] = kind
     definitions = {"fits": definition}
     candidates = {"category_7": "Containers", "category_2": "Shelves"} if keyed else ["Containers", "Shelves"]
     row = {"Product Description": "Metal container", "Candidate Categories": candidates}
     original = copy.deepcopy((row, definitions))
 
-    result = getattr(ai, method)(row, definitions, api_key="synthetic-key")
+    result = getattr(ai, method)(row, definitions, api_key="synthetic-key", provider=provider)
 
     assert len(transport) == 1
     assert transport[0]["state"] == row
@@ -342,12 +656,12 @@ def test_templates_expand_each_row_into_one_request_and_preserve_candidate_value
     assert (row, definitions) == original
 
 
-@pytest.mark.parametrize("method", ["choose", "score", "true_false", "answers"])
+@pytest.mark.parametrize("method", ["choose", "score", "true_false", "decisions", "answers"])
 @pytest.mark.parametrize("keyed", [False, True])
 def test_blank_candidate_strings_preserve_empty_slots_without_provider_questions(method, keyed, transport):
-    kind = "score" if method == "answers" else method
+    kind = "score" if method in {"decisions", "answers"} else method
     definition = expanded_question(kind)
-    if method == "answers":
+    if method in {"decisions", "answers"}:
         definition["type"] = kind
     values = ["", "Containers", " \t\n", "Shelves", ""]
     keys = ["category_1", "category_2", "category_3", "category_4", "category_5"]

@@ -50,6 +50,17 @@ def test_packaged_operation_defaults_and_model_lifecycle():
     assert config["providers"]["anthropic"]["models"] == {}
 
 
+@pytest.mark.parametrize("operation", ["ai.choose", "ai.score", "ai.true_false", "ai.answers"])
+def test_openrouter_defaults_are_provider_local_and_cache_stays_off(operation):
+    policy = ai_config.resolve(operation, provider="openrouter")
+    assert policy["model"] == "microsoft/microsoft-decision-1"
+    assert policy["protocol"] == "systemone"
+    assert policy["endpoints"] == {"systemone": "https://openrouter.ai/api/alpha/decisions"}
+    assert policy["cache"]["enabled"] is False
+    assert ai_config.resolve(operation)["provider"] == "typesafe"
+    assert ai_config.resolve(operation)["model"] == "jev-1.13.0"
+
+
 def test_catalog_metadata_is_separate_from_request_defaults():
     config = ai_config.load()
     provider = config["providers"]["openai"]
@@ -132,7 +143,9 @@ def test_version_1_overrides_keep_packaged_typesafe_operations(monkeypatch, tmp_
 def test_version_2_does_not_merge_missing_typesafe_operations(monkeypatch, tmp_path, operation):
     config = ai_config.load()
     del config["operations"][operation]
-    config["providers"]["typesafe"]["models"]["jev-1.13.0"]["default_for"].remove(operation)
+    for provider in config["providers"].values():
+        for model in provider["models"].values():
+            model["default_for"] = [role for role in model.get("default_for", []) if role != operation]
     use_config(config, monkeypatch, tmp_path)
     with pytest.raises(ValueError, match="No AI operation"):
         ai_config.resolve(operation)
