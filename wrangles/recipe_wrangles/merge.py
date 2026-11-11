@@ -345,6 +345,15 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
         description: Whether to include empty columns in the created dictionary
     """
     _logging.debug(f": Converting columns to dict :: output :: {output}")
+    # String extension dtypes use NaN/pd.NA for missing values. Restore the
+    # Python None marker before detection and dictionary construction so it
+    # follows the same path as object-backed strings on pandas 2.
+    for column in input:
+        values = df[column]
+        missing = values.isna()
+        if missing.any() and _pd.api.types.is_string_dtype(values[~missing]):
+            df[column] = values.astype(object).where(~missing, None)
+
     index_check = 0
     cols_changed = [] 
     for cols in input:
