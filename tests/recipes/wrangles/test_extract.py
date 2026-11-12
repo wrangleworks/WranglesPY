@@ -4288,14 +4288,14 @@ class TestExtractAI:
         ])
         assert matches >= 1
 
-    def test_ai_pre_gpt5_reasoning_rejected_and_verbosity_ignored(self, caplog):
-        """The recipe reports provider errors instead of dropping reasoning."""
+    def test_ai_luna_reasoning_and_verbosity(self, caplog):
+        """The recipe accepts Luna reasoning and verbosity through Responses."""
         with caplog.at_level(logging.WARNING, logger="wrangles.extract"):
             df = wrangles.recipe.run(
                 """
                 wrangles:
                 - extract.ai:
-                    model: gpt-4o-mini
+                    model: gpt-6-luna
                     api_key: ${OPENAI_API_KEY}
                     timeout: 60
                     retries: 2
@@ -4313,9 +4313,9 @@ class TestExtractAI:
                     "data": ["wrench 25mm", "6m cable"],
                 })
             )
-        assert all('OpenAI API error' in value and 'reasoning' in value for value in df['length'])
+        assert df['length'].tolist() == ['25mm', '6m']
         assert "Ignoring 'reasoning' parameter" not in caplog.text
-        assert "Ignoring 'verbosity' parameter" in caplog.text
+        assert "Ignoring 'verbosity' parameter" not in caplog.text
 
     def test_ai_invalid_model_fails_recipe(self):
         """
@@ -4343,35 +4343,20 @@ class TestExtractAI:
                 })
             )
 
-    def test_ai_legacy_chat_completions_endpoint(self):
-        """
-        Test extract.ai using the legacy Chat Completions endpoint
-        via the `url` override, instead of the default Responses API
-        """
-        df = wrangles.recipe.run(
-            """
-            wrangles:
-            - extract.ai:
-                api_key: ${OPENAI_API_KEY}
-                seed: 1
-                retries: 2
-                url: https://api.openai.com/v1/chat/completions
-                output:
-                  length:
-                    type: string
-                    description: >-
-                      Any length measurement found in the text,
-                      such as cm, m, ft, mm, etc.
-            """,
-            dataframe=pd.DataFrame({
-                "data": ["wrench 25mm", "6m cable"],
-            })
-        )
-        matches = sum([
-            df['length'][0] == '25mm',
-            df['length'][1] == '6m',
-        ])
-        assert matches >= 1
+    def test_ai_rejects_retired_completion_endpoints_before_requests(self, monkeypatch):
+        def unexpected_request(*args, **kwargs):
+            pytest.fail("Retired endpoints must fail before any provider request")
+
+        monkeypatch.setattr("requests.post", unexpected_request)
+        with pytest.raises(ValueError, match="Responses API endpoint"):
+            wrangles.recipe.run(
+                {"wrangles": [{"extract.ai": {
+                    "api_key": "synthetic-key", "input": "data",
+                    "url": "https://api.openai.com/v1/chat/completions/",
+                    "output": {"length": {"type": "string"}},
+                }}]},
+                dataframe=pd.DataFrame({"data": ["wrench 25mm"]}),
+            )
 
     def test_model_id(self, saved_extract_schema_model):
         """

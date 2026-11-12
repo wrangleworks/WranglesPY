@@ -1,4 +1,4 @@
-"""Offline contracts for configuration-backed embeddings and URL retrieval."""
+"""Offline contracts for configuration-backed Responses extraction, embeddings and URL retrieval."""
 
 import base64
 import asyncio
@@ -13,38 +13,40 @@ import requests
 import yaml
 
 import wrangles
-from wrangles import ai_config, openai, search
+from wrangles import ai_config, openai, openai_responses, search
 from wrangles.clients import gemini
 
 
-def _chat_settings():
+def _responses_settings():
     return {
-        "model": "private-chat-model",
+        "model": "private-responses-model",
         "temperature": 0.7,
-        "messages": [{"role": "system", "content": "Use the supplied input."}],
-        "tools": [{"type": "function", "function": {
-            "name": "parse_output", "parameters": {
+        "instructions": "Use the supplied input.",
+        "text": {"format": {
+            "type": "json_schema", "name": "output", "schema": {
                 "type": "object", "properties": {"value": {"type": "string"}},
-                "required": ["value"],
+                "required": ["value"], "additionalProperties": False,
             },
-        }}],
+        }},
     }
 
 
 @pytest.fixture
-def chat_transport(monkeypatch):
+def responses_transport(monkeypatch):
     calls = []
 
     def post(**kwargs):
         calls.append(copy.deepcopy(kwargs))
         response = requests.Response()
         response.status_code = 200
-        response._content = json.dumps({"choices": [{"message": {"tool_calls": [{
-            "function": {"arguments": '{"value":"synthetic"}'},
-        }]}}]}).encode("utf-8")
+        response._content = json.dumps({"output": [{
+            "type": "message", "content": [{
+                "type": "output_text", "text": '{"value":"synthetic"}',
+            }],
+        }]}).encode("utf-8")
         return response
 
-    monkeypatch.setattr(openai._requests, "post", post)
+    monkeypatch.setattr(openai_responses._requests, "post", post)
     return calls
 
 
@@ -81,30 +83,36 @@ def configured_ai(monkeypatch, tmp_path):
     ai_config.clear_cache()
 
 
-def test_private_chat_transport_skips_resolution(chat_transport, monkeypatch):
+
+def test_private_responses_transport_skips_resolution(responses_transport, monkeypatch):
     def unexpected_resolution(*args, **kwargs):
         raise AssertionError("Resolved options must not trigger another catalog lookup per row.")
 
     monkeypatch.setattr(ai_config, "resolve", unexpected_resolution)
     monkeypatch.setattr(ai_config, "model_defaults", unexpected_resolution)
     monkeypatch.setattr(ai_config, "warn_if_deprecated", unexpected_resolution)
-    settings = _chat_settings()
+    settings = _responses_settings()
     original = copy.deepcopy(settings)
-    result = openai._chatGPT(
+    result = openai_responses.call_structured(
         "row input", "fake-key", settings,
-        url="https://explicit.example/completions", timeout=8, retries=0,
+        url="https://explicit.example/responses", timeout=8, retries=0,
+        required_fields=["value"],
     )
     assert result == {"value": "synthetic"}
     assert settings == original
-    assert chat_transport[0]["url"] == "https://explicit.example/completions"
-    assert chat_transport[0]["timeout"] == 8
-    assert chat_transport[0]["json"]["model"] == original["model"]
-    assert chat_transport[0]["json"]["temperature"] == original["temperature"]
-    assert chat_transport[0]["json"]["messages"][:-1] == original["messages"]
+    call = responses_transport[0]
+    assert call["url"] == "https://explicit.example/responses"
+    assert call["timeout"] == 8
+    assert call["headers"]["Authorization"] == "Bearer fake-key"
+    assert call["json"]["model"] == original["model"]
+    assert call["json"]["temperature"] == original["temperature"]
+    assert call["json"]["instructions"] == original["instructions"]
+    assert call["json"]["text"] == original["text"]
+    assert call["json"]["input"] == [{"role": "user", "content": "DATA:\nrow input"}]
 
 
 @pytest.mark.parametrize("retries,expected_attempts", [(0, 1), (1, 2), (2, 3)])
-def test_private_chat_transport_respects_http_retry_budget(monkeypatch, retries, expected_attempts):
+def test_private_responses_transport_respects_http_retry_budget(monkeypatch, retries, expected_attempts):
     calls = []
     sleeps = []
 
@@ -115,20 +123,22 @@ def test_private_chat_transport_respects_http_retry_budget(monkeypatch, retries,
         response._content = b'{"error":{"message":"synthetic rate limit"}}'
         return response
 
-    monkeypatch.setattr(openai._requests, "post", post)
-    monkeypatch.setattr(openai._openai_responses, "_sleep_for_retry", lambda context, delay: sleeps.append(delay))
-    result = openai._chatGPT(
-        "row input", "fake-key", _chat_settings(),
-        url="https://explicit.example/completions", timeout=3, retries=retries,
+    monkeypatch.setattr(openai_responses._requests, "post", post)
+    monkeypatch.setattr(openai_responses, "_sleep_for_retry", lambda context, delay: sleeps.append(delay))
+    result = openai_responses.call_structured(
+        "row input", "fake-key", _responses_settings(),
+        url="https://explicit.example/responses", timeout=3, retries=retries,
+        required_fields=["value"],
     )
-    assert "value" in result
+    assert "status=429" in result["value"]
+    assert "synthetic rate limit" in result["value"]
     assert len(calls) == expected_attempts
     assert sleeps == [1, 2][:retries]
 
 
 @pytest.mark.parametrize("error_type", [requests.exceptions.Timeout, requests.exceptions.ConnectionError])
-def test_chat_transport_retries_transient_failure_then_succeeds(chat_transport, monkeypatch, error_type):
-    post = openai._requests.post
+def test_responses_transport_retries_transient_failure_then_succeeds(responses_transport, monkeypatch, error_type):
+    post = openai_responses._requests.post
     attempts = []
     sleeps = []
 
@@ -138,11 +148,12 @@ def test_chat_transport_retries_transient_failure_then_succeeds(chat_transport, 
             raise error_type("synthetic temporary failure")
         return post(**kwargs)
 
-    monkeypatch.setattr(openai._requests, "post", fail_once)
-    monkeypatch.setattr(openai._openai_responses, "_sleep_for_retry", lambda context, delay: sleeps.append(delay))
-    result = openai._chatGPT(
-        "row", "fake-key", _chat_settings(),
-        url="https://explicit.example/completions", retries=1, timeout=3,
+    monkeypatch.setattr(openai_responses._requests, "post", fail_once)
+    monkeypatch.setattr(openai_responses, "_sleep_for_retry", lambda context, delay: sleeps.append(delay))
+    result = openai_responses.call_structured(
+        "row", "fake-key", _responses_settings(),
+        url="https://explicit.example/responses", retries=1, timeout=3,
+        required_fields=["value"],
     )
     assert result == {"value": "synthetic"}
     assert len(attempts) == 2
@@ -152,7 +163,7 @@ def test_chat_transport_retries_transient_failure_then_succeeds(chat_transport, 
 
 @pytest.mark.parametrize("error_type", [requests.exceptions.Timeout, requests.exceptions.ConnectionError])
 @pytest.mark.parametrize("retries", [0, 1, 2])
-def test_chat_transport_respects_retry_budget_on_transport_failure(monkeypatch, error_type, retries):
+def test_responses_transport_respects_retry_budget_on_transport_failure(monkeypatch, error_type, retries):
     calls = []
     sleeps = []
 
@@ -160,34 +171,43 @@ def test_chat_transport_respects_retry_budget_on_transport_failure(monkeypatch, 
         calls.append(kwargs)
         raise error_type("synthetic temporary failure")
 
-    monkeypatch.setattr(openai._requests, "post", post)
-    monkeypatch.setattr(openai._openai_responses, "_sleep_for_retry", lambda context, delay: sleeps.append(delay))
-    result = openai._chatGPT(
-        "row", "fake-key", _chat_settings(),
-        url="https://explicit.example/completions", timeout=3, retries=retries,
+    monkeypatch.setattr(openai_responses._requests, "post", post)
+    monkeypatch.setattr(openai_responses, "_sleep_for_retry", lambda context, delay: sleeps.append(delay))
+    result = openai_responses.call_structured(
+        "row", "fake-key", _responses_settings(),
+        url="https://explicit.example/responses", timeout=3, retries=retries,
+        required_fields=["value"],
     )
     assert len(calls) == retries + 1
     assert sleeps == [1, 2][:retries]
     if error_type is requests.exceptions.Timeout:
         assert result == {"value": "Timed Out"}
     else:
-        assert isinstance(result["value"], error_type)
+        assert result == {"value": "synthetic temporary failure"}
 
 
-def test_chat_transport_does_not_retry_invalid_request(monkeypatch):
+def test_responses_transport_does_not_retry_invalid_provider_request(monkeypatch):
     calls = []
+    sleeps = []
 
     def post(**kwargs):
         calls.append(kwargs)
-        raise requests.exceptions.InvalidURL("synthetic invalid URL")
+        response = requests.Response()
+        response.status_code = 400
+        response._content = b'{"error":{"message":"Invalid synthetic parameter","type":"invalid_request_error"}}'
+        return response
 
-    monkeypatch.setattr(openai._requests, "post", post)
-    result = openai._chatGPT(
-        "row", "fake-key", _chat_settings(),
-        url="https://explicit.example/completions", timeout=3, retries=2,
+    monkeypatch.setattr(openai_responses._requests, "post", post)
+    monkeypatch.setattr(openai_responses, "_sleep_for_retry", lambda context, delay: sleeps.append(delay))
+    result = openai_responses.call_structured(
+        "row", "fake-key", _responses_settings(),
+        url="https://explicit.example/responses", timeout=3, retries=2,
+        required_fields=["value"],
     )
     assert len(calls) == 1
-    assert isinstance(result["value"], requests.exceptions.InvalidURL)
+    assert sleeps == []
+    assert "status=400" in result["value"]
+    assert "Invalid synthetic parameter" in result["value"]
 
 
 @pytest.fixture
@@ -258,6 +278,7 @@ def test_embeddings_explicit_options_override_config(configured_ai, embedding_tr
     call = embedding_transport[0]
     assert call["timeout"] == 9
     assert call["url"] == options["url"]
+    assert call["headers"]["Authorization"] == "Bearer fake-key"
     assert call["json"] == {
         "model": "private-embedding-model", "input": ["a", "bb"],
         "encoding_format": "base64", "dimensions": 2,
@@ -278,6 +299,7 @@ def test_embeddings_preserve_jina_inference_and_format(configured_ai, embedding_
     assert isinstance(result, np.ndarray)
     assert result.tolist() == [5, 1.25]
     assert embedding_transport[0]["url"] == expected_url
+    assert embedding_transport[0]["headers"]["Authorization"] == "Bearer fake-key"
     assert embedding_transport[0]["json"] == {
         "model": "private-jina-model", "input": ["hello"], "task": "retrieval.query",
     }
@@ -926,3 +948,28 @@ def test_callers_resolve_concurrency_and_preserve_explicit_threads(
                 "https://product.example/one", client_config={"api_key": "fake-key"}, **options,
             )
     assert workers == [1, 3]
+
+
+@pytest.mark.parametrize("url", [
+    "https://api.openai.com/v1/completions",
+    "https://api.openai.com/v1/chat/completions/",
+    "https://proxy.example/V1/CHAT/COMPLETIONS/?deployment=test",
+])
+@pytest.mark.parametrize("source", ["argument", "configured"])
+def test_generate_rejects_completion_endpoints_before_provider_requests(configured_ai, monkeypatch, url, source):
+    config, save = configured_ai
+    options = {"url": url} if source == "argument" else {}
+    if source == "configured":
+        config["providers"]["openai"]["endpoints"]["responses"] = url
+        save()
+
+    def unexpected_request(*args, **kwargs):
+        pytest.fail("Retired endpoints must fail before any provider request")
+
+    monkeypatch.setattr(requests, "post", unexpected_request)
+    monkeypatch.setattr(requests.sessions.Session, "request", unexpected_request)
+    with pytest.raises(ValueError, match="Responses API endpoint"):
+        wrangles.generate.ai(
+            "wrench 25mm", "synthetic-key", output={"length": {"type": "string"}},
+            threads=1, **options,
+        )
