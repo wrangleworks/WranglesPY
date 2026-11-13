@@ -5,6 +5,7 @@ Run a recipe, from a recipe! Recipe-ception.
 """
 from typing import Union as _Union
 import types as _types
+import os as _os
 from .. import recipe as _recipe
 import pandas as _pd
 from ..utils import wildcard_expansion as _wildcard_expansion
@@ -14,7 +15,7 @@ _schema = {}
 
 
 def run(
-    name: str = None,
+    name: _Union[str, _os.PathLike[str]] = None,
     variables: dict = None,
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
@@ -25,7 +26,7 @@ def run(
     >>> from wrangles.connectors import recipe
     >>> recipe.run('recipe.wrgl.yml')
 
-    :param name: Name of the recipe to run
+    :param name: Name of the recipe to run (str or os.PathLike, e.g. pathlib.Path)
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
     :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
     """
@@ -51,7 +52,7 @@ anyOf:
 
 
 def read(
-    name: str = None,
+    name: _Union[str, _os.PathLike[str]] = None,
     variables: dict = None,
     columns: list = None,
     functions: _Union[_types.FunctionType, list] = [],
@@ -63,7 +64,7 @@ def read(
     >>> from wrangles.connectors import recipe
     >>> df = recipe.read('recipe.wrgl.yml')
 
-    :param name: Name of the recipe to run
+    :param name: Name of the recipe to run (str or os.PathLike, e.g. pathlib.Path)
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
     :param columns: (Optional) Subset of the columns to include from the output of the recipe. If not provided, all columns will be included.
     :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
@@ -104,7 +105,7 @@ anyOf:
 
 def write(
     df: _pd.DataFrame,
-    name: str = None,
+    name: _Union[str, _os.PathLike[str]] = None,
     variables: dict = None,
     columns: list = None,
     functions: _Union[_types.FunctionType, list] = [],
@@ -117,7 +118,7 @@ def write(
     >>> recipe.write(dataframe=df, name='recipe.wrgl.yml')
 
     :param df: Dataframe to start the recipe with
-    :param name: Name of the recipe to run
+    :param name: Name of the recipe to run (str or os.PathLike, e.g. pathlib.Path)
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
     :param columns: (Optional) A list of the columns to pass to the recipe. If omitted, all columns will be included.
     :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
