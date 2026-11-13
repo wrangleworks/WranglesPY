@@ -418,7 +418,8 @@ def test_row_prompts_and_options_reach_real_google_sdk_without_network(monkeypat
     from google import genai
     from google.genai import _api_client, errors, types
 
-    httpx = getattr(_api_client, "httpx2", None) or _api_client.httpx
+    backend = getattr(_api_client, "_get_http_client_backend", lambda: "httpx")()
+    httpx = getattr(_api_client, backend)
 
     requests = []
     client_options = []

@@ -713,7 +713,8 @@ def test_google_sdk_builds_configured_request_url(configured_ai, monkeypatch, mo
     from google.genai import errors, types
     from google.genai import _api_client
 
-    httpx = getattr(_api_client, "httpx2", None) or _api_client.httpx
+    backend = getattr(_api_client, "_get_http_client_backend", lambda: "httpx")()
+    httpx = getattr(_api_client, backend)
 
     config, save = configured_ai
     base_url = "https://proxy.example/google" if custom_endpoint else "https://generativelanguage.googleapis.com"
@@ -843,7 +844,8 @@ def test_google_deadline_includes_sdk_retry_backoff(configured_ai, monkeypatch):
     from google import genai
     from google.genai import _api_client, errors, types
 
-    httpx = getattr(_api_client, "httpx2", None) or _api_client.httpx
+    backend = getattr(_api_client, "_get_http_client_backend", lambda: "httpx")()
+    httpx = getattr(_api_client, backend)
 
     requests_sent = []
     clients = []
