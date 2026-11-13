@@ -667,9 +667,9 @@ class TestScoreSearchResults:
 
         assert result["part_code_matches"] == [{
             "match_type": "MPN",
-            "match_level": "stripped",
-            "match_source": "title",
-            "matched_code": "LBBR 14-2LS",
+            "match_level": "partial",
+            "match_source": "url",
+            "matched_code": "com/lbbr-14-2ls-hv6",
             "input_code": "LBBR14-2LS",
         }]
         assert result["part_code_match_count"] == 6
@@ -913,7 +913,7 @@ class TestScoreSearchResultsLiveExtraction:
         [
             ("title", "STHT20348", "exact", "STHT20348"),
             ("snippet", "stht-20348", "stripped", "STHT20348"),
-            ("url", "STHT2034", "partial", "stht20348"),
+            ("url", "STHT2034", "partial", "hand-saw-stht20348"),
         ],
         ids=["title-exact", "snippet-normalized", "url-partial"],
     )
