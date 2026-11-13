@@ -30,6 +30,7 @@ from ..lookup import lookup as _lookup
 from ..lookup import _validate_lookup_variant
 from .. import extract as _extract
 from .. import recipe as _recipe
+from .standardize import remove_words
 from .. import ai_config as _ai_config
 from .standardize import replace
 from .convert import to_json as _to_json
@@ -1614,67 +1615,6 @@ def recipe(
             dataframe=df_temp
         )
 
-    return df
-
-
-def remove_words(
-    df: _pd.DataFrame,
-    input: _Union[str, int, list],
-    to_remove: str,
-    output: _Union[str, list] = None,
-    tokenize_to_remove: bool = False,
-    ignore_case: bool = True
-    ) -> _pd.DataFrame:
-    """
-    type: object
-    description: Remove all the elements that occur in one list from another.
-    additionalProperties: false
-    required:
-      - input
-      - to_remove
-      - output
-    properties:
-      input:
-        type: 
-          - string
-          - integer
-          - array
-        description: Name of column to remove words from
-      to_remove:
-        type: array
-        description: Column or list of columns with a list of words to be removed
-      output:
-        type: 
-          - string
-          - array
-        description: Name of the output columns
-      tokenize_to_remove:
-        type: boolean
-        description: Tokenize all to_remove inputs
-      ignore_case:
-        type: boolean
-        description: Ignore input and to_remove case
-    """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-
-    # Early return for empty df
-    if df.empty:
-        df[output] = None
-        return df
-    
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.remove_words(df[input_column].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
-    
     return df
 
 
