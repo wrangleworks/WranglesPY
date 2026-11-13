@@ -72,6 +72,37 @@ test_vals = {
 }
 
 
+
+def synchronized_read(directory, task_id, task_count):
+    """Require all workers to start before any task may complete."""
+    import os
+    from pathlib import Path
+    import time
+    import pandas as pd
+
+    directory = Path(directory)
+    (directory / f"{task_id}.ready").touch()
+    deadline = time.monotonic() + 30
+    while len(list(directory.glob("*.ready"))) < task_count:
+        if time.monotonic() >= deadline:
+            raise TimeoutError("Concurrent workers did not reach the barrier")
+        time.sleep(0.01)
+    (directory / f"{task_id}.done").write_text(str(os.getpid()), encoding="ascii")
+    return pd.DataFrame({"column": [task_id]})
+
+
+def _synchronized_actions(directory):
+    return [{"custom.synchronized_read": {
+        "directory": str(directory), "task_id": i, "task_count": TASK_COUNT,
+    }} for i in range(TASK_COUNT)]
+
+
+def _assert_processes_completed(directory):
+    completed = sorted(directory.glob("*.done"))
+    assert [path.stem for path in completed] == [str(i) for i in range(TASK_COUNT)]
+    assert len({path.read_text(encoding="ascii") for path in completed}) == TASK_COUNT
+
+
 def test_read_multithread():
     """
     Test using the concurrent connector to read using multiple threads.
@@ -97,30 +128,19 @@ def test_read_multithread():
     _assert_concurrent_runtime(elapsed)
 
 
-def test_read_multiprocess():
-    """
-    Test using the concurrent connector to read using multiprocessing.
-    """
-    df, elapsed = _run_recipe_and_measure(
-        f"""
-        read:
-          - union:
-              sources:
-                - concurrent:
-                    use_multiprocessing: true
-                    read:
-                    - custom.wait_and_read:
-                        duration: {WAIT_SECONDS}
-                    - custom.wait_and_read:
-                        duration: {WAIT_SECONDS}
-                    - custom.wait_and_read:
-                        duration: {WAIT_SECONDS}
-        """,
-        functions=wait_and_read,
+def test_read_multiprocess(tmp_path):
+    """Real child processes must overlap, independent of spawn overhead."""
+    df = wrangles.recipe.run(
+        {"read": [{"union": {"sources": [{"concurrent": {
+            "use_multiprocessing": True,
+            "max_concurrency": TASK_COUNT,
+            "read": _synchronized_actions(tmp_path),
+        }}]}}]},
+        functions=synchronized_read,
     )
 
-    assert len(df) == TASK_COUNT
-    _assert_concurrent_runtime(elapsed)
+    assert df["column"].tolist() == list(range(TASK_COUNT))
+    _assert_processes_completed(tmp_path)
 
 
 def test_write_multithread():
@@ -179,25 +199,15 @@ def test_run_multithread():
     _assert_concurrent_runtime(elapsed)
 
 
-def test_run_multiprocess():
-    """
-    Test using the concurrent connector to run using multiprocessing.
-    """
-    _, elapsed = _run_recipe_and_measure(
-        f"""
-        run:
-          on_start:
-          - concurrent:
-              use_multiprocessing: true
-              run:
-                - custom.sleep:
-                     seconds: {WAIT_SECONDS}
-                - custom.sleep:
-                     seconds: {WAIT_SECONDS}
-                - custom.sleep:
-                     seconds: {WAIT_SECONDS}
-        """,
-        functions=sleep,
+def test_run_multiprocess(tmp_path):
+    """Every action completes in a distinct, overlapping child process."""
+    wrangles.recipe.run(
+        {"run": {"on_start": [{"concurrent": {
+            "use_multiprocessing": True,
+            "max_concurrency": TASK_COUNT,
+            "run": _synchronized_actions(tmp_path),
+        }}]}},
+        functions=synchronized_read,
     )
 
-    _assert_concurrent_runtime(elapsed)
+    _assert_processes_completed(tmp_path)

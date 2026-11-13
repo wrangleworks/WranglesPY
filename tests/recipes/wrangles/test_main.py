@@ -1786,7 +1786,7 @@ class TestRename:
             col2: newCol2
         """
         df = wrangles.recipe.run(recipe=recipe, dataframe=data)
-        assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
+        assert all(isinstance(df[x], pd.Series) for x in df.columns)
 
     def test_rename_into_existing_column_input(self):
         """
@@ -1816,7 +1816,7 @@ class TestRename:
                 - newCol2
         """
         df = wrangles.recipe.run(recipe=recipe, dataframe=data)
-        assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
+        assert all(isinstance(df[x], pd.Series) for x in df.columns)
 
     def test_rename_wrangles(self):
         """

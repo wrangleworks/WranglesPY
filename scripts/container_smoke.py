@@ -80,14 +80,10 @@ def validate_runtime_versions(python_version, numpy_version, pandas_version):
         pandas_version == EXPECTED_PANDAS,
         f"Expected Pandas {EXPECTED_PANDAS}, found {pandas_version}",
     )
-    _require(
-        int(pandas_version.split(".", maxsplit=1)[0]) < 3,
-        f"Pandas 3.x is not supported by this image: {pandas_version}",
-    )
 
 
 def validate_wrangles_pandas_requirement(requirements):
-    """Prove the installed package metadata still excludes Pandas 3."""
+    """Check the installed metadata supports the validated pandas series."""
     parsed_requirements = [Requirement(requirement) for requirement in requirements]
     pandas_requirements = [
         requirement
@@ -101,9 +97,9 @@ def validate_wrangles_pandas_requirement(requirements):
     )
     pandas_specifier = pandas_requirements[0].specifier
     _require(
-        pandas_specifier.contains("2.999", prereleases=True)
-        and not pandas_specifier.contains("3.0", prereleases=True),
-        "Wrangles metadata must support Pandas 2.x and exclude Pandas 3: "
+        all(pandas_specifier.contains(version) for version in ("2.3.0", "2.3.3", "3.0.0", EXPECTED_PANDAS))
+        and all(not pandas_specifier.contains(version) for version in ("2.2.3", "3.1.0", "4.0.0")),
+        "Wrangles metadata must support pandas 2.3 and 3.0 and exclude unvalidated series: "
         f"{pandas_requirements[0]}",
     )
 

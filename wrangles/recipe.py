@@ -973,7 +973,14 @@ def _execute_wrangles(
                     # Combine any duplicated columns and drop the _x columns
                     for col in df.columns:
                         if str(col).endswith('_x'):
-                            df[col[:-2]] = df[col[:-2]].combine_first(df[col])
+                            if df.index.has_duplicates:
+                                # Explode can repeat row labels. Both columns
+                                # already share the merged index, so fill
+                                # without combine_first reindexing it.
+                                primary = df[col[:-2]]
+                                df[col[:-2]] = primary.where(primary.notna(), df[col])
+                            else:
+                                df[col[:-2]] = df[col[:-2]].combine_first(df[col])
 
                     df = df.drop([col for col in df.columns if str(col).endswith('_x')], axis=1)
 

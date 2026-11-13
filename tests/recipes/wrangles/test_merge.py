@@ -798,6 +798,39 @@ class TestMergeToDict:
     """
     Test merge.to_dict
     """
+    @pytest.mark.parametrize("dtype", [None, object, "string"])
+    @pytest.mark.parametrize("include_empty", [False, True])
+    def test_missing_strings_are_json_null(self, dtype, include_empty):
+        import json
+
+        source = pd.DataFrame({
+            "text": pd.Series(["a", None, float("nan"), pd.NA, ""], dtype=dtype),
+            "flag": [True, False, True, False, False],
+            "number": [1, 0, 2, 0, 0],
+        })
+        result = wrangles.recipe.run({"wrangles": [{"merge.to_dict": {
+            "input": ["text", "flag", "number"],
+            "output": "payload",
+            "include_empty": include_empty,
+        }}]}, dataframe=source)
+
+        expected = [
+            {"text": "a", "flag": True, "number": 1},
+            {"text": None, "flag": False},
+            {"text": None, "flag": True, "number": 2},
+            {"text": None, "flag": False},
+            {"flag": False},
+        ]
+        if include_empty:
+            for index in (1, 3, 4):
+                expected[index]["number"] = 0
+            expected[4]["text"] = ""
+
+        payload = result["payload"].tolist()
+        assert payload == expected
+        assert all(row["flag"] is expected_row["flag"] for row, expected_row in zip(payload, expected))
+        assert json.loads(json.dumps(payload, allow_nan=False)) == expected
+
     def test_to_dict_1(self):
         data = pd.DataFrame({
         'Col1':[{'A'}],
@@ -1543,4 +1576,31 @@ class TestMergeDictionaries:
         
         expected = [{}, {}, {}]  
         assert df['out'].tolist() == expected
-        
+
+
+@pytest.mark.parametrize('dtype', [None, object, 'string'])
+@pytest.mark.parametrize('skip_empty', [False, True])
+def test_key_value_pairs_missing_strings_are_json_null(dtype, skip_empty):
+    import json
+
+    source = pd.DataFrame({
+        'key': pd.Series(['a', 'b', None, 'd', 'e', 'f'], dtype=dtype),
+        'text': pd.Series(['value', None, 'missing key', float('nan'), pd.NA, ''], dtype=dtype),
+        'flag': [True, False, True, False, True, False],
+        'flag_key': ['flag'] * 6,
+        'number_key': ['number'] * 6,
+        'number': [1, 0, 2, 0, 3, 0],
+    })
+    result = wrangles.recipe.run({'wrangles': [{'merge.key_value_pairs': {
+        'input': {'key': 'text', 'flag_key': 'flag', 'number_key': 'number'},
+        'output': 'payload', 'skip_empty': skip_empty,
+    }}]}, dataframe=source)
+    text_pairs = ([{'a': 'value'}, {}, {}, {}, {}, {}] if skip_empty else
+                  [{'a': 'value'}, {'b': None}, {None: 'missing key'}, {'d': None}, {'e': None}, {'f': ''}])
+    expected = [{**text_pair, 'flag': flag, 'number': number}
+                for text_pair, flag, number in zip(text_pairs, [True, False, True, False, True, False], [1, 0, 2, 0, 3, 0])]
+    payload = result['payload'].tolist()
+    assert payload == expected
+    assert all(row['flag'] is flag for row, flag in zip(payload, [True, False, True, False, True, False]))
+    encoded = json.dumps(payload, allow_nan=False)
+    assert json.loads(encoded) == [{('null' if key is None else key): value for key, value in row.items()} for row in expected]
