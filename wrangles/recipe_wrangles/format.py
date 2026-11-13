@@ -179,7 +179,7 @@ def prefix(
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         if skip_empty:
-          df[output_column] = df[input_column].apply(lambda x: value + x if _pd.notna(x) and x else x)
+          df[output_column] = df[input_column].apply(lambda x: value + x if (not _pd.api.types.is_scalar(x) or _pd.notna(x)) and x else x)
         else:  
           df[output_column] = str(value) + df[input_column].astype(str)
 
