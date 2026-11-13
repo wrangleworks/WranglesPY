@@ -248,12 +248,19 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str, skip_empty: boo
         if cols in cols_changed:
             df[cols] = df[cols].astype(str)
 
+    def normalize_missing(value):
+        # Nested dictionaries are not reached by recipe-level fillna. Keep
+        # structured values intact while restoring JSON-safe scalar nulls.
+        if _pd.api.types.is_scalar(value) and _pd.isna(value):
+            return None
+        return value
+
     results = [  
         {  
-            row[key]: (  
+            normalize_missing(row[key]): (
                 True if val in cols_changed and row[val] == 'True' else  
                 False if val in cols_changed and row[val] == 'False' else  
-                row[val]  
+                normalize_missing(row[val])
             )  
             for key, val in pairs.items()  
             if not skip_empty or (  

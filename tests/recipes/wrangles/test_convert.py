@@ -2638,3 +2638,12 @@ class TestConvertToYAML:
             })
         )
         assert df.empty and df.columns.to_list() == ['column', 'output column']
+
+@pytest.mark.parametrize('dtype', [None, object, 'string'])
+def test_fraction_to_decimal_missing_strings_first_step(dtype):
+    source = pd.DataFrame({'text': pd.Series(['size 1/2', None, float('nan'), pd.NA, ''], dtype=dtype)})
+    result = wrangles.recipe.run({'wrangles': [{'convert.fraction_to_decimal': {
+        'input': 'text', 'output': 'decimal',
+    }}]}, dataframe=source)
+    assert result['decimal'].tolist() == ['size 0.5', 'None', 'None', 'None', '']
+    assert result.index.tolist() == source.index.tolist()

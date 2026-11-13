@@ -1999,3 +1999,13 @@ class TestStructureSplitAliases:
                 jsonschema.validate({"wrangles": [{operation: {
                     "input": "source", "where": "row_id = 1", "if": "row_count > 0", **options,
                 }}]}, schema)
+
+@pytest.mark.parametrize('dtype', [None, object, 'string'])
+@pytest.mark.parametrize('char', [',', 'regex:,'])
+def test_split_text_missing_strings_first_step(dtype, char):
+    source = pd.DataFrame({'text': pd.Series(['a,b', None, float('nan'), pd.NA, ''], dtype=dtype)})
+    result = wrangles.recipe.run({'wrangles': [{'split.text': {
+        'input': 'text', 'output': 'parts', 'char': char,
+    }}]}, dataframe=source)
+    assert result['parts'].tolist() == [['a', 'b'], ['None'], ['None'], ['None'], ['']]
+    assert result.index.tolist() == source.index.tolist()
