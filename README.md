@@ -202,6 +202,10 @@ and `df.wrangles.replace(...)`.
 
 Recipes are written in YAML and allow a series of Wrangles to be run as an automated sequence.
 
+For JSON and YAML conversions, use `structure.to_json`, `structure.from_json`,
+`structure.to_yaml`, and `structure.from_yaml`. The existing `convert.*` names
+remain compatible aliases. See [JSON and YAML recipe conversions](docs/structure_serialization.md).
+
 For targeted web content retrieval with prompts that use values from each row,
 see [Retrieve content from links](docs/search_retrieve_link_content.md).
 
