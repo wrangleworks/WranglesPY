@@ -35,11 +35,16 @@ where_overwrite_output = [
     'filter',
     'sql',
     'select.group_by',
+    'structure.group_by',
     'select.sample',
+    'structure.sample',
     'select.columns',
+    'structure.select_columns',
     'select.head',
+    'structure.head',
     'pandas.head',
     'select.tail',
+    'structure.tail',
     'pandas.tail',
     'sort'
 ]
