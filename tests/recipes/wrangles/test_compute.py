@@ -953,8 +953,8 @@ class TestScoreSearchResultsLiveExtraction:
             "input_code": candidate,
         }]
 
-    def test_codes_in_separate_url_segments_do_not_form_a_part_code(self):
-        """Do not match a code made by joining separate URL identifiers."""
+    def test_combined_url_code_input_receives_mpn_match(self):
+        """A combined URL-code input can match extracted URL evidence."""
         url = (
             "https://www.familyhardware.com/product/stanley-tradecut-15-in-l-"
             "blade-9-ppi-bi-material-hand-saw-stht20348/386294"
@@ -973,10 +973,13 @@ class TestScoreSearchResultsLiveExtraction:
             payloads, mpns=["STHT20348/386294"]
         )[0]
 
-        assert result["summary"]["part_code_found"] == "none"
-        assert result["scoring_details"]["part_match_score"] == 0
-        assert result["part_code_matches"] == []
-        assert result["part_code_match_count"] == 0
+        assert result["summary"]["part_code_found"] == "mpn_exact"
+        assert result["summary"]["filtered"] is False
+        assert result["scoring_details"]["part_match_score"] == 8.0
+        assert result["part_code_match_count"] > 0
+        assert result["part_code_matches"][0]["match_type"] == "MPN"
+        assert result["part_code_matches"][0]["input_code"] == "STHT20348/386294"
+        assert result["part_code_matches"][0]["match_source"] == "url"
 
     def test_recipe_reports_reduced_evidence_and_filters_by_extracted_codes(self):
         """Run the recipe wrapper on a real result with title and URL evidence."""
