@@ -98,9 +98,18 @@ def _prepare_part_codes(results: list) -> dict:
     for text, normalized, variants in prepared[["text", "normalized", "variants"]].itertuples(index=False, name=None):
         if normalized:
             extracted_code = variants[0]
-            source_position = text.casefold().find(extracted_code.casefold())
+            folded_code = extracted_code.casefold()
+            source_indexes = [
+                index
+                for index, char in enumerate(text)
+                for _ in char.casefold()
+            ]
+            source_position = text.casefold().find(folded_code)
             source_match = (
-                text[source_position:source_position + len(extracted_code)]
+                text[
+                    source_indexes[source_position]:
+                    source_indexes[source_position + len(folded_code) - 1] + 1
+                ]
                 if source_position >= 0 else ""
             )
             source_code = (
