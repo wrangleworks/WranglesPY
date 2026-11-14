@@ -38,6 +38,11 @@ from ..connectors.matrix import _define_permutations
 from ..utils import statement_modifier as _statement_modifier
 from ..utils import delayed_variable_interpretation as _delayed_variable_interpretation
 from ..utils import replace_templated_values as _replace_templated_values
+from .._data_contracts import (
+    data_contract as _data_contract,
+    text_values as _text_values,
+    assign_result as _assign_result,
+)
 
 
 def accordion(
@@ -330,6 +335,7 @@ def batch(
     return _pd.concat(results)
 
 
+@_data_contract(family='text_consumer', missing='stringify', non_text='stringify', output='infer')
 def classify(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -379,7 +385,7 @@ def classify(
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         df[output_column] = _classify(
-            df[input_column].astype(str).tolist(),
+            _text_values(df[input_column], missing='stringify'),
             model_id,
             **kwargs
         )
@@ -998,6 +1004,7 @@ def log(
     return df
 
 
+@_data_contract(family='mixed_result', output='mixed', notes='Matrix results use positional destination writes.')
 def lookup(
     df: _pd.DataFrame,
     input: str,
@@ -1241,7 +1248,7 @@ def _lookup_with_variant(
           # Perform lookup once per permutation  
           for perm in permutations:  
             # Create mask for rows matching this permutation  
-            mask = _pd.Series([True] * len(df))  
+            mask = _pd.Series(True, index=df.index)
             for var, value in perm.items():  
               mask = mask & (df[var] == value)  
                 
@@ -1263,14 +1270,16 @@ def _lookup_with_variant(
                         
                 # Apply results to matching rows - extract correct values  
                 if len(output) == 1:  
-                  df.loc[mask, output[0]] = df.loc[mask, input].map(  
+                  values = df.loc[mask, input].map(
                     lambda x: value_to_result.get(x, [])[0] if x in value_to_result and value_to_result[x] else ""  
-                  )  
+                  )
+                  _assign_result(df, output[0], values, mask=mask)
                 else:  
                   for i, out_col in enumerate(output):  
-                    df.loc[mask, out_col] = df.loc[mask, input].map(  
+                    values = df.loc[mask, input].map(
                       lambda x: value_to_result.get(x, [])[i] if x in value_to_result and len(value_to_result[x]) > i else ""  
-                    )  
+                    )
+                    _assign_result(df, out_col, values, mask=mask)
                                 
               elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):  
                 # User specified no columns from the wrangle  
@@ -1285,7 +1294,8 @@ def _lookup_with_variant(
                         
                 # Apply results to matching rows - extract correct values  
                 for out in output:
-                  df.loc[mask, out] = df.loc[mask, input].map(lambda x: value_to_result.get(x, {}))
+                  values = df.loc[mask, input].map(lambda x: value_to_result.get(x, {}))
+                  _assign_result(df, out, values, mask=mask, output_kind='structured')
               else:  
                 # User specified a mixture of unrecognized columns and columns from the wrangle  
                 raise ValueError('Lookup may only contain all named or unnamed columns.')
@@ -2123,6 +2133,7 @@ def sql(
     return df_temp
 
 
+@_data_contract(family='text_consumer', missing='stringify', non_text='stringify', output='infer')
 def standardize(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -2176,7 +2187,7 @@ def standardize(
         for model in model_id:
             for input_column, output_column in zip(input, tmp_output):
                 df_copy[output_column] = _standardize(
-                    df_copy[output_column].astype(str).tolist(),
+                    _text_values(df_copy[output_column], missing='stringify'),
                     model,
                     case_sensitive,
                     **kwargs
@@ -2189,7 +2200,7 @@ def standardize(
     for model in model_id:
         for input_column, output_column in zip(input, output):
             df[output_column] = _standardize(
-                df[input_column].astype(str).tolist(),
+                _text_values(df[input_column], missing='stringify'),
                 model,
                 case_sensitive,
                 **kwargs
@@ -2198,6 +2209,7 @@ def standardize(
     return df
 
 
+@_data_contract(family='text_consumer', missing='stringify', non_text='stringify', output='infer')
 def translate(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -2301,7 +2313,7 @@ def translate(
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         df[output_column] = _translate(
-            df[input_column].astype(str).tolist(),
+            _text_values(df[input_column], missing='stringify'),
             target_language,
             source_language,
             case,

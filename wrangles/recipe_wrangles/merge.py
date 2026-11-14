@@ -8,6 +8,14 @@ import logging as _logging
 import pandas as _pd
 from .. import format as _format
 import numpy as _np
+from .._data_contracts import (
+    data_contract as _data_contract,
+    text_matrix as _text_matrix,
+    is_empty_scalar as _is_empty_scalar,
+    is_missing_scalar as _is_missing_scalar,
+    normalize_missing_values as _normalize_missing_values,
+    assign_result as _assign_result,
+)
 
 
 def coalesce(
@@ -103,6 +111,7 @@ def coalesce(
     return df
 
 
+@_data_contract(family='text_consumer', missing='stringify', non_text='stringify', notes='Multiple columns use text; a single column delegates native scalar/list handling.')
 def concatenate(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -146,7 +155,7 @@ def concatenate(
     if len(input) == 1:
         df[output[0]] = _format.concatenate(df[input[0]].values, char, skip_empty)
     else:
-        df[output[0]] = _format.concatenate(df[input].astype(str).values, char, skip_empty)
+        df[output[0]] = _format.concatenate(_text_matrix(df[input], missing='stringify'), char, skip_empty)
 
     return df
 
@@ -196,6 +205,7 @@ def dictionaries(df: _pd.DataFrame, input: list, output: str, skip_empty: bool =
 
     return df
 
+@_data_contract(family='structured', output='structured', notes='Normalize missing values, preserve keys; skip_empty adds whitespace text.')
 def key_value_pairs(df: _pd.DataFrame, input: dict, output: str, skip_empty: bool = False) -> _pd.DataFrame:
     """
     type: object
@@ -229,44 +239,19 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str, skip_empty: boo
         else:
             pairs[key] = val
 
-    results = [{} for _ in range(len(df))]
-    
-    # Checking if the inputs are boolean type
-    index_check = 0
-    cols_changed = []
-    for cols in list(pairs.values()):
-        for row in df[cols]:
-            # If the row value is a boolean then record the column
-            if isinstance(row, bool):
-                cols_changed.append(cols)
-                break
-        # only check the first 10 rows
-        index_check += 1
-        if index_check > 10: break
-        
-        # If the column is in the columns changed then convert to string
-        if cols in cols_changed:
-            df[cols] = df[cols].astype(str)
-
-    results = [  
-        {  
-            row[key]: (  
-                True if val in cols_changed and row[val] == 'True' else  
-                False if val in cols_changed and row[val] == 'False' else  
-                row[val]  
-            )  
-            for key, val in pairs.items()  
-            if not skip_empty or (  
-                not _pd.isna(row[key]) and   
-                not _pd.isna(row[val]) and  
-                (not isinstance(row[key], str) or row[key].strip()) and  
-                (not isinstance(row[val], str) or row[val].strip())  
-            )  
-        }  
-        for row in df.to_dict('records')  
+    # Preserve native values; scalar-null normalization is separate from text.
+    results = [
+        {
+            row[key]: _normalize_missing_values(row[val])
+            for key, val in pairs.items()
+            if not skip_empty or (
+                not _is_empty_scalar(row[key], whitespace=True)
+                and not _is_empty_scalar(row[val], whitespace=True)
+            )
+        }
+        for row in df.to_dict('records')
     ]
-
-    df[output] = results
+    _assign_result(df, output, results, output_kind='structured')
 
     return df
 
@@ -322,6 +307,7 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
     return df
 
 
+@_data_contract(family='structured', output='structured', notes='Legacy include_empty zero filtering; booleans/nulls survive.')
 def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = False) -> _pd.DataFrame:
     """
     type: object
@@ -345,33 +331,24 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
         description: Whether to include empty columns in the created dictionary
     """
     _logging.debug(f": Converting columns to dict :: output :: {output}")
-    index_check = 0
-    cols_changed = [] 
-    for cols in input:
-        for row in df[cols]:
-            if isinstance(row, bool) or row == None:
-                cols_changed.append(cols)
-                break
-        # only check the first 10 rows
-        index_check += 1
-        if index_check > 10: break
-        
-        # If the column is in the cols changed then convert values to strings
-        if cols in cols_changed:
-            df[cols] = df[cols].astype(str)
-    
     output_list = []
-    column_headers = df[input].columns
-    for row in df[input].values.tolist():
+    selected = df[input]
+    for row in selected.itertuples(index=False, name=None):
         output_dict = {}
-        for col, header in zip(row, column_headers):
-            if col or include_empty: output_dict[header] = col
-            if header in cols_changed:
-                if col == 'None': output_dict[header] = None
-                elif col == 'False': output_dict[header] = False
-                elif col == 'True': output_dict[header] = True
+        for header, value in zip(selected.columns, row):
+            # Retain the legacy include_empty contract for zero/empty cells.
+            # Actual booleans and nulls always survive; literal marker strings
+            # remain text instead of being reinterpreted after a round trip.
+            if (
+                isinstance(value, (bool, _np.bool_))
+                or _is_missing_scalar(value)
+                or include_empty
+                or bool(value)
+            ):
+                output_dict[header] = _normalize_missing_values(value)
         output_list.append(output_dict)
-    df[output] = output_list
+    _assign_result(df, output, output_list, output_kind='structured')
+
     return df
 
 

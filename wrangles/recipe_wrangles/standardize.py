@@ -7,20 +7,15 @@ from typing import Union as _Union
 import pandas as _pd
 
 from ..standardize import clean as _clean
+from .._data_contracts import (
+    data_contract as _data_contract,
+    is_missing_scalar as _is_missing_scalar,
+)
 
 
 def _is_missing(value) -> bool:
     """Return whether a scalar value should be skipped during concatenation."""
-    try:
-        result = _pd.isna(value)
-    except (TypeError, ValueError):
-        return False
-
-    # pandas returns an array for list-like cells; those are values, not a
-    # scalar missing marker.
-    if hasattr(result, '__len__'):
-        return False
-    return bool(result)
+    return _is_missing_scalar(value)
 
 
 def _concatenate_row(values, separator: str) -> str:
@@ -35,6 +30,7 @@ def _concatenate_row(values, separator: str) -> str:
     )
 
 
+@_data_contract(family='text_transform', missing='preserve', non_text='preserve', output='infer')
 def clean(
     df: _pd.DataFrame,
     input: _Union[str, int, list],

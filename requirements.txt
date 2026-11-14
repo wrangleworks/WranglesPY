@@ -2,7 +2,8 @@
 # For all optional connectors and extras: pip install -r requirements-full.txt
 
 # Core data processing
-pandas>=2.0,<3.0
+pandas>=2.3.3,<3.0
+pyarrow>=22.0.0
 numpy
 numexpr
 polars==1.33.0

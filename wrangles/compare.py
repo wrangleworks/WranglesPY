@@ -9,6 +9,7 @@ import unicodedata
 from typing import Tuple
 
 from rapidfuzz import fuzz as _fuzz, distance as _distance
+from ._data_contracts import is_missing_scalar as _is_missing
 
 def normalize_alphanum(text: str) -> str:
     """
@@ -289,14 +290,6 @@ def normalize_similarity_text(text) -> str:
     text = text.casefold()
     text = ''.join(ch if ch.isalnum() else ' ' for ch in text)
     return ' '.join(text.split())
-
-
-def _is_missing(value) -> bool:
-    if value is None:
-        return True
-    if isinstance(value, float) and value != value:
-        return True
-    return False
 
 
 def similarity(input: list, metric: str = 'token_sort', decimal_places: int = 3) -> list:

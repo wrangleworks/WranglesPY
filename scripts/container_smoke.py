@@ -87,7 +87,7 @@ def validate_runtime_versions(python_version, numpy_version, pandas_version):
 
 
 def validate_wrangles_pandas_requirement(requirements):
-    """Prove the installed package metadata still excludes Pandas 3."""
+    """Check the preparatory pandas 2.3.3 floor and pandas 3 exclusion."""
     parsed_requirements = [Requirement(requirement) for requirement in requirements]
     pandas_requirements = [
         requirement
@@ -101,10 +101,32 @@ def validate_wrangles_pandas_requirement(requirements):
     )
     pandas_specifier = pandas_requirements[0].specifier
     _require(
-        pandas_specifier.contains("2.999", prereleases=True)
+        pandas_specifier.contains("2.3.3")
+        and not pandas_specifier.contains("2.3.2")
         and not pandas_specifier.contains("3.0", prereleases=True),
-        "Wrangles metadata must support Pandas 2.x and exclude Pandas 3: "
+        "Wrangles metadata must require pandas >=2.3.3 and exclude pandas 3: "
         f"{pandas_requirements[0]}",
+    )
+
+
+def validate_wrangles_pyarrow_requirement(requirements):
+    """Ensure the wheel declares PyArrow as a core dependency at its floor."""
+    parsed_requirements = [Requirement(requirement) for requirement in requirements]
+    arrow_requirements = [
+        requirement
+        for requirement in parsed_requirements
+        if requirement.name.lower() == "pyarrow"
+    ]
+    _require(
+        len(arrow_requirements) == 1,
+        f"Expected one core PyArrow requirement, found {[str(item) for item in arrow_requirements]}",
+    )
+    requirement = arrow_requirements[0]
+    _require(
+        requirement.marker is None
+        and requirement.specifier.contains("22.0.0")
+        and not requirement.specifier.contains("21.0.0"),
+        f"Wrangles metadata must require core PyArrow >=22.0.0: {requirement}",
     )
 
 
@@ -181,7 +203,9 @@ def main():
     import wrangles  # noqa: F401 - import itself is part of the smoke check
 
     validate_runtime_versions(sys.version_info, numpy.__version__, pandas.__version__)
-    validate_wrangles_pandas_requirement(metadata.requires("wrangles") or ())
+    requirements = metadata.requires("wrangles") or ()
+    validate_wrangles_pandas_requirement(requirements)
+    validate_wrangles_pyarrow_requirement(requirements)
     validate_trimmed_package_data(
         Path(botocore.__file__).resolve().parent / "data",
         Path(pandas.__file__).resolve().parent,
