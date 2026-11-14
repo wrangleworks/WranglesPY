@@ -13,6 +13,8 @@ The data stack uses pandas 2.3.3 (`pandas>=2.3.3,<3.0`) and includes
 PyArrow 22 or newer in the core installation. Shared [data contracts](docs/data-contracts.md)
 prepare text and DataFrame handling for a later pandas 3 compatibility change.
 Focused CI checks run on pandas 2.3.3 with the PyArrow 22 dependency floor.
+The [missing-value guide](docs/missing-values.md) illustrates Python, pandas,
+and JSON behavior for the operation-policy review.
 
 ## Local development
 

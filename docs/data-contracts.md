@@ -2,6 +2,9 @@
 
 [Back to the overview](../README.md)
 
+For the underlying Python, pandas, and JSON behavior, read
+[Missing values across Python, pandas, and JSON](missing-values.md).
+
 This preparatory layer makes data handling explicit on pandas 2.3.3. It does not
 enable pandas 3 or change pandas' process-wide string or Copy-on-Write settings.
 PyArrow is part of the baseline installation; the supported pandas range remains
