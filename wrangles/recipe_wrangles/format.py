@@ -6,6 +6,19 @@ import logging as _logging
 import pandas as _pd
 from .. import format as _format
 from ..utils import safe_str_transform as _safe_str_transform
+from .._data_contracts import (
+    assign_result as _assign_result,
+    data_contract as _data_contract,
+    is_missing_scalar as _is_missing_scalar,
+    text_values as _text_values,
+)
+
+
+def _text_series(source):
+    """Prepare temporary text while preserving row labels for vectorized work."""
+    return _pd.Series(
+        _text_values(source, missing='stringify'), index=source.index, dtype=object,
+    )
 
 
 def dates(df: _pd.DataFrame, input: _Union[str, int, list], format: str, output: _Union[str, list] = None) -> _pd.DataFrame:
@@ -53,6 +66,7 @@ def dates(df: _pd.DataFrame, input: _Union[str, int, list], format: str, output:
     return df
     
     
+@_data_contract('text_consumer', missing='stringify', non_text='stringify', output='text')
 def pad(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -114,21 +128,18 @@ def pad(
         raise ValueError('The lists for input and output must be the same length.')
   
     for input_column, output_column in zip(input, output):
-      if skip_empty:  
-        # Create a mask for non-empty values  
-        mask = df[input_column].astype(str).str.strip() != ''  
-
-        # Initialize output column with input values  
-        df[output_column] = df[input_column].astype(str)  
-        
-        # Only pad non-empty values  
-        df.loc[mask, output_column] = df.loc[mask, input_column].astype(str).str.pad(pad_length, side, char)  
-      else:  
-        df[output_column] = df[input_column].astype(str).str.pad(pad_length, side, char)
+        text = _text_series(df[input_column])
+        padded = text.str.pad(pad_length, side, char)
+        if skip_empty:
+            padded = padded.where(text.str.strip() != '', text)
+        _assign_result(df, output_column, padded, output_kind='text')
     
     return df
 
 
+@_data_contract(
+    'text_transform', notes='Default stringifies; skip_empty skips scalar missing/falsy cells and retains legacy concatenation errors for other non-text values.',
+)
 def prefix(
         df: _pd.DataFrame,
         input: _Union[str, int, list],
@@ -179,9 +190,10 @@ def prefix(
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         if skip_empty:
-          df[output_column] = df[input_column].apply(lambda x: value + x if x else x)
+            result = df[input_column].apply(lambda x: value + x if not _is_missing_scalar(x) and x else x)
+            _assign_result(df, output_column, result)
         else:  
-          df[output_column] = str(value) + df[input_column].astype(str)
+            _assign_result(df, output_column, str(value) + _text_series(df[input_column]), output_kind='text')
 
     return df
 
@@ -270,6 +282,9 @@ def significant_figures(df: _pd.DataFrame, input: _Union[str, int, list], signif
     return df
 
 
+@_data_contract(
+    'text_transform', notes='Default stringifies; skip_empty skips scalar missing/falsy cells and retains legacy concatenation errors for other non-text values.',
+)
 def suffix(
         df: _pd.DataFrame,
         input: _Union[str, int, list],
@@ -321,13 +336,15 @@ def suffix(
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         if skip_empty:
-          df[output_column] = df[input_column].apply(lambda x: x + value if x else x)
+            result = df[input_column].apply(lambda x: x + value if not _is_missing_scalar(x) and x else x)
+            _assign_result(df, output_column, result)
         else:  
-          df[output_column] = df[input_column].astype(str) + str(value)
+            _assign_result(df, output_column, _text_series(df[input_column]) + str(value), output_kind='text')
   
     return df
 
 
+@_data_contract('text_transform')
 def trim(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object

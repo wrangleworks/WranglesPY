@@ -6,6 +6,10 @@ import logging as _logging
 import pandas as _pd
 from typing import Union as _Union
 from .. import compare as _compare
+from .._data_contracts import (
+    data_contract as _data_contract,
+    text_matrix as _text_matrix,
+)
 
 
 def lists(
@@ -106,6 +110,10 @@ def lists(
     return df
 
 
+@_data_contract(
+    'text_consumer', missing='stringify', non_text='stringify',
+    notes='Difference, intersection and overlap consume text; similarity retains typed values.',
+)
 def text(
     df: _pd.DataFrame,
     input: list,
@@ -240,7 +248,7 @@ def text(
             raise ValueError("Input must be a list of at least two columns")
 
         df[output] = _compare.contrast(
-            input=df[input].astype(str).values.tolist(),
+            input=_text_matrix(df[input], missing='stringify'),
             type=method,
             char=char,
             case_sensitive=case_sensitive,
@@ -258,7 +266,7 @@ def text(
             )
 
         results = _compare.overlap(
-            input=df[input].astype(str).values.tolist(),
+            input=_text_matrix(df[input], missing='stringify'),
             non_match_char=non_match_char,
             include_ratio=include_ratio,
             decimal_places=decimal_places,

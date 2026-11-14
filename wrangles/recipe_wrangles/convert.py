@@ -13,6 +13,11 @@ import logging as _logging
 from fractions import Fraction as _Fraction
 import yaml as _yaml
 from ..utils import safe_str_transform as _safe_str_transform
+from .._data_contracts import (
+    data_contract as _data_contract,
+    is_empty_scalar as _is_empty_scalar,
+    text_values as _text_values,
+)
 import wrangles as _wrangles
 try:
     from yaml import CSafeLoader as _YAMLLoader, CSafeDumper as _YAMLDumper
@@ -73,6 +78,7 @@ _ObjectYAMLLoader.add_implicit_resolver(
 _SENTENCE_CASE_RE = _re.compile(r'(^\s*|[.!?]\s*)(\S)')
 
 
+@_data_contract(family='text_transform', missing='preserve', non_text='preserve', output='infer')
 def case(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
     """
     type: object
@@ -320,6 +326,7 @@ def data_type(
     return df
 
 
+@_data_contract(family='text_consumer', missing='stringify', non_text='stringify', output='text')
 def fraction_to_decimal(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -362,7 +369,7 @@ def fraction_to_decimal(
     
     for in_col, out_col in zip(input, output):
         results = []
-        for item in df[in_col].astype(str):
+        for item in _text_values(df[in_col], missing='stringify'):
             fractions = fractions = _re.finditer(r'\b(\d+[\s-])?\d+/\d+\b', item)
             replacement_list = []
             for match in fractions:
@@ -442,16 +449,7 @@ def _is_missing_object_value(value) -> bool:
     """
     Return whether a scalar value represents a missing cell.
     """
-    if value is None:
-        return True
-    if isinstance(value, str):
-        return not value.strip()
-    if _pd.api.types.is_scalar(value):
-        try:
-            return bool(_pd.isna(value))
-        except (TypeError, ValueError):
-            return False
-    return False
+    return _is_empty_scalar(value, whitespace=True)
 
 
 def _normalize_json_compatible(value, active_ids=None):

@@ -2,6 +2,11 @@ import logging as _logging
 import pandas as _pd
 from .. import _ai_mode
 from .. import _prompt_template
+from .._data_contracts import (
+    data_contract as _data_contract,
+    text_values as _text_values,
+    is_missing_scalar as _is_missing_scalar,
+)
 
 # Import the combined core wrangles
 from .. import search as _search_core
@@ -28,6 +33,7 @@ def _normalize_search_kwargs(kwargs: dict) -> dict:
     params.setdefault("hl", "en")
   return params
 
+@_data_contract(family='text_consumer', missing='empty', non_text='stringify', output='structured', notes='Blank queries are skipped before provider calls.')
 def find_links(
     df: _pd.DataFrame,
     queries: str | list,
@@ -115,11 +121,8 @@ def find_links(
         raise ValueError("search.find_links must have an equal number of query and output columns, OR 1 query column and 2 output columns [dicts, strings].")
 
     def _to_query_list(v) -> list[str]:
-        if v is None: return []
-        if isinstance(v, (list, tuple)):
-            return [str(x).strip() for x in v if x is not None and str(x).strip()]
-        s = str(v).strip()
-        return [s] if s else []
+        values = v if isinstance(v, (list, tuple)) else [v]
+        return [text.strip() for text in _text_values(values, missing='empty') if text.strip()]
 
     row_ids = df[id].tolist() if id in df.columns else [None] * len(df)
 
@@ -305,6 +308,7 @@ def ai_mode(
     return df
 
 
+@_data_contract(family='text_consumer', missing='empty', non_text='stringify', output='structured', notes='URL dictionaries are resolved before missing-value filtering.')
 def retrieve_link_content(
     df: _pd.DataFrame,
     input: str | list,
@@ -397,11 +401,12 @@ def retrieve_link_content(
         raise ValueError("search.retrieve_link_content must have an equal number of input and output columns, OR exactly one input and two outputs (e.g., output: [page_data, page_text]).")
 
     def _extract_url(v) -> str:
-        if not v: return ""
         if isinstance(v, dict):
             if "summary" in v and isinstance(v["summary"], dict):
-                return v["summary"].get("link", "")
-            return v.get("link", v.get("url", ""))
+                return _extract_url(v["summary"].get("link", ""))
+            return _extract_url(v.get("link", v.get("url", "")))
+        if _is_missing_scalar(v): return ""
+        if not v: return ""
         return str(v).strip()
 
     def _to_url_list(v) -> list[str]:

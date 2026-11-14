@@ -9,11 +9,17 @@ import pandas as _pd
 from .. import format as _format
 import json as _json
 import itertools as _itertools
+from .._data_contracts import (
+    assign_result as _assign_result,
+    data_contract as _data_contract,
+    text_values as _text_values,
+)
 from ..utils import (
     wildcard_expansion_dict as _wildcard_expansion_dict,
     get_nested_function as _get_nested_function
 )
 
+@_data_contract('structured', output='structured')
 def dictionary(
     df: _pd.DataFrame,
     input: _Union[str, int, _list],
@@ -128,8 +134,8 @@ def dictionary(
         if len(output) != 2:
             raise ValueError("split.dictionary with output_format to_lists requires exactly two output columns")
 
-        df[output[0]] = [[key for key in item.keys()] for item in dicts]
-        df[output[1]] = [[value for value in item.values()] for item in dicts]
+        _assign_result(df, output[0], [[key for key in item.keys()] for item in dicts], output_kind='structured')
+        _assign_result(df, output[1], [[value for value in item.values()] for item in dicts], output_kind='structured')
         return df
 
     # Generate new columns for each key in the dictionary
@@ -160,11 +166,16 @@ def dictionary(
         # Return only the named output columns
         df_temp = df_temp[output.values()]
 
-    df[df_temp.columns] = df_temp.values
+    # Keep the existing common-array dtype while assigning destinations only.
+    column_values = df_temp.values
+    for offset, column in enumerate(df_temp.columns):
+        output_kind = 'mixed' if column_values.dtype == object else 'infer'
+        _assign_result(df, column, column_values[:, offset], output_kind=output_kind)
 
     return df
 
     
+@_data_contract('structured', output='infer')
 def list(df: _pd.DataFrame, input: _Union[str, int], output: _Union[str, _list]) -> _pd.DataFrame:
     """
     type: object
@@ -218,6 +229,7 @@ def list(df: _pd.DataFrame, input: _Union[str, int], output: _Union[str, _list])
     return df
 
 
+@_data_contract('text_consumer', missing='stringify', non_text='stringify', output='infer')
 def text(
     df: _pd.DataFrame,
     input: str,
@@ -305,7 +317,7 @@ def text(
 
     # Perform the split operation
     results = _format.split(
-        df[input].astype(str).values,
+        _text_values(df[input], missing='stringify'),
         output_length=len(output) if isinstance(output, _list) and len(output) > 1 else None,
         split_char=char,
         pad=pad,
@@ -327,6 +339,7 @@ def text(
     return df
 
 
+@_data_contract('structured', output='structured', notes='List cells remain lists for tokenization; scalar cells are stringified by the tokenizer.')
 def tokenize(
     df: _pd.DataFrame,
     input: _Union[str, int, _list],
@@ -405,6 +418,10 @@ def tokenize(
         )
 
     for in_col, out_col in zip(input, output):
-        df[out_col] = _format.tokenize(df[in_col].values.tolist(), method, func, pattern)
+        _assign_result(
+            df, out_col,
+            _format.tokenize(df[in_col].values.tolist(), method, func, pattern),
+            output_kind='structured',
+        )
             
     return df
