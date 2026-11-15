@@ -34,11 +34,11 @@ def test_runtime_versions_reject_unapproved_versions(
         )
 
 
-def test_wrangles_metadata_requires_pandas_below_three():
+def test_wrangles_metadata_requires_final_pandas_two():
     container_smoke.validate_wrangles_pandas_requirement(
         [
             "numpy",
-            "pandas[performance]<3.0,>=2.0; python_version >= '3.11'",
+            "pandas[performance]<3.0,>=2.3.3; python_version >= '3.11'",
             "requests",
         ]
     )
@@ -46,11 +46,32 @@ def test_wrangles_metadata_requires_pandas_below_three():
 
 @pytest.mark.parametrize(
     "requirement",
-    ["pandas>=2.0", "pandas>=3.0,<4.0"],
+    ["pandas>=2.0", "pandas>=2.3.2,<3.0", "pandas>=3.0,<4.0"],
 )
-def test_wrangles_metadata_rejects_pandas_three(requirement):
+def test_wrangles_metadata_rejects_other_pandas_ranges(requirement):
     with pytest.raises(RuntimeError):
         container_smoke.validate_wrangles_pandas_requirement([requirement])
+
+
+def test_wrangles_metadata_requires_core_pyarrow():
+    container_smoke.validate_wrangles_pyarrow_requirement(
+        ["numpy", "PyArrow>=22.0.0", "pandas>=2.3.3,<3.0"]
+    )
+
+
+@pytest.mark.parametrize(
+    "requirements",
+    [
+        [],
+        ["pyarrow"],
+        ["pyarrow>=16.0.0"],
+        ["pyarrow>=22.0.0; extra == 'parquet'"],
+        ["pyarrow>=22.0.0", "pyarrow>=23.0.0"],
+    ],
+)
+def test_wrangles_metadata_rejects_missing_optional_or_old_pyarrow(requirements):
+    with pytest.raises(RuntimeError):
+        container_smoke.validate_wrangles_pyarrow_requirement(requirements)
 
 
 def test_trimmed_package_data_accepts_only_s3(tmp_path):
