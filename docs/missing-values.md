@@ -6,6 +6,10 @@ This guide explains the behavior behind the operation-policy review. It does
 not choose new Wrangles defaults. Examples distinguish an actual missing value
 from text that merely looks like one.
 
+The [sequenced migration plan](https://github.com/wrangleworks/WranglesPY/issues/1279)
+and [Excel operation review](data-contract-review.md) record the work this guide
+supports. Policy acceptance and ongoing status belong in the issue.
+
 The pandas comparison is **2.3.3 versus 3.1.1**. Unless a version is stated,
 the examples describe behavior shared by both. A Python example and a JSON
 example may use different spellings for the same value.

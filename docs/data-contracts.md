@@ -5,6 +5,10 @@
 For the underlying Python, pandas, and JSON behavior, read
 [Missing values across Python, pandas, and JSON](missing-values.md).
 
+The [sequenced migration plan and preparation acceptance criteria](https://github.com/wrangleworks/WranglesPY/issues/1279)
+are tracked in GitHub. Review the operation analysis in the
+[Excel workbook and its provenance](data-contract-review.md).
+
 This preparatory layer makes data handling explicit on pandas 2.3.3. It does not
 enable pandas 3 or change pandas' process-wide string or Copy-on-Write settings.
 PyArrow is part of the baseline installation; the supported pandas range remains

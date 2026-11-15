@@ -135,6 +135,8 @@ docs/*
 !docs/search_result_scoring.md
 !docs/data-contracts.md
 !docs/missing-values.md
+!docs/data-contract-review.md
+!docs/data-contract-review.xlsx
 .DS_Store
 
 # Spyder project settings
