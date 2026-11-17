@@ -331,6 +331,15 @@ class TestScoreSearchResults:
               name: tests/temp/pra_score_test_data.json
         """)
 
+    def test_supplier_match_does_not_require_code_extraction(self):
+        """Score supplier text without requiring code evidence when no codes are given."""
+        result = compute.score_search_results(
+            [{"search_results": [{"title": "Brand blank", "link": "https://brand.com/item"}]}],
+            suppliers=["Brand"], must_match_part_code=False,
+        )[0]
+        assert result["summary"]["brand_found"] is True
+        assert result["part_code_match_count"] == 0
+
     def test_search_score(self):
         """
         Test score_search_results
@@ -339,15 +348,15 @@ class TestScoreSearchResults:
         wrangles:
           - compute.score_search_results:
               input:
-                - results          
-                - suppliers       
+                - results
+                - suppliers
                 - part_codes
                 - MPN
-                - Description      
-              output: 
+                - Description
+              output:
                 - scored_results
                 - Score Summary
-              blacklist_keywords: 
+              blacklist_keywords:
                 - ebay
               must_match_part_code: false
               mpn_exact_score: 8.0
@@ -422,6 +431,7 @@ class TestScoreSearchResults:
         assert result["part_code_match_count"] == 3
 
     def test_part_code_match_inside_larger_code_is_partial(self):
+        """Recover the full roller code while retaining containment scoring."""
         payloads = [{
             "search_metadata": {"query_index": 1},
             "search_results": [{
@@ -444,6 +454,29 @@ class TestScoreSearchResults:
             "matched_code": "NATV6-PP-A",
             "input_code": "NATV6",
         }]
+        assert result["summary"]["part_code_found"] == "other_code_exact"
+        assert result["scoring_details"]["part_match_score"] == 6.0
+
+    def test_longer_input_code_does_not_match_shorter_source_code(self):
+        """A NATV6 roller listing must not establish the longer NATV6-PP-A code."""
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "INA NATV6 track roller",
+                "snippet": "",
+                "link": "https://example.com/product",
+            }],
+        }]
+
+        result = compute.score_search_results(
+            payloads, mpns=["NATV6-PP-A"], part_codes=["NATV6-PP-A"]
+        )[0]
+
+        assert result["summary"]["part_code_found"] == "none"
+        assert result["summary"]["filtered"] is True
+        assert result["scoring_details"]["part_match_score"] == 0
+        assert result["part_code_matches"] == []
+        assert result["part_code_match_count"] == 0
 
     def test_part_code_matches_prefer_mpn_over_duplicate_code_evidence(self):
         payloads = [{
@@ -535,17 +568,17 @@ class TestScoreSearchResults:
             "input_code": "085-196-225",
         }]
 
-    @pytest.mark.parametrize("input_code,source_text,expected_level", [
-        ("085-196-225 M10", "085-196-225 M100", "partial"),
-        ("ABCD", "XYZAB CD1", "partial"),
-        ("ABC", "ABC.", "exact"),
-        ("ABC", "LMABC123", None),
+    @pytest.mark.parametrize("input_code,source_codes,expected_level", [
+        ("085-196-225 M10", ["085-196-225 M100"], "partial"),
+        ("ABCD", ["XYZAB", "CD1"], None),
+        ("ABC", ["ABC"], "exact"),
+        ("ABC", ["LMABC123"], None),
     ])
     def test_part_code_match_fallback_respects_complete_code_boundaries(
-        self, input_code, source_text, expected_level
+        self, input_code, source_codes, expected_level
     ):
         matches = compute._find_part_code_matches(
-            [input_code], {"Snippet": source_text}, "Codes"
+            [input_code], {"Snippet": [(code, compute._compare.normalize_alphanum(code)) for code in source_codes]}, "Codes"
         )
 
         if expected_level is None:
@@ -553,10 +586,7 @@ class TestScoreSearchResults:
         else:
             assert len(matches) == 1
             assert matches[0]["match_level"] == expected_level
-            assert matches[0]["matched_code"] == (
-                source_text.rstrip(".") if expected_level == "exact"
-                else source_text
-            )
+            assert matches[0]["matched_code"] == source_codes[0]
 
     def test_part_code_matches_keep_only_one_best_mpn(self):
         payloads = [{
@@ -584,13 +614,14 @@ class TestScoreSearchResults:
 
     def test_sentence_punctuation_does_not_hide_stronger_exact_evidence(self):
         matches = compute._find_part_code_matches(
-            ["AB-123"], {"Snippet": "AB-123. Alternative AB123"}, "Codes"
+            ["AB-123"], {"Snippet": [("AB-123", "ab123"), ("AB123", "ab123")]}, "Codes"
         )
 
         assert matches[0]["match_level"] == "exact"
         assert matches[0]["matched_code"] == "AB-123"
 
     def test_part_code_matches_deduplicate_codes_across_sources(self):
+        """Reduce repeated full-code evidence to the preferred title source."""
         payloads = [{
             "search_metadata": {"query_index": 1},
             "search_results": [{
@@ -613,6 +644,7 @@ class TestScoreSearchResults:
             "matched_code": "NATV6-X-PP-A",
             "input_code": "NATV6",
         }]
+        assert result["part_code_match_count"] == 3
 
     def test_part_code_matches_remove_codes_contained_within_mpn_match(self):
         payloads = [{
@@ -661,12 +693,12 @@ class TestScoreSearchResults:
 
         assert result["part_code_matches"] == [{
             "match_type": "MPN",
-            "match_level": "stripped",
-            "match_source": "title",
-            "matched_code": "LBBR 14-2LS",
+            "match_level": "partial",
+            "match_source": "url",
+            "matched_code": "com/lbbr-14-2ls-hv6",
             "input_code": "LBBR14-2LS",
         }]
-        assert result["part_code_match_count"] == 6
+        assert result["part_code_match_count"] == 3
 
     def test_part_code_matches_is_empty_when_no_code_matches(self):
         payloads = [{
@@ -725,8 +757,8 @@ class TestScoreSearchResults:
         assert isinstance(result.iloc[0]["scored_results"][0]["part_code_match_count"], int)
 
     @pytest.mark.parametrize("must_match_part_code", [True, False])
-    def test_part_code_evidence_does_not_change_scoring_or_filtering(
-        self, monkeypatch, must_match_part_code
+    def test_extracted_code_evidence_controls_scoring_and_filtering(
+        self, must_match_part_code
     ):
         payloads = [{
             "search_metadata": {"query_index": 1},
@@ -749,19 +781,19 @@ class TestScoreSearchResults:
             "part_codes": ["AB-123", "AB12"],
             "must_match_part_code": must_match_part_code,
         }
-        with_evidence = compute.score_search_results(payloads, **kwargs)
-        assert with_evidence[0]["part_code_match_count"] > 0
+        results = compute.score_search_results(payloads, **kwargs)
+        results_by_link = {result["summary"]["link"]: result for result in results}
+        matched = results_by_link["https://example.com/products/AB-123"]
+        unmatched = results_by_link["https://example.com/products/other"]
 
-        monkeypatch.setattr(compute, "_find_part_code_matches", lambda *args: [])
-        without_evidence = compute.score_search_results(payloads, **kwargs)
-
-        def without_diagnostics(results):
-            return [{
-                key: value for key, value in result.items()
-                if key not in {"part_code_matches", "part_code_match_count"}
-            } for result in results]
-
-        assert without_diagnostics(with_evidence) == without_diagnostics(without_evidence)
+        assert matched["part_code_match_count"] > 0
+        assert matched["part_code_matches"][0]["match_type"] == "MPN"
+        assert matched["scoring_details"]["part_match_score"] == 8.0
+        assert matched["summary"]["filtered"] is False
+        assert unmatched["part_code_match_count"] == 0
+        assert unmatched["part_code_matches"] == []
+        assert unmatched["scoring_details"]["part_match_score"] == 0
+        assert unmatched["summary"]["filtered"] is must_match_part_code
 
     def test_scoring_schema_documents_every_argument_and_default(self):
         function = wrangles.recipe._recipe_wrangles.compute.score_search_results
@@ -832,3 +864,239 @@ class TestScoreSearchResults:
             else:
                 assert scored[field] == expected
         assert result.iloc[0]["Score Summary"][0] == expected_summary
+
+
+@pytest.mark.parametrize("source,extracted,expected", [
+    ("INA NATV6-PP-A track roller", "NATV6", "NATV6-PP-A"),
+    ("INA natv6-x-pp-a.", "NATV6", "natv6-x-pp-a"),
+    ("Part AB_123.4-X.", "123", "AB_123.4-X"),
+    ("NATV6 PP-A", "NATV6", "NATV6"),
+    ("https://example.com/NATV6/PP-A", "NATV6", "NATV6"),
+    ("https://example.com/hand-saw-stht20348/386294", "STHT20348", "hand-saw-stht20348"),
+    ("Straße NATV6-PP-A", "NATV6", "NATV6-PP-A"),
+    ("Part ß123-AB", "SS123", "ß123-AB"),
+    ("Part ß123-AB", "S123", "S123"),
+    ("No code here", "NATV6", "NATV6"),
+])
+def test_recovers_contiguous_source_code(source, extracted, expected):
+    """Recover source spelling and separators without joining words or paths."""
+    assert compute._recover_source_code(source, extracted) == expected
+
+
+class TestScoreSearchResultsLiveExtraction:
+    """Verify scorer behavior with the live WrangleWorks code extractor."""
+
+    @pytest.mark.parametrize(
+        "url,matched_code",
+        [
+            (
+                "https://www.familyhardware.com/product/stanley-tradecut-15-in-blade-9-ppi-bi-material-hand-saw-stht20348/386294",
+                "stanley-tradecut-15-in-blade-9-ppi-bi-material-hand-saw-stht20348",
+            ),
+            (
+                "https://WWW.FAMILYHARDWARE.COM/PRODUCT/STANLEY-TRADECUT-15-IN-BLADE-9-PPI-BI-MATERIAL-HAND-SAW-STHT20348/386294",
+                "STANLEY-TRADECUT-15-IN-BLADE-9-PPI-BI-MATERIAL-HAND-SAW-STHT20348",
+            ),
+        ],
+        ids=["lowercase-url", "uppercase-url"],
+    )
+    def test_extracts_mpn_from_lowercase_and_uppercase_product_urls(self, url, matched_code):
+        """Match a saw MPN in either URL casing without altering result fields."""
+        title = "Stanley Tradecut hand saw, 15-in, 9 PPI"
+        snippet = "Bi-material handle for comfortable cutting."
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": title,
+                "snippet": snippet,
+                "link": url,
+                "google_rank": 1,
+            }],
+        }]
+
+        result = compute.score_search_results(payloads, mpns=["STHT20348"])[0]
+
+        assert result["summary"]["part_code_found"] == "mpn_exact"
+        assert result["summary"]["filtered"] is False
+        assert result["summary"]["link"] == url
+        assert result["summary"]["title"] == title
+        assert result["summary"]["snippet"] == snippet
+        assert result["part_code_matches"] == [{
+            "match_type": "MPN",
+            "match_level": "partial",
+            "match_source": "url",
+            "matched_code": matched_code,
+            "input_code": "STHT20348",
+        }]
+
+    @pytest.mark.parametrize("candidate_column", ["mpns", "part_codes"])
+    def test_does_not_match_blank_in_product_prose(self, candidate_column):
+        """Do not treat ordinary prose mentioning blank as a part-code match."""
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "Product details",
+                "snippet": "The product information is blank while the listing is updated.",
+                "link": "https://example.com/products/current-stock",
+                "google_rank": 1,
+            }],
+        }]
+
+        result = compute.score_search_results(
+            payloads, **{candidate_column: ["blank"]}
+        )[0]
+
+        assert result["summary"]["part_code_found"] == "none"
+        assert result["summary"]["filtered"] is True
+        assert result["part_code_matches"] == []
+        assert result["part_code_match_count"] == 0
+
+    @pytest.mark.parametrize(
+        "field,candidate,match_level,matched_code",
+        [
+            ("title", "STHT20348", "exact", "STHT20348"),
+            ("snippet", "stht-20348", "stripped", "STHT20348"),
+            ("url", "STHT2034", "partial", "stanley-tradecut-hand-saw-stht20348"),
+        ],
+        ids=["title-exact", "snippet-normalized", "url-partial"],
+    )
+    def test_matches_extracted_codes_from_title_snippet_and_url(
+        self, field, candidate, match_level, matched_code
+    ):
+        """Find the same saw MPN in each supported result field."""
+        title = "Stanley Tradecut hand saw"
+        snippet = "Replacement part information."
+        url = "https://example.com/products/stanley-tradecut-hand-saw"
+        code = "STHT20348"
+        if field == "title":
+            title = f"{title} {code}"
+        elif field == "snippet":
+            snippet = f"{snippet} Model {code}."
+        else:
+            url = f"{url}-{code.lower()}"
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": title,
+                "snippet": snippet,
+                "link": url,
+                "google_rank": 1,
+            }],
+        }]
+
+        result = compute.score_search_results(payloads, mpns=[candidate])[0]
+
+        assert result["summary"]["part_code_found"] == "mpn_exact"
+        assert result["summary"]["filtered"] is False
+        assert result["part_code_matches"] == [{
+            "match_type": "MPN",
+            "match_level": match_level,
+            "match_source": field,
+            "matched_code": matched_code,
+            "input_code": candidate,
+        }]
+
+    def test_combined_url_code_input_receives_mpn_match(self):
+        """A combined URL-code input can match extracted URL evidence."""
+        url = (
+            "https://www.familyhardware.com/product/stanley-tradecut-15-in-l-"
+            "blade-9-ppi-bi-material-hand-saw-stht20348/386294"
+        )
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "Stanley Tradecut hand saw",
+                "snippet": "15-inch blade with a 9 PPI tooth pattern.",
+                "link": url,
+                "google_rank": 1,
+            }],
+        }]
+
+        result = compute.score_search_results(
+            payloads, mpns=["STHT20348/386294"]
+        )[0]
+
+        assert result["summary"]["part_code_found"] == "mpn_exact"
+        assert result["summary"]["filtered"] is False
+        assert result["scoring_details"]["part_match_score"] == 8.0
+        assert result["part_code_match_count"] > 0
+        assert result["part_code_matches"][0]["match_type"] == "MPN"
+        assert result["part_code_matches"][0]["input_code"] == "STHT20348/386294"
+        assert result["part_code_matches"][0]["match_source"] == "url"
+
+    def test_recipe_reports_reduced_evidence_and_filters_by_extracted_codes(self):
+        """Run the recipe wrapper on a real result with title and URL evidence."""
+        url = (
+            "https://www.familyhardware.com/product/stanley-tradecut-15-in-l-"
+            "blade-9-ppi-bi-material-hand-saw-stht20348/386294"
+        )
+        payloads = [{
+            "search_metadata": {"query_index": 1, "query": "Stanley STHT20348"},
+            "search_results": [{
+                "title": "Stanley Tradecut hand saw STHT20348",
+                "snippet": "Replacement model STHT20348.",
+                "link": url,
+                "google_rank": 1,
+            }],
+        }]
+        dataframe = pd.DataFrame([{
+            "results": payloads,
+            "suppliers": ["Stanley"],
+            "part_codes": ["STHT20348"],
+            "MPN": "STHT20348",
+            "Description": "Stanley Tradecut hand saw",
+        }])
+        recipe = """
+        wrangles:
+          - compute.score_search_results:
+              input: [results, suppliers, part_codes, MPN, Description]
+              output: [scored, formatted]
+              must_match_part_code: true
+        """
+
+        result = wrangles.recipe.run(recipe, dataframe=dataframe).iloc[0]
+        scored = result["scored"][0]
+
+        assert result["formatted"]
+        assert scored["summary"]["part_match_type"] == "mpn_exact"
+        assert scored["summary"]["part_code_found"] is True
+        assert scored["summary"]["filtered"] is False
+        assert scored["part_code_match_count"] == 6
+        assert scored["part_code_matches"] == [{
+            "match_type": "MPN",
+            "match_level": "exact",
+            "match_source": "title",
+            "matched_code": "STHT20348",
+            "input_code": "STHT20348",
+        }]
+
+    def test_recipe_filters_blank_prose_without_part_code_evidence(self):
+        """The recipe wrapper filters prose-only codes with live extraction."""
+        dataframe = pd.DataFrame([{
+            "results": [{
+                "search_metadata": {"query_index": 1},
+                "search_results": [{
+                    "title": "Product details",
+                    "snippet": "The product information is blank while the listing is updated.",
+                    "link": "https://example.com/products/current-stock",
+                    "google_rank": 1,
+                }],
+            }],
+            "suppliers": [],
+            "part_codes": ["blank"],
+        }])
+        recipe = """
+        wrangles:
+          - compute.score_search_results:
+              input: [results, suppliers, part_codes]
+              output: scored
+              must_match_part_code: true
+        """
+
+        result = wrangles.recipe.run(recipe, dataframe=dataframe).iloc[0]["scored"][0]
+
+        assert result["summary"]["part_match_type"] == "none"
+        assert result["summary"]["part_code_found"] is False
+        assert result["summary"]["filtered"] is True
+        assert result["part_code_matches"] == []
+        assert result["part_code_match_count"] == 0
