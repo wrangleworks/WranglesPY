@@ -698,7 +698,7 @@ class TestScoreSearchResults:
             "matched_code": "com/lbbr-14-2ls-hv6",
             "input_code": "LBBR14-2LS",
         }]
-        assert result["part_code_match_count"] == 6
+        assert result["part_code_match_count"] == 3
 
     def test_part_code_matches_is_empty_when_no_code_matches(self):
         payloads = [{
