@@ -424,8 +424,13 @@ The keys in each record appear in this order:
 Only extracted codes are evidence: ordinary text and matches crossing separate
 codes are not. Context matching still uses the original text, so a word such as
 `blank` may contribute context points without being a part-code match.
-The original extracted value and its standardized form are retained together,
-so evidence preserves its original code and source field.
+When extraction returns a fragment inside a contiguous source code, evidence
+uses the complete original code, including internal hyphens, underscores, and
+periods. For example, extracted `NATV6` in `NATV6-PP-A` yields partial evidence
+for input `NATV6`, not exact evidence for the fragment. Recovery never extends
+across whitespace or URL path separators. Extraction remains required; recovery
+does not search raw text for additional input codes. The recovered code and its
+standardized form retain original spelling and field provenance.
 
 Matching is case-insensitive. `exact` means the complete source code matches the
 input apart from case. `stripped` means the codes match after alphanumeric

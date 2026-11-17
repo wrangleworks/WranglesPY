@@ -431,6 +431,7 @@ class TestScoreSearchResults:
         assert result["part_code_match_count"] == 3
 
     def test_part_code_match_inside_larger_code_is_partial(self):
+        """Recover the full roller code while retaining containment scoring."""
         payloads = [{
             "search_metadata": {"query_index": 1},
             "search_results": [{
@@ -453,6 +454,29 @@ class TestScoreSearchResults:
             "matched_code": "NATV6-PP-A",
             "input_code": "NATV6",
         }]
+        assert result["summary"]["part_code_found"] == "other_code_exact"
+        assert result["scoring_details"]["part_match_score"] == 6.0
+
+    def test_longer_input_code_does_not_match_shorter_source_code(self):
+        """A NATV6 roller listing must not establish the longer NATV6-PP-A code."""
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "INA NATV6 track roller",
+                "snippet": "",
+                "link": "https://example.com/product",
+            }],
+        }]
+
+        result = compute.score_search_results(
+            payloads, mpns=["NATV6-PP-A"], part_codes=["NATV6-PP-A"]
+        )[0]
+
+        assert result["summary"]["part_code_found"] == "none"
+        assert result["summary"]["filtered"] is True
+        assert result["scoring_details"]["part_match_score"] == 0
+        assert result["part_code_matches"] == []
+        assert result["part_code_match_count"] == 0
 
     def test_part_code_matches_prefer_mpn_over_duplicate_code_evidence(self):
         payloads = [{
@@ -597,6 +621,7 @@ class TestScoreSearchResults:
         assert matches[0]["matched_code"] == "AB-123"
 
     def test_part_code_matches_deduplicate_codes_across_sources(self):
+        """Reduce repeated full-code evidence to the preferred title source."""
         payloads = [{
             "search_metadata": {"query_index": 1},
             "search_results": [{
@@ -619,6 +644,7 @@ class TestScoreSearchResults:
             "matched_code": "NATV6-X-PP-A",
             "input_code": "NATV6",
         }]
+        assert result["part_code_match_count"] == 3
 
     def test_part_code_matches_remove_codes_contained_within_mpn_match(self):
         payloads = [{
@@ -840,6 +866,23 @@ class TestScoreSearchResults:
         assert result.iloc[0]["Score Summary"][0] == expected_summary
 
 
+@pytest.mark.parametrize("source,extracted,expected", [
+    ("INA NATV6-PP-A track roller", "NATV6", "NATV6-PP-A"),
+    ("INA natv6-x-pp-a.", "NATV6", "natv6-x-pp-a"),
+    ("Part AB_123.4-X.", "123", "AB_123.4-X"),
+    ("NATV6 PP-A", "NATV6", "NATV6"),
+    ("https://example.com/NATV6/PP-A", "NATV6", "NATV6"),
+    ("https://example.com/hand-saw-stht20348/386294", "STHT20348", "hand-saw-stht20348"),
+    ("Straße NATV6-PP-A", "NATV6", "NATV6-PP-A"),
+    ("Part ß123-AB", "SS123", "ß123-AB"),
+    ("Part ß123-AB", "S123", "S123"),
+    ("No code here", "NATV6", "NATV6"),
+])
+def test_recovers_contiguous_source_code(source, extracted, expected):
+    """Recover source spelling and separators without joining words or paths."""
+    assert compute._recover_source_code(source, extracted) == expected
+
+
 class TestScoreSearchResultsLiveExtraction:
     """Verify scorer behavior with the live WrangleWorks code extractor."""
 
@@ -848,11 +891,11 @@ class TestScoreSearchResultsLiveExtraction:
         [
             (
                 "https://www.familyhardware.com/product/stanley-tradecut-15-in-blade-9-ppi-bi-material-hand-saw-stht20348/386294",
-                "stht20348",
+                "stanley-tradecut-15-in-blade-9-ppi-bi-material-hand-saw-stht20348",
             ),
             (
                 "https://WWW.FAMILYHARDWARE.COM/PRODUCT/STANLEY-TRADECUT-15-IN-BLADE-9-PPI-BI-MATERIAL-HAND-SAW-STHT20348/386294",
-                "STHT20348",
+                "STANLEY-TRADECUT-15-IN-BLADE-9-PPI-BI-MATERIAL-HAND-SAW-STHT20348",
             ),
         ],
         ids=["lowercase-url", "uppercase-url"],
@@ -880,7 +923,7 @@ class TestScoreSearchResultsLiveExtraction:
         assert result["summary"]["snippet"] == snippet
         assert result["part_code_matches"] == [{
             "match_type": "MPN",
-            "match_level": "exact",
+            "match_level": "partial",
             "match_source": "url",
             "matched_code": matched_code,
             "input_code": "STHT20348",
@@ -913,7 +956,7 @@ class TestScoreSearchResultsLiveExtraction:
         [
             ("title", "STHT20348", "exact", "STHT20348"),
             ("snippet", "stht-20348", "stripped", "STHT20348"),
-            ("url", "STHT2034", "partial", "hand-saw-stht20348"),
+            ("url", "STHT2034", "partial", "stanley-tradecut-hand-saw-stht20348"),
         ],
         ids=["title-exact", "snippet-normalized", "url-partial"],
     )

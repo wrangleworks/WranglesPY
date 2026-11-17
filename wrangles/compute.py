@@ -1,3 +1,4 @@
+import re
 from typing import List, Tuple, Dict
 from urllib.parse import urlsplit
 
@@ -35,6 +36,31 @@ def _get_supplier_site_score(supplier_names: list, netloc: str) -> int:
         if len(sup_norm) > 4 and sup_norm in normalized_domain: return 1
 
     return 0
+
+
+def _recover_source_code(text: str, extracted_code: str) -> str:
+    """Recover the contiguous source code containing an extracted fragment."""
+    folded_code = extracted_code.casefold()
+    source_position = text.casefold().find(folded_code)
+    if source_position < 0 or not folded_code:
+        return extracted_code
+
+    # Case folding can expand a character, so folded offsets are not source offsets.
+    source_indexes = [
+        index
+        for index, char in enumerate(text)
+        for _ in char.casefold()
+    ]
+    source_start = source_indexes[source_position]
+    source_end = source_indexes[source_position + len(folded_code) - 1] + 1
+    source_match = text[source_start:source_end]
+    if source_match.casefold() != folded_code:
+        return extracted_code
+
+    for token in re.finditer(r"[^\W_]+(?:[-._][^\W_]+)*", text):
+        if token.start() <= source_start and source_end <= token.end():
+            return token.group()
+    return source_match
 
 
 def _prepare_part_codes(results: list) -> dict:
@@ -98,26 +124,13 @@ def _prepare_part_codes(results: list) -> dict:
     for text, normalized, variants in prepared[["text", "normalized", "variants"]].itertuples(index=False, name=None):
         if normalized:
             extracted_code = variants[0]
-            folded_code = extracted_code.casefold()
-            source_indexes = [
-                index
-                for index, char in enumerate(text)
-                for _ in char.casefold()
-            ]
-            source_position = text.casefold().find(folded_code)
-            source_match = (
-                text[
-                    source_indexes[source_position]:
-                    source_indexes[source_position + len(folded_code) - 1] + 1
-                ]
-                if source_position >= 0 else ""
+            source_code = _recover_source_code(text, extracted_code)
+            code = (
+                source_code,
+                _compare.normalize_alphanum(source_code)
+                if source_code.casefold() != extracted_code.casefold()
+                else variants[-1],
             )
-            source_code = (
-                source_match
-                if source_match.casefold() == extracted_code.casefold()
-                else extracted_code
-            )
-            code = (source_code, variants[-1])
             if code not in fields[text]:
                 fields[text].append(code)
     return fields
