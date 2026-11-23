@@ -33,6 +33,7 @@ from .utils import (
     add_special_parameters as _add_special_parameters,
     wildcard_expansion as _wildcard_expansion,
     wildcard_expansion_dict as _wildcard_expansion_dict,
+    delayed_variable_interpretation as _delayed_variable_interpretation,
     replace_templated_values as _replace_templated_values
 )
 try:
@@ -677,6 +678,14 @@ def _execute_wrangles(
                 ):
                     _logging.info(f": Wrangling :: {wrangle} skipped due to not passing the if statement.")
                     continue
+
+                # Python commands defer interpolation, but input must resolve
+                # before column validation and wildcard expansion.
+                if wrangle == 'python' and 'input' in params:
+                    params['input'] = _replace_templated_values(
+                        params['input'],
+                        _delayed_variable_interpretation(df, variables)
+                    )
 
                 # Blacklist of Wrangles not to allow wildcards for
                 original_input = params.get('input') # Save for later reference
