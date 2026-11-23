@@ -4625,6 +4625,41 @@ class TestPython:
         )
         assert df["result"][0] == '{"header1": "a", "header2": "b"}'
 
+    @pytest.mark.parametrize('selection, expected', [
+        ('first value', {'first value': 2}),
+        (['first value', 'second'], {'first value': 2, 'second': 3}),
+        ('sec*', {'second': 3}),
+    ])
+    def test_python_input_variable(self, selection, expected):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                input: ${selection}
+                output: result
+                command: kwargs
+            """,
+            dataframe=pd.DataFrame({'first value': [2], 'second': [3], 'other': [4]}),
+            variables={'selection': selection},
+        )
+        assert df['result'].tolist() == [expected]
+
+    def test_python_input_columns_variable(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.column:
+                output: added
+                value: 7
+            - python:
+                input: ${columns}
+                output: result
+                command: kwargs
+            """,
+            dataframe=pd.DataFrame({'initial': [2]}),
+        )
+        assert df['result'].tolist() == [{'initial': 2, 'added': 7}]
+
     def test_python_input_wildcard(self):
         """
         Test using input to filter columns with a wildcard
