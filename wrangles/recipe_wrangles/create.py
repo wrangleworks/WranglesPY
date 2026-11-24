@@ -14,10 +14,12 @@ from jinja2 import (
     BaseLoader as _BaseLoader
 )
 from ..connectors.test import _generate_cell_values
+from .._data_contracts import data_contract as _data_contract, text_values as _text_values
 from .. import openai as _openai
 import hashlib as _hashlib
 
 
+@_data_contract(family='typed', missing='stringify', non_text='stringify', output='text')
 def bins(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -76,12 +78,12 @@ def bins(
               bins[0] = -_math.inf
       
       # Set to string in order to be able to fill NaN values when using where
-      df[out_col] = _pd.cut(
+      df[out_col] = _text_values(_pd.cut(
           x=df[in_col],
           bins=bins,
           labels=labels,
           **kwargs
-      ).astype(str)
+      ), missing='stringify')
     
     return df
 

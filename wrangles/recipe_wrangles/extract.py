@@ -7,6 +7,12 @@ import logging as _logging
 import pandas as _pd
 from .. import extract as _extract
 from .. import data as _data
+from .._data_contracts import (
+    assign_result as _assign_result,
+    data_contract as _data_contract,
+    joined_text_rows as _joined_text_rows,
+    text_values as _text_values,
+)
 
 
 _OUTPUT_FORMAT_ALIASES = {
@@ -72,11 +78,11 @@ def _resolve_output_format(output, output_format, default_format, output_is_list
 
 
 def _stringify_list(value, char):
-    if value in (None, ""):
+    if value is None or (isinstance(value, str) and value == ""):
         return ""
     if isinstance(value, list):
-        return char.join([str(item) for item in value])
-    return str(value)
+        return char.join(_text_values(value, missing='stringify'))
+    return _text_values([value], missing='stringify')[0]
 
 
 def _write_list_output(
@@ -94,7 +100,7 @@ def _write_list_output(
         raise ValueError("output_format dictionary is only valid for dictionary-producing extracts")
 
     if output_format == "concatenate":
-        df[output[0]] = [_stringify_list(row, char) for row in results]
+        _assign_result(df, output[0], [_stringify_list(row, char) for row in results], output_kind='text')
         return
 
     if output_format == "columns":
@@ -115,14 +121,15 @@ def _write_list_output(
             # for however many results were found
             output_columns = [f"{output[0]} {i + 1}" for i in range(max_result_len)]
         for i, output_column in enumerate(output_columns):
-            df[output_column] = [
+            column_values = [
                 (row[i] if len(row) > i else "") if isinstance(row, list)
                 else (row if i == 0 else "")
                 for row in results
             ]
+            _assign_result(df, output_column, column_values)
         return
 
-    df[output[0]] = results
+    _assign_result(df, output[0], results)
 
 
 def _dict_keys(results):
@@ -148,13 +155,14 @@ def _write_dict_output(df, output, results, output_format, default_format="json_
             else (_dict_keys(results) or output)
         )
         for output_column in output_columns:
-            df[output_column] = [
+            column_values = [
                 row.get(output_column, "") if isinstance(row, dict) else ""
                 for row in results
             ]
+            _assign_result(df, output_column, column_values)
         return
 
-    df[output[0]] = results
+    _assign_result(df, output[0], results, output_kind='structured')
 
 
 def _write_results(
@@ -201,6 +209,7 @@ def _combine_dict_rows(rows):
     return combined
 
 
+@_data_contract('text_consumer', missing='stringify', non_text='stringify', output='infer')
 def address(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -263,14 +272,14 @@ def address(
 
     if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
         results = _extract.address(
-            df[input[0]].astype(str).tolist(),
+            _text_values(df[input[0]], missing='stringify'),
             dataType,
             **kwargs
         )
         _write_list_output(df, output, results, output_format, char, output_is_list=output_is_list)
     elif len(output) == 1 and len(input) > 1:
         results = _extract.address(
-            df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
+            _joined_text_rows(df[input], separator=' ', missing='stringify'),
             dataType,
             **kwargs
         )
@@ -279,7 +288,7 @@ def address(
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
             results = _extract.address(
-                df[input_column].astype(str).tolist(),
+                _text_values(df[input_column], missing='stringify'),
                 dataType,
                 **kwargs
             )
@@ -813,6 +822,7 @@ def ai(
     return df
 
 
+@_data_contract('text_consumer', missing='stringify', non_text='stringify', output='infer')
 def attributes(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -921,7 +931,7 @@ def attributes(
 
     if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
         results = _extract.attributes(
-            df[input[0]].astype(str).tolist(),
+            _text_values(df[input[0]], missing='stringify'),
             responseContent,
             attribute_type,
             desired_unit,
@@ -939,9 +949,8 @@ def attributes(
             output_is_list
         )
     elif len(output) == 1 and len(input) > 1:
-        # df[output[0]] = _extract.attributes(df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist())
         results = _extract.attributes(
-            df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
+            _joined_text_rows(df[input], separator=' AAA ', missing='stringify'),
             responseContent,
             attribute_type,
             desired_unit,
@@ -962,7 +971,7 @@ def attributes(
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
             results = _extract.attributes(
-                df[input_column].astype(str).tolist(),
+                _text_values(df[input_column], missing='stringify'),
                 responseContent,
                 attribute_type,
                 desired_unit,
@@ -982,6 +991,7 @@ def attributes(
     return df
 
 
+@_data_contract('text_consumer', missing='stringify', non_text='stringify', output='infer')
 def brackets(
     df: _pd.DataFrame, 
     input: _Union[str, int, list],
@@ -1055,7 +1065,7 @@ def brackets(
 
     if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
         results = _extract.brackets(
-            df[input[0]].astype(str).tolist(),
+            _text_values(df[input[0]], missing='stringify'),
             find,
             include_brackets,
             return_data_type="list"
@@ -1070,7 +1080,7 @@ def brackets(
         )
     elif len(output) == 1 and len(input) > 1:
         results = _extract.brackets(
-            df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
+            _joined_text_rows(df[input], separator=' ', missing='stringify'),
             find,
             include_brackets,
             return_data_type="list"
@@ -1087,7 +1097,7 @@ def brackets(
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
             results = _extract.brackets(
-                df[input_column].astype(str).tolist(),
+                _text_values(df[input_column], missing='stringify'),
                 find,
                 include_brackets,
                 return_data_type="list"
@@ -1103,6 +1113,7 @@ def brackets(
     return df
 
 
+@_data_contract('text_consumer', missing='stringify', non_text='stringify', output='infer')
 def codes(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -1193,14 +1204,14 @@ def codes(
 
     if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
         results = _extract.codes(
-            df[input[0]].astype(str).tolist(),
+            _text_values(df[input[0]], missing='stringify'),
             False,
             **kwargs
         )
         _write_list_output(df, output, results, output_format, char, output_is_list=output_is_list)
     elif len(output) == 1 and len(input) > 1:
         results = _extract.codes(
-            df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
+            _joined_text_rows(df[input], separator=' AAA ', missing='stringify'),
             first_element if output_format is None else False,
             **kwargs
         )
@@ -1209,7 +1220,7 @@ def codes(
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
             results = _extract.codes(
-                df[input_column].astype(str).tolist(),
+                _text_values(df[input_column], missing='stringify'),
                 first_element if output_format is None else False,
                 **kwargs
             )
@@ -1218,6 +1229,7 @@ def codes(
     return df
 
 
+@_data_contract('text_consumer', missing='stringify', non_text='stringify', output='infer')
 def custom(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -1316,7 +1328,7 @@ def custom(
 
     if len(input) == 1 and _is_columns_target(output, output_format, output_is_list) and len(model_id) == 1:
         results = _extract.custom(
-            df[input[0]].astype(str).tolist(),
+            _text_values(df[input[0]], missing='stringify'),
             model_id=model_id[0],
             first_element=False,
             use_labels=use_labels,
@@ -1334,7 +1346,7 @@ def custom(
         model_id = [model_id[0] for _ in range(len(input))]
         for in_col, out_col, model in zip(input, output, model_id):
             results = _extract.custom(
-                df[in_col].astype(str).tolist(),
+                _text_values(df[in_col], missing='stringify'),
                 model_id=model,
                 first_element=first_element if output_format is None else False,
                 use_labels=use_labels,
@@ -1354,7 +1366,7 @@ def custom(
         df_temp = _pd.DataFrame(index=range(len(df)))
         for i, in_col in enumerate(input):
             df_temp[output + str(i)] = _extract.custom(
-                df[in_col].astype(str).tolist(),
+                _text_values(df[in_col], missing='stringify'),
                 model_id=single_model_id,
                 first_element=first_element if output_format is None else False,
                 use_labels=use_labels,
@@ -1376,7 +1388,7 @@ def custom(
         # Iterate through the inputs, outputs and model_ids
         for in_col, out_col, model in zip(input, output, model_id):
             results = _extract.custom(
-                df[in_col].astype(str).tolist(),
+                _text_values(df[in_col], missing='stringify'),
                 model_id=model,
                 first_element=first_element if output_format is None else False,
                 use_labels=use_labels,
@@ -1576,6 +1588,7 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
     return df
 
 
+@_data_contract('text_consumer', missing='stringify', non_text='stringify', output='infer')
 def html(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -1639,7 +1652,7 @@ def html(
 
     if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
         results = _extract.html(
-            df[input[0]].astype(str).tolist(),
+            _text_values(df[input[0]], missing='stringify'),
             dataType=data_type,
             **kwargs
         )
@@ -1648,7 +1661,7 @@ def html(
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
             results = _extract.html(
-                df[input_column].astype(str).tolist(),
+                _text_values(df[input_column], missing='stringify'),
                 dataType=data_type,
                 **kwargs
             )
@@ -1657,6 +1670,7 @@ def html(
     return df
 
 
+@_data_contract('text_consumer', missing='stringify', non_text='stringify', output='infer')
 def properties(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -1734,7 +1748,7 @@ def properties(
 
     if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
         results = _extract.properties(
-            df[input[0]].astype(str).tolist(),
+            _text_values(df[input[0]], missing='stringify'),
             type=property_type,
             return_data_type='list',
             first_element=False,
@@ -1751,7 +1765,7 @@ def properties(
         )
     elif len(output) == 1 and len(input) > 1:
         results = _extract.properties(
-            df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
+            _joined_text_rows(df[input], separator=' ', missing='stringify'),
             type=property_type,
             return_data_type='list' if (output_format is not None or output_is_list) else return_data_type,
             first_element=first_element if (output_format is None and not output_is_list) else False,
@@ -1770,7 +1784,7 @@ def properties(
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
             results = _extract.properties(
-                df[input_column].astype(str).tolist(),
+                _text_values(df[input_column], missing='stringify'),
                 type=property_type,
                 return_data_type='list' if output_format is not None else return_data_type,
                 first_element=first_element if output_format is None else False,
@@ -1787,6 +1801,7 @@ def properties(
 
     return df
 
+@_data_contract('text_consumer', missing='stringify', non_text='stringify', notes='None is empty text; other scalar markers retain Python stringification.')
 def regex(
   df: _pd.DataFrame,
   input: _Union[str, int, list],
@@ -1861,7 +1876,7 @@ def regex(
     find_pattern = _re.compile(find)
 
     def _matches(value):
-        value = str(value) if value is not None else ""
+        value = _text_values([value], missing='stringify')[0] if value is not None else ""
         matches = [match.group(0) for match in _re.finditer(find_pattern, value)]
         if output_pattern:
             matches = [find_pattern.sub(output_pattern, match) for match in matches]

@@ -1,0 +1,940 @@
+{
+  "schema_version": 1,
+  "implementation_review_baseline": "79a683312d67944523fc4696bec1e7daace9b05a",
+  "review_note": "Core-engine classification comes from source review, separately from callable contract declarations. An exemption preserves a phased-adoption gap and does not assert behavioral verification.",
+  "exemptions": {
+    "accordion": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "accordion controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.main."
+    },
+    "ai.answers": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.ai",
+      "reason": "Provider-specific record/template serialization and typed decision validation stay with wrangles.ai._run. Follow-up: review native/null/nested row inputs and structured output assignment before adopting a common boundary."
+    },
+    "ai.choose": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.ai",
+      "reason": "Provider-specific record/template serialization and typed decision validation stay with wrangles.ai._run. Follow-up: review native/null/nested row inputs and structured output assignment before adopting a common boundary."
+    },
+    "ai.decisions": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.ai",
+      "reason": "Provider-specific record/template serialization and typed decision validation stay with wrangles.ai._run. Follow-up: review native/null/nested row inputs and structured output assignment before adopting a common boundary."
+    },
+    "ai.score": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.ai",
+      "reason": "Provider-specific record/template serialization and typed decision validation stay with wrangles.ai._run. Follow-up: review native/null/nested row inputs and structured output assignment before adopting a common boundary."
+    },
+    "ai.true_false": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.ai",
+      "reason": "Provider-specific record/template serialization and typed decision validation stay with wrangles.ai._run. Follow-up: review native/null/nested row inputs and structured output assignment before adopting a common boundary."
+    },
+    "batch": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "batch controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.main."
+    },
+    "clean_whitespaces": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "The existing Python text-only cleanup preserves non-string cells and may warn; this slice does not replace it with blanket stringification. Follow-up: declare its missing-versus-substantive-nontext diagnostics explicitly."
+    },
+    "compare.lists": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.compare",
+      "reason": "compare.lists is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.compare before a shared declaration."
+    },
+    "compute.case_when": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.compute",
+      "reason": "compute.case_when is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.compute before a shared declaration."
+    },
+    "compute.score_search_results": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.compute",
+      "reason": "Nested search-result scoring retains its Python record normalization and provider-metadata rules. Follow-up: declare the structured input/output boundary after reviewing missing/falsy values."
+    },
+    "concurrent": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "concurrent controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.main."
+    },
+    "convert.data_type": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.convert",
+      "reason": "convert.data_type is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.convert before a shared declaration."
+    },
+    "convert.from_json": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.convert",
+      "reason": "convert.from_json is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.convert before a shared declaration."
+    },
+    "convert.from_yaml": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.convert",
+      "reason": "convert.from_yaml is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.convert before a shared declaration."
+    },
+    "convert.parse": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.convert",
+      "reason": "convert.parse is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.convert before a shared declaration."
+    },
+    "convert.to_json": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.convert",
+      "reason": "convert.to_json is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.convert before a shared declaration."
+    },
+    "convert.to_yaml": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.convert",
+      "reason": "convert.to_yaml is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.convert before a shared declaration."
+    },
+    "copy": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.pandas",
+      "reason": "copy controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.pandas."
+    },
+    "create.column": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.create",
+      "reason": "Produces caller-supplied native/mixed values and coalesces existing cells. Follow-up: specify null/empty/falsy/container precedence and output-kind preservation; typed classification is not verification."
+    },
+    "create.embeddings": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.create",
+      "reason": "Embedding provider calls retain existing text construction and vector output. Follow-up: declare missing input treatment separately from numeric/list vector assignment."
+    },
+    "create.guid": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.create",
+      "reason": "UUID generation delegates to create.uuid rather than consuming text cells; retain its existing generation/format contract."
+    },
+    "create.hash": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.create",
+      "reason": "Hashing retains its current Python rendering, separators and digest identity. Follow-up: review null/container rendering before changing any hash input contract."
+    },
+    "create.index": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.create",
+      "reason": "Generates numeric sequences or grouped counters using typed values; retain the index/counter contract rather than coercing inputs to text."
+    },
+    "create.jinja": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.create",
+      "reason": "Jinja receives native row context through existing rendering. Follow-up: declare template missing-value behavior without changing defined/undefined or non-string semantics."
+    },
+    "create.uuid": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.create",
+      "reason": "Generates Python UUID4 values rather than consuming text cells; retain its existing generation/format contract."
+    },
+    "date_calculator": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "date_calculator is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.main before a shared declaration."
+    },
+    "drop": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.pandas",
+      "reason": "drop controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.pandas."
+    },
+    "explode": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.pandas",
+      "reason": "explode controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.pandas."
+    },
+    "extract.ai": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.extract",
+      "reason": "The model/schema/attachment-aware extraction path retains its provider-specific serialization and structured outputs. Follow-up: validate native/null/nested records and response assignment before adopting a shared boundary."
+    },
+    "extract.date_properties": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.extract",
+      "reason": "extract.date_properties is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.extract before a shared declaration."
+    },
+    "extract.date_range": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.extract",
+      "reason": "extract.date_range is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.extract before a shared declaration."
+    },
+    "filter": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "filter controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.main."
+    },
+    "format.dates": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.format",
+      "reason": "format.dates is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.format before a shared declaration."
+    },
+    "format.remove_duplicates": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.format",
+      "reason": "List de-duplication and ignore_case behavior remain unchanged. Follow-up: preserve substantive non-string members during case folding and decide 0/False equality and unhashable-member rules."
+    },
+    "format.significant_figures": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.format",
+      "reason": "Python regex formatting retains existing numeric restoration and string markers. Follow-up: distinguish booleans from integers and decide container/missing rendering."
+    },
+    "generate.ai": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.generate",
+      "reason": "Retains this operation's established dispatch or cell-transform semantics. Follow-up: review its owned input and output boundary before adding a declaration."
+    },
+    "huggingface": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "Retains the model endpoint's input/output contract. Follow-up: classify task-specific native/structured results before a shared adapter is selected."
+    },
+    "log": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "log controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.main."
+    },
+    "lookup.key": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.lookup",
+      "reason": "Explicit saved-model variants delegate to main._lookup_with_variant. Follow-up: declare these wrappers' scalar/structured match outputs after validating variant, n-match, padding and conditional assignment cases."
+    },
+    "lookup.semantic": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.lookup",
+      "reason": "Explicit saved-model variants delegate to main._lookup_with_variant. Follow-up: declare these wrappers' scalar/structured match outputs after validating variant, n-match, padding and conditional assignment cases."
+    },
+    "math": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "NumExpr evaluates numeric array expressions. Retain its typed numeric/error semantics; no blanket text or missing normalization is selected."
+    },
+    "matrix": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "matrix controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.main."
+    },
+    "merge.coalesce": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.merge",
+      "reason": "Retains existing precedence, falsy/empty detection and returned mixed cell types. Follow-up: decide zero/False versus empty-container handling and add focused regressions before normalizing."
+    },
+    "merge.dictionaries": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.merge",
+      "reason": "merge.dictionaries is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.merge before a shared declaration."
+    },
+    "merge.lists": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.merge",
+      "reason": "merge.lists is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.merge before a shared declaration."
+    },
+    "merge.to_list": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.merge",
+      "reason": "merge.to_list is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.merge before a shared declaration."
+    },
+    "python": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "python controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.main."
+    },
+    "recipe": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "recipe controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.main."
+    },
+    "reindex": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.pandas",
+      "reason": "reindex controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.pandas."
+    },
+    "remove_words": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "Python regex removal retains the existing wrapper/core string and container handling. Follow-up: declare this consumer's exact missing/non-text policy after reviewing its modes."
+    },
+    "rename": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "rename controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.main."
+    },
+    "replace": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.standardize",
+      "reason": "The root alias shares standardize.replace's Python regex implementation; dict/list/bool values are skipped and other scalars are Python-rendered. Follow-up: decide missing and mixed-row coercion behavior."
+    },
+    "round": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.pandas",
+      "reason": "round is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.pandas before a shared declaration."
+    },
+    "search.ai_mode": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.search",
+      "reason": "Keeps the existing AI Mode Markdown/metadata provider contract and its own query normalization. Follow-up: declare that boundary with skipped/failed/successful response cases."
+    },
+    "select.columns": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.select",
+      "reason": "select.columns controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.select."
+    },
+    "select.dictionary_element": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.select",
+      "reason": "select.dictionary_element is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.select before a shared declaration."
+    },
+    "select.element": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.select",
+      "reason": "select.element is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.select before a shared declaration."
+    },
+    "select.group_by": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.select",
+      "reason": "Aggregation dispatch includes typed numeric reductions and Python list/count aggregators. Keep each aggregator's semantics; follow-up: review mixed/null grouped results before a shared result declaration."
+    },
+    "select.head": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.select",
+      "reason": "select.head controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.select."
+    },
+    "select.highest_confidence": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.select",
+      "reason": "select.highest_confidence is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.select before a shared declaration."
+    },
+    "select.left": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.select",
+      "reason": "select.left is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.select before a shared declaration."
+    },
+    "select.length": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.select",
+      "reason": "select.length is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.select before a shared declaration."
+    },
+    "select.list_element": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.select",
+      "reason": "select.list_element is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.select before a shared declaration."
+    },
+    "select.right": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.select",
+      "reason": "select.right is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.select before a shared declaration."
+    },
+    "select.sample": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.select",
+      "reason": "select.sample controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.select."
+    },
+    "select.substring": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.select",
+      "reason": "select.substring is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.select before a shared declaration."
+    },
+    "select.tail": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.select",
+      "reason": "select.tail controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.select."
+    },
+    "select.threshold": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.select",
+      "reason": "select.threshold is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.select before a shared declaration."
+    },
+    "similarity": {
+      "family": "typed",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "similarity is a typed parser, serializer, numeric/date operation or native container selector/aggregator. Retain its format/type-specific rules; follow-up: review missing, empty and mixed results within wrangles.recipe_wrangles.main before a shared declaration."
+    },
+    "sort": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.pandas",
+      "reason": "sort controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.pandas."
+    },
+    "sql": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "sql controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.main."
+    },
+    "standardize.custom": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.standardize",
+      "reason": "Delegates to the now-declared legacy standardize implementation. Follow-up: declare the explicit wrapper once its saved-model input/output behavior is verified independently."
+    },
+    "standardize.replace": {
+      "family": "legacy",
+      "owner": "wrangles.recipe_wrangles.standardize",
+      "reason": "Python regex replacement keeps dict/list/bool cells and Python-renders other scalars. Follow-up: decide missing-marker and mixed-row coercion behavior before a declaration."
+    },
+    "transpose": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.pandas",
+      "reason": "transpose controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.pandas."
+    },
+    "try": {
+      "family": "orchestration",
+      "owner": "wrangles.recipe_wrangles.main",
+      "reason": "try controls DataFrame shape/order, diagnostics, expression dispatch or nested recipe execution rather than declaring one uniform cell conversion. Child/core operations retain their own semantics; follow-up boundary coverage is owned by wrangles.recipe_wrangles.main."
+    }
+  },
+  "implementations": {
+    "accordion": {
+      "engine": "hybrid",
+      "core": "wrangles/recipe_wrangles/main.py:accordion; pandas.DataFrame.merge; wrangles.recipe.run",
+      "notes": "Branch-dependent core stages use wrangles/recipe_wrangles/main.py:accordion; pandas.DataFrame.merge; wrangles.recipe.run; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "ai.answers": {
+      "engine": "external",
+      "core": "wrangles.ai.answers",
+      "notes": "The core result is computed by the configured Typesafe/OpenRouter provider through wrangles.ai._run; pandas only packages records and assigns validated fields. answers delegates to decisions."
+    },
+    "ai.choose": {
+      "engine": "external",
+      "core": "wrangles.ai.choose",
+      "notes": "The core result is computed by the configured Typesafe/OpenRouter provider through wrangles.ai._run; pandas only packages records and assigns validated fields."
+    },
+    "ai.decisions": {
+      "engine": "external",
+      "core": "wrangles.ai.decisions",
+      "notes": "The core result is computed by the configured Typesafe/OpenRouter provider through wrangles.ai._run; pandas only packages records and assigns validated fields."
+    },
+    "ai.score": {
+      "engine": "external",
+      "core": "wrangles.ai.score",
+      "notes": "The core result is computed by the configured Typesafe/OpenRouter provider through wrangles.ai._run; pandas only packages records and assigns validated fields."
+    },
+    "ai.true_false": {
+      "engine": "external",
+      "core": "wrangles.ai.true_false",
+      "notes": "The core result is computed by the configured Typesafe/OpenRouter provider through wrangles.ai._run; pandas only packages records and assigns validated fields."
+    },
+    "batch": {
+      "engine": "hybrid",
+      "core": "concurrent.futures; pandas.concat; wrangles/recipe_wrangles/main.py:_batch_thread",
+      "notes": "Branch-dependent core stages use concurrent.futures; pandas.concat; wrangles/recipe_wrangles/main.py:_batch_thread; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "classify": {
+      "engine": "external",
+      "core": "wrangles/classify.py:classify",
+      "notes": "The service/model backend computes the result through wrangles/classify.py:classify; pandas marshals inputs and assigns responses."
+    },
+    "clean_whitespaces": {
+      "engine": "python",
+      "core": "Python re.sub; Python str.strip",
+      "notes": "Core computation uses Python re.sub; Python str.strip on Python values; pandas supplies row/column adaptation."
+    },
+    "compare.lists": {
+      "engine": "python",
+      "core": "wrangles/compare.py:342 (deduplicate)",
+      "notes": "Python membership/set operations perform the comparison; pandas apply is only the row dispatcher."
+    },
+    "compare.text": {
+      "engine": "hybrid",
+      "core": "wrangles/compare.py:135 (contrast); wrangles/compare.py:190 (overlap); wrangles/compare.py:302 (similarity)",
+      "notes": "Python implements contrast/overlap; RapidFuzz computes similarity scores; pandas prepares columns and assigns results."
+    },
+    "compute.case_when": {
+      "engine": "hybrid",
+      "core": "pandas.DataFrame.eval; numpy.select",
+      "notes": "Branch-dependent core stages use pandas.DataFrame.eval; numpy.select; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "compute.score_search_results": {
+      "engine": "python",
+      "core": "wrangles/compute.py:score_search_results; Python row/list normalization",
+      "notes": "Core computation uses wrangles/compute.py:score_search_results; Python row/list normalization on Python values; pandas supplies row/column adaptation."
+    },
+    "concurrent": {
+      "engine": "hybrid",
+      "core": "concurrent.futures; wrangles.recipe.run; pandas.DataFrame assignment",
+      "notes": "Branch-dependent core stages use concurrent.futures; wrangles.recipe.run; pandas.DataFrame assignment; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "convert.case": {
+      "engine": "hybrid",
+      "core": "pandas.Series.str case methods; Python regex for sentence case",
+      "notes": "Branch-dependent core stages use pandas.Series.str case methods; Python regex for sentence case; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "convert.data_type": {
+      "engine": "hybrid",
+      "core": "Python int/float/str/bool constructors; pandas.to_datetime",
+      "notes": "Branch-dependent core stages use Python int/float/str/bool constructors; pandas.to_datetime; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "convert.fraction_to_decimal": {
+      "engine": "python",
+      "core": "Python re; fractions.Fraction",
+      "notes": "Core computation uses Python re; fractions.Fraction on Python values; pandas supplies row/column adaptation."
+    },
+    "convert.from_json": {
+      "engine": "python",
+      "core": "Python json.loads",
+      "notes": "Core computation uses Python json.loads on Python values; pandas supplies row/column adaptation."
+    },
+    "convert.from_yaml": {
+      "engine": "python",
+      "core": "PyYAML safe load",
+      "notes": "Core computation uses PyYAML safe load on Python values; pandas supplies row/column adaptation."
+    },
+    "convert.parse": {
+      "engine": "python",
+      "core": "JSON/ast.literal_eval/safe YAML; wrangles/recipe_wrangles/convert.py:_normalize_json_compatible",
+      "notes": "Core computation uses JSON/ast.literal_eval/safe YAML; wrangles/recipe_wrangles/convert.py:_normalize_json_compatible on Python values; pandas supplies row/column adaptation."
+    },
+    "convert.to_json": {
+      "engine": "python",
+      "core": "Python json.dumps; NumPy value adapters",
+      "notes": "Core computation uses Python json.dumps; NumPy value adapters on Python values; pandas supplies row/column adaptation."
+    },
+    "convert.to_yaml": {
+      "engine": "python",
+      "core": "PyYAML dump",
+      "notes": "Core computation uses PyYAML dump on Python values; pandas supplies row/column adaptation."
+    },
+    "copy": {
+      "engine": "pandas",
+      "core": "pandas.Series.copy; wrangles.recipe_wrangles.pandas.copy",
+      "notes": "The copy operation itself uses pandas; it is not a Python text transform."
+    },
+    "create.bins": {
+      "engine": "pandas",
+      "core": "pandas.cut",
+      "notes": "Core computation uses pandas.cut; this operation depends on pandas behavior, beyond merely storing its result."
+    },
+    "create.column": {
+      "engine": "hybrid",
+      "core": "wrangles/connectors/test.py:_generate_cell_values; pandas.Series.where/pandas.concat",
+      "notes": "Branch-dependent core stages use wrangles/connectors/test.py:_generate_cell_values; pandas.Series.where/pandas.concat; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "create.embeddings": {
+      "engine": "external",
+      "core": "wrangles/openai.py:embeddings; configured embedding provider",
+      "notes": "The service/model backend computes the result through wrangles/openai.py:embeddings; configured embedding provider; pandas marshals inputs and assigns responses."
+    },
+    "create.guid": {
+      "engine": "python",
+      "core": "Python uuid.uuid4 via create.uuid",
+      "notes": "Core computation uses wrangles/recipe_wrangles/create.py:uuid on Python values; pandas supplies row/column adaptation."
+    },
+    "create.hash": {
+      "engine": "python",
+      "core": "Python hashlib; Python str",
+      "notes": "Core computation uses Python hashlib; Python str on Python values; pandas supplies row/column adaptation."
+    },
+    "create.index": {
+      "engine": "hybrid",
+      "core": "numpy.arange; Python dictionary counters",
+      "notes": "Branch-dependent core stages use numpy.arange; Python dictionary counters; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "create.jinja": {
+      "engine": "python",
+      "core": "Jinja2 Environment/Template.render",
+      "notes": "Core computation uses Jinja2 Environment/Template.render on Python values; pandas supplies row/column adaptation."
+    },
+    "create.uuid": {
+      "engine": "python",
+      "core": "Python uuid.uuid4",
+      "notes": "Core computation uses Python uuid.uuid4 on Python values; pandas supplies row/column adaptation."
+    },
+    "date_calculator": {
+      "engine": "hybrid",
+      "core": "pandas.to_datetime; pandas.DateOffset; Python date loop",
+      "notes": "Branch-dependent core stages use pandas.to_datetime; pandas.DateOffset; Python date loop; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "drop": {
+      "engine": "pandas",
+      "core": "pandas.DataFrame.drop",
+      "notes": "Pandas owns column removal; this is a frame-shape operation."
+    },
+    "explode": {
+      "engine": "pandas",
+      "core": "pandas.DataFrame.explode",
+      "notes": "Pandas performs list-row expansion. Conditional reconciliation is a separate recipe-engine responsibility."
+    },
+    "extract.address": {
+      "engine": "external",
+      "core": "wrangles/extract.py:125 (address)",
+      "notes": "The service/model backend computes the result through wrangles/extract.py:125 (address); pandas marshals inputs and assigns responses."
+    },
+    "extract.ai": {
+      "engine": "external",
+      "core": "wrangles/extract.py:161 (ai)",
+      "notes": "The service/model backend computes the result through wrangles/extract.py:161 (ai); pandas marshals inputs and assigns responses."
+    },
+    "extract.attributes": {
+      "engine": "external",
+      "core": "wrangles/extract.py:636 (attributes)",
+      "notes": "The service/model backend computes the result through wrangles/extract.py:636 (attributes); pandas marshals inputs and assigns responses."
+    },
+    "extract.brackets": {
+      "engine": "python",
+      "core": "wrangles/extract.py:1018 (brackets)",
+      "notes": "Core work is Python re, not a pandas string kernel."
+    },
+    "extract.codes": {
+      "engine": "external",
+      "core": "wrangles/extract.py:693 (codes)",
+      "notes": "The service/model backend computes the result through wrangles/extract.py:693 (codes); pandas marshals inputs and assigns responses."
+    },
+    "extract.custom": {
+      "engine": "external",
+      "core": "wrangles/extract.py:739 (custom)",
+      "notes": "The service/model backend computes the result through wrangles/extract.py:739 (custom); pandas marshals inputs and assigns responses."
+    },
+    "extract.date_properties": {
+      "engine": "pandas",
+      "core": "pandas.to_datetime; pandas.Series.dt properties",
+      "notes": "Core computation uses pandas.to_datetime; pandas.Series.dt properties; this operation depends on pandas behavior, beyond merely storing its result."
+    },
+    "extract.date_range": {
+      "engine": "pandas",
+      "core": "pandas.to_datetime; pandas.date_range",
+      "notes": "Core computation uses pandas.to_datetime; pandas.date_range; this operation depends on pandas behavior, beyond merely storing its result."
+    },
+    "extract.html": {
+      "engine": "external",
+      "core": "wrangles/extract.py:874 (html)",
+      "notes": "HTML core is a service call; regex matching itself is Python."
+    },
+    "extract.properties": {
+      "engine": "external",
+      "core": "wrangles/extract.py:908 (properties)",
+      "notes": "The service/model backend computes the result through wrangles/extract.py:908 (properties); pandas marshals inputs and assigns responses."
+    },
+    "extract.regex": {
+      "engine": "python",
+      "core": "Python re.finditer/re.Pattern.sub",
+      "notes": "Python re.finditer/re.Pattern.sub perform regex matching/substitution; pandas dispatches rows and stores results."
+    },
+    "filter": {
+      "engine": "hybrid",
+      "core": "pandas.Series.isin/str.contains/comparisons; wrangles/recipe_wrangles/main.py:sql",
+      "notes": "Branch-dependent core stages use pandas.Series.isin/str.contains/comparisons; wrangles/recipe_wrangles/main.py:sql; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "format.dates": {
+      "engine": "pandas",
+      "core": "pandas.to_datetime; pandas.Series.dt.strftime",
+      "notes": "Core computation uses pandas.to_datetime; pandas.Series.dt.strftime; this operation depends on pandas behavior, beyond merely storing its result."
+    },
+    "format.pad": {
+      "engine": "pandas",
+      "core": "pandas.Series.str.pad/str.strip",
+      "notes": "Core computation uses pandas.Series.str.pad/str.strip; this operation depends on pandas behavior, beyond merely storing its result."
+    },
+    "format.prefix": {
+      "engine": "hybrid",
+      "core": "pandas.Series string concatenation; Python scalar addition via Series.apply",
+      "notes": "Branch-dependent core stages use pandas.Series string concatenation; Python scalar addition via Series.apply; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "format.remove_duplicates": {
+      "engine": "python",
+      "core": "wrangles/format.py:291 (remove_duplicates)",
+      "notes": "Core computation uses wrangles/format.py:291 (remove_duplicates) on Python values; pandas supplies row/column adaptation."
+    },
+    "format.significant_figures": {
+      "engine": "python",
+      "core": "wrangles/format.py:485 (significant_figures)",
+      "notes": "Core computation uses wrangles/format.py:485 (significant_figures) on Python values; pandas supplies row/column adaptation."
+    },
+    "format.suffix": {
+      "engine": "hybrid",
+      "core": "pandas.Series string concatenation; Python scalar addition via Series.apply",
+      "notes": "Branch-dependent core stages use pandas.Series string concatenation; Python scalar addition via Series.apply; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "format.trim": {
+      "engine": "python",
+      "core": "Python str.strip through utils.safe_str_transform",
+      "notes": "Core computation uses Python str.strip through utils.safe_str_transform on Python values; pandas supplies row/column adaptation."
+    },
+    "generate.ai": {
+      "engine": "external",
+      "core": "wrangles.generate.ai",
+      "notes": "The model generates content through the OpenAI Responses path; pandas shapes records/results rather than performing the semantic transform."
+    },
+    "huggingface": {
+      "engine": "external",
+      "core": "requests.post; Hugging Face inference endpoint",
+      "notes": "The service/model backend computes the result through requests.post; Hugging Face inference endpoint; pandas marshals inputs and assigns responses."
+    },
+    "log": {
+      "engine": "python",
+      "core": "Python logging; pandas.DataFrame.to_string; wrangles.recipe.run",
+      "notes": "Core computation uses Python logging; pandas.DataFrame.to_string; wrangles.recipe.run on Python values; pandas supplies row/column adaptation."
+    },
+    "lookup": {
+      "engine": "external",
+      "core": "wrangles/lookup.py:lookup; wrangles/recipe_wrangles/main.py:_lookup_with_variant",
+      "notes": "The service/model backend computes the result through wrangles/lookup.py:lookup; wrangles/recipe_wrangles/main.py:_lookup_with_variant; pandas marshals inputs and assigns responses."
+    },
+    "lookup.key": {
+      "engine": "external",
+      "core": "wrangles.lookup.key",
+      "notes": "Saved-model lookup is computed through the WrangleWorks lookup service; pandas deduplicates/maps/subsets local rows. Explicit wrappers share the legacy helper rather than introducing a separate core."
+    },
+    "lookup.semantic": {
+      "engine": "external",
+      "core": "wrangles.lookup.semantic",
+      "notes": "Saved-model lookup is computed through the WrangleWorks lookup service; pandas deduplicates/maps/subsets local rows. Explicit wrappers share the legacy helper rather than introducing a separate core."
+    },
+    "math": {
+      "engine": "numpy",
+      "core": "numexpr.evaluate",
+      "notes": "Numerical array computation uses numexpr.evaluate; pandas supplies input columns and result placement."
+    },
+    "matrix": {
+      "engine": "python",
+      "core": "wrangles/connectors/matrix.py:_define_permutations; wrangles.recipe.run",
+      "notes": "Core computation uses wrangles/connectors/matrix.py:_define_permutations; wrangles.recipe.run on Python values; pandas supplies row/column adaptation."
+    },
+    "merge.coalesce": {
+      "engine": "hybrid",
+      "core": "NumPy selection; wrangles/format.py:coalesce",
+      "notes": "Branch-dependent core stages use NumPy selection; wrangles/format.py:coalesce; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "merge.concatenate": {
+      "engine": "python",
+      "core": "wrangles/format.py:concatenate; Python str.join",
+      "notes": "Core computation uses wrangles/format.py:concatenate; Python str.join on Python values; pandas supplies row/column adaptation."
+    },
+    "merge.dictionaries": {
+      "engine": "python",
+      "core": "Python dictionary comprehensions",
+      "notes": "Core computation uses Python dictionary comprehensions on Python values; pandas supplies row/column adaptation."
+    },
+    "merge.key_value_pairs": {
+      "engine": "python",
+      "core": "Python row dictionary construction",
+      "notes": "Core computation uses Python row dictionary construction on Python values; pandas supplies row/column adaptation."
+    },
+    "merge.lists": {
+      "engine": "python",
+      "core": "Python list construction/deduplication",
+      "notes": "Core computation uses Python list construction/deduplication on Python values; pandas supplies row/column adaptation."
+    },
+    "merge.to_dict": {
+      "engine": "python",
+      "core": "Python dictionary construction with bool/null column string round trip",
+      "notes": "Core computation uses Python dictionary construction with bool/null column string round trip on Python values; pandas supplies row/column adaptation."
+    },
+    "merge.to_list": {
+      "engine": "python",
+      "core": "Python row list construction",
+      "notes": "Core computation uses Python row list construction on Python values; pandas supplies row/column adaptation."
+    },
+    "python": {
+      "engine": "python",
+      "core": "Python eval; pandas.DataFrame.apply(axis=1)",
+      "notes": "Core computation uses Python eval; pandas.DataFrame.apply(axis=1) on Python values; pandas supplies row/column adaptation."
+    },
+    "recipe": {
+      "engine": "hybrid",
+      "core": "wrangles/recipe_wrangles/main.py:recipe; wrangles.recipe.run",
+      "notes": "Branch-dependent core stages use wrangles/recipe_wrangles/main.py:recipe; wrangles.recipe.run; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "reindex": {
+      "engine": "pandas",
+      "core": "pandas.DataFrame.reindex",
+      "notes": "Pandas owns index/column alignment and gap allocation."
+    },
+    "remove_words": {
+      "engine": "python",
+      "core": "wrangles/extract.py:remove_words; Python re",
+      "notes": "Core computation uses wrangles/extract.py:remove_words; Python re on Python values; pandas supplies row/column adaptation."
+    },
+    "rename": {
+      "engine": "hybrid",
+      "core": "pandas.DataFrame.rename; Python column-name resolution; wrangles.recipe.run",
+      "notes": "Branch-dependent core stages use pandas.DataFrame.rename; Python column-name resolution; wrangles.recipe.run; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "replace": {
+      "engine": "python",
+      "core": "re.sub; wrangles.recipe_wrangles.standardize.replace",
+      "notes": "Python regex performs the replacement; pandas supplies row iteration and output assignment. This is not vectorized pandas string replacement."
+    },
+    "round": {
+      "engine": "pandas",
+      "core": "pandas.to_numeric; pandas.Series.round",
+      "notes": "Numeric coercion and rounding are pandas operations; float mapping/output replacement is adapter handling."
+    },
+    "search.ai_mode": {
+      "engine": "external",
+      "core": "wrangles.search.ai_mode",
+      "notes": "SerpAPI's Google AI Mode computes the answer; local Python normalizes/validates records and pandas stores outputs."
+    },
+    "search.find_links": {
+      "engine": "external",
+      "core": "wrangles.search.find_links",
+      "notes": "The search provider computes results; Python handles query lists and metadata, while pandas only marshals cells."
+    },
+    "search.retrieve_link_content": {
+      "engine": "external",
+      "core": "wrangles.search.retrieve_link_content",
+      "notes": "Gemini URL context performs retrieval/extraction. Python manages URLs, templates and metadata; pandas packages row contexts and outputs."
+    },
+    "select.columns": {
+      "engine": "pandas",
+      "core": "pandas.DataFrame.__getitem__",
+      "notes": "Core computation uses pandas.DataFrame.__getitem__; this operation depends on pandas behavior, beyond merely storing its result."
+    },
+    "select.dictionary_element": {
+      "engine": "python",
+      "core": "wrangles/select.py:dict_element",
+      "notes": "Core computation uses wrangles/select.py:dict_element on Python values; pandas supplies row/column adaptation."
+    },
+    "select.element": {
+      "engine": "python",
+      "core": "Python list/string/dict traversal; JSON decode",
+      "notes": "Core computation uses Python list/string/dict traversal; JSON decode on Python values; pandas supplies row/column adaptation."
+    },
+    "select.group_by": {
+      "engine": "hybrid",
+      "core": "pandas.DataFrame.groupby/agg; Python custom/list/counts aggregators",
+      "notes": "Branch-dependent core stages use pandas.DataFrame.groupby/agg; Python custom/list/counts aggregators; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "select.head": {
+      "engine": "pandas",
+      "core": "pandas.DataFrame.head",
+      "notes": "Core computation uses pandas.DataFrame.head; this operation depends on pandas behavior, beyond merely storing its result."
+    },
+    "select.highest_confidence": {
+      "engine": "python",
+      "core": "wrangles/select.py:highest_confidence",
+      "notes": "Core computation uses wrangles/select.py:highest_confidence on Python values; pandas supplies row/column adaptation."
+    },
+    "select.left": {
+      "engine": "pandas",
+      "core": "pandas.Series.str slicing",
+      "notes": "Core computation uses pandas.Series.str slicing; this operation depends on pandas behavior, beyond merely storing its result."
+    },
+    "select.length": {
+      "engine": "python",
+      "core": "Python len",
+      "notes": "Core computation uses Python len on Python values; pandas supplies row/column adaptation."
+    },
+    "select.list_element": {
+      "engine": "python",
+      "core": "wrangles/select.py:list_element",
+      "notes": "Core computation uses wrangles/select.py:list_element on Python values; pandas supplies row/column adaptation."
+    },
+    "select.right": {
+      "engine": "pandas",
+      "core": "pandas.Series.str slicing",
+      "notes": "Core computation uses pandas.Series.str slicing; this operation depends on pandas behavior, beyond merely storing its result."
+    },
+    "select.sample": {
+      "engine": "pandas",
+      "core": "pandas.DataFrame.sample",
+      "notes": "Core computation uses pandas.DataFrame.sample; this operation depends on pandas behavior, beyond merely storing its result."
+    },
+    "select.substring": {
+      "engine": "pandas",
+      "core": "pandas.Series.str slicing",
+      "notes": "Core computation uses pandas.Series.str slicing; this operation depends on pandas behavior, beyond merely storing its result."
+    },
+    "select.tail": {
+      "engine": "pandas",
+      "core": "pandas.DataFrame.tail",
+      "notes": "Core computation uses pandas.DataFrame.tail; this operation depends on pandas behavior, beyond merely storing its result."
+    },
+    "select.threshold": {
+      "engine": "python",
+      "core": "wrangles/select.py:confidence_threshold",
+      "notes": "Core computation uses wrangles/select.py:confidence_threshold on Python values; pandas supplies row/column adaptation."
+    },
+    "similarity": {
+      "engine": "hybrid",
+      "core": "numpy.dot/numpy.linalg.norm; Python Euclidean loop",
+      "notes": "Branch-dependent core stages use numpy.dot/numpy.linalg.norm; Python Euclidean loop; this combines substantive engines rather than only a pandas wrapper."
+    },
+    "sort": {
+      "engine": "hybrid",
+      "core": "pandas.DataFrame.sort_values; wrangles.recipe_wrangles.pandas._coerced_sort_values",
+      "notes": "Pandas performs ordering; a Python/pandas fallback derives temporary comparison keys. Classifying the adapter as pandas-only would hide that branch."
+    },
+    "split.dictionary": {
+      "engine": "python",
+      "core": "Python json.loads/dict merge/defaults",
+      "notes": "Core computation uses Python json.loads/dict merge/defaults on Python values; pandas supplies row/column adaptation."
+    },
+    "split.list": {
+      "engine": "python",
+      "core": "Python json.loads/list padding",
+      "notes": "Core computation uses Python json.loads/list padding on Python values; pandas supplies row/column adaptation."
+    },
+    "split.text": {
+      "engine": "python",
+      "core": "wrangles/format.py:31 (split)",
+      "notes": "Core computation uses wrangles/format.py:31 (split) on Python values; pandas supplies row/column adaptation."
+    },
+    "split.tokenize": {
+      "engine": "python",
+      "core": "wrangles/format.py:517 (tokenize)",
+      "notes": "Core computation uses wrangles/format.py:517 (tokenize) on Python values; pandas supplies row/column adaptation."
+    },
+    "sql": {
+      "engine": "sql",
+      "core": "SQLite; pandas.DataFrame.to_sql; pandas.read_sql",
+      "notes": "SQLite executes the expression/query; pandas supplies table export and result import (SQLite; pandas.DataFrame.to_sql; pandas.read_sql)."
+    },
+    "standardize": {
+      "engine": "external",
+      "core": "wrangles/standardize.py:standardize",
+      "notes": "The service/model backend computes the result through wrangles/standardize.py:standardize; pandas marshals inputs and assigns responses."
+    },
+    "standardize.clean": {
+      "engine": "python",
+      "core": "wrangles.standardize.clean",
+      "notes": "The core iterates Python strings using ftfy/Unicode/regex helpers. Pandas is the recipe adapter, not the cleanup engine."
+    },
+    "standardize.custom": {
+      "engine": "external",
+      "core": "wrangles.standardize.custom",
+      "notes": "The actual standardization is model-backed remote computation; this dotted wrapper does not make it a pandas text kernel."
+    },
+    "standardize.replace": {
+      "engine": "python",
+      "core": "re.sub; wrangles.recipe_wrangles.standardize.replace",
+      "notes": "Python regex performs the replacement; pandas supplies row iteration and output assignment. This is not vectorized pandas string replacement."
+    },
+    "structure.split_dictionary": {
+      "engine": "python",
+      "core": "Python json.loads/dict merge/defaults",
+      "notes": "Exact callable alias of split.dictionary. The same underlying core performs the transform; there is no second implementation."
+    },
+    "structure.split_list": {
+      "engine": "python",
+      "core": "Python json.loads/list padding",
+      "notes": "Exact callable alias of split.list. The same underlying core performs the transform; there is no second implementation."
+    },
+    "structure.split_text": {
+      "engine": "python",
+      "core": "wrangles/format.py:31 (split)",
+      "notes": "Exact callable alias of split.text. The same underlying core performs the transform; there is no second implementation."
+    },
+    "structure.tokenize": {
+      "engine": "python",
+      "core": "wrangles/format.py:517 (tokenize)",
+      "notes": "Exact callable alias of split.tokenize. The same underlying core performs the transform; there is no second implementation."
+    },
+    "translate": {
+      "engine": "external",
+      "core": "wrangles/translate.py:translate",
+      "notes": "The service/model backend computes the result through wrangles/translate.py:translate; pandas marshals inputs and assigns responses."
+    },
+    "transpose": {
+      "engine": "pandas",
+      "core": "pandas.DataFrame.set_index; pandas.DataFrame.transpose; pandas.DataFrame.reset_index",
+      "notes": "Pandas performs reshaping and resulting dtype inference."
+    },
+    "try": {
+      "engine": "hybrid",
+      "core": "Python retry/exception handling; wrangles.recipe.run; pandas.DataFrame.assign",
+      "notes": "Branch-dependent core stages use Python retry/exception handling; wrangles.recipe.run; pandas.DataFrame.assign; this combines substantive engines rather than only a pandas wrapper."
+    }
+  },
+  "astype_str_exemptions": {}
+}

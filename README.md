@@ -9,6 +9,13 @@ Wrangles supports Python 3.11, 3.12, 3.13, and 3.14. Pull requests targeting
 3.13, and 3.14 on Ubuntu and Windows. Tagged releases run tests on Python 3.13
 and 3.14 on Ubuntu and macOS, plus package-install checks on Ubuntu.
 
+The data stack uses pandas 2.3.3 (`pandas>=2.3.3,<3.0`) and includes
+PyArrow 22 or newer in the core installation. Shared [data contracts](docs/data-contracts.md)
+prepare text and DataFrame handling for a later pandas 3 compatibility change.
+Focused CI checks run on pandas 2.3.3 with the PyArrow 22 dependency floor.
+The [missing-value guide](docs/missing-values.md) illustrates Python, pandas,
+and JSON behavior for the operation-policy review.
+
 ## Local development
 
 The standard local development environment uses Python 3.13. On Windows,
@@ -78,9 +85,9 @@ The python package can be installed using [pip](https://pip.pypa.io/en/stable/ge
 pip install wrangles
 ```
 
-This installs the core package, which covers the vast majority of use cases: all data wrangles, recipe execution, Excel/CSV/JSON file I/O, HTTP connectors, SQLite, DuckDB, MongoDB, AWS S3, Salesforce, SFTP/SSH, notifications, and the OpenAI/Gemini/SerpAPI integrations.
+This installs the core package, which covers the vast majority of use cases: all data wrangles, recipe execution, Excel/CSV/JSON/Parquet file I/O, HTTP connectors, SQLite, DuckDB, MongoDB, AWS S3, Salesforce, SFTP/SSH, notifications, and the OpenAI/Gemini/SerpAPI integrations.
 
-### Full install (adds SQL Server, Access, PostgreSQL, MySQL, and Parquet files)
+### Full install (adds SQL Server, Access, PostgreSQL, and MySQL)
 
 A handful of connectors depend on heavier, more platform-specific packages (SQL database drivers) and aren't included by default:
 
@@ -90,12 +97,11 @@ A handful of connectors depend on heavier, more platform-specific packages (SQL 
 | Microsoft Access | `pyodbc` |
 | PostgreSQL | `psycopg2-binary`, `sqlalchemy` |
 | MySQL | `sqlalchemy` (`pymysql` itself is already in the core install) |
-| Parquet files | `pyarrow` |
 
 Install just the ones you need (e.g. `pip install pyodbc` for Access only), or install all of them at once:
 
 ```shell
-pip install sqlalchemy pyodbc pymssql psycopg2-binary pyarrow
+pip install sqlalchemy pyodbc pymssql psycopg2-binary
 ```
 
 If you're working from a clone of this repository (e.g. for local development), `pip install -r requirements-full.txt` does the same thing, plus everything from the core install.
