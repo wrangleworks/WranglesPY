@@ -2,6 +2,7 @@ import asyncio
 import concurrent.futures
 import math
 import os
+from importlib import import_module
 from typing import Optional, Dict, Any
 from ..utils import LazyLoader as _LazyLoader
 from .. import ai_config as _ai_config
@@ -11,6 +12,16 @@ genai = _LazyLoader("google.genai")
 types = _LazyLoader("google.genai.types")
 errors = _LazyLoader("google.genai.errors")
 _httpx = _LazyLoader("httpx")
+
+
+def _http_timeout_types():
+    """Support both HTTP backends used by supported Google SDK versions."""
+    timeout_types = (_httpx.TimeoutException,)
+    try:
+        httpx2 = import_module("httpx2")
+    except ModuleNotFoundError:
+        return timeout_types
+    return timeout_types + (httpx2.TimeoutException,)
 
 def _get_genai():
     """
@@ -239,7 +250,7 @@ class GeminiURLContextClient:
                 else:
                     result["extracted_content"] = full_text
 
-        except (asyncio.TimeoutError, TimeoutError, _httpx.TimeoutException):
+        except (asyncio.TimeoutError, TimeoutError, *_http_timeout_types()):
             result["status"] = "Failure"
             result["error"] = f"Timeout: URL retrieval exceeded {timeout:g} seconds."
         except self.errors.ClientError as e:

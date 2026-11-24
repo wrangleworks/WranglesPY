@@ -1278,3 +1278,13 @@ class TestFormatSignificantFigures:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.empty and df.columns.to_list() == ['col1', 'out1']
+
+@pytest.mark.parametrize('dtype', [None, object, 'string'])
+@pytest.mark.parametrize('operation,expected', [('prefix', 'Xa'), ('suffix', 'aX')])
+def test_affix_skip_missing_strings_first_step(dtype, operation, expected):
+    source = pd.DataFrame({'text': pd.Series(['a', None, float('nan'), pd.NA, ''], dtype=dtype)})
+    result = wrangles.recipe.run({'wrangles': [{f'format.{operation}': {
+        'input': 'text', 'output': 'formatted', 'value': 'X', 'skip_empty': True,
+    }}]}, dataframe=source)
+    assert result['formatted'].tolist() == [expected, '', '', '', '']
+    assert result['text'].tolist() == ['a', '', '', '', '']

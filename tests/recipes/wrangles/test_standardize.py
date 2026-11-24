@@ -318,7 +318,8 @@ class TestStandardizeCleanRecipe:
             )
 
         assert result['first clean'].to_list() == ['café', 7]
-        assert result['second clean'].to_list() == [None, 'A']
+        assert pd.isna(result['second clean'].iloc[0])
+        assert result['second clean'].iloc[1] == 'A'
         assert sum(
             'preserved non-string values' in message
             for message in caplog.messages

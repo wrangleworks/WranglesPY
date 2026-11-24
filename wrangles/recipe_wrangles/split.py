@@ -305,7 +305,9 @@ def text(
 
     # Perform the split operation
     results = _format.split(
-        df[input].astype(str).values,
+        # pandas 3 astype(str) retains missing scalars. String-only consumers
+        # need Python strings; use the legacy None marker consistently.
+        df[input].astype(object).where(df[input].notna(), None).map(str).values,
         output_length=len(output) if isinstance(output, _list) and len(output) > 1 else None,
         split_char=char,
         pad=pad,

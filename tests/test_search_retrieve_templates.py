@@ -191,7 +191,8 @@ def test_url_lists_dictionaries_blanks_and_dual_outputs_remain_aligned(retrieval
     first, second, third = [f"https://product.example/{number}" for number in (1, 2, 3)]
     result = _run(pd.DataFrame({
         "URL": [
-            [None, "", {"summary": {"link": first}}, {"url": second}],
+            [None, float("nan"), pd.NA, "", {"summary": {"link": pd.NA}},
+             {"url": float("nan")}, {"summary": {"link": first}}, {"url": second}],
             None,
             ({"link": third}, "  "),
             "",
@@ -414,9 +415,11 @@ def test_out_of_order_provider_completion_preserves_row_order(monkeypatch):
 
 @pytest.mark.parametrize("output_format,mime_type", [("json", "application/json"), ("markdown", "text/plain")])
 def test_row_prompts_and_options_reach_real_google_sdk_without_network(monkeypatch, output_format, mime_type):
-    import httpx
     from google import genai
     from google.genai import _api_client, errors, types
+
+    backend = getattr(_api_client, "_get_http_client_backend", lambda: "httpx")()
+    httpx = getattr(_api_client, backend)
 
     requests = []
     client_options = []

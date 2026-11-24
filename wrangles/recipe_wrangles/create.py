@@ -182,7 +182,10 @@ def column(
                 primary, fallback = new_values, df[output_column]
 
             is_empty = primary.isna()
-            if primary.dtype == object:
+            if (
+                _pd.api.types.is_object_dtype(primary.dtype)
+                or _pd.api.types.is_string_dtype(primary.dtype)
+            ):
                 is_empty = is_empty | (primary == '')
 
             df[output_column] = primary.where(~is_empty, fallback)

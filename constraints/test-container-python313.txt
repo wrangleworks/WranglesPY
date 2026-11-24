@@ -2,4 +2,4 @@
 # These exact test-runtime pins do not replace the reusable package
 # compatibility ranges declared in requirements.txt.
 numpy==2.4.6
-pandas==2.3.3
+pandas==3.0.0

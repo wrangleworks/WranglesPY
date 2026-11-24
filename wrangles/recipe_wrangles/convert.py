@@ -362,7 +362,9 @@ def fraction_to_decimal(
     
     for in_col, out_col in zip(input, output):
         results = []
-        for item in df[in_col].astype(str):
+        # Preserve Python stringification of missing text across pandas versions.
+        text = df[in_col].astype(object).where(df[in_col].notna(), None).map(str)
+        for item in text:
             fractions = fractions = _re.finditer(r'\b(\d+[\s-])?\d+/\d+\b', item)
             replacement_list = []
             for match in fractions:

@@ -16,9 +16,9 @@ def test_runtime_versions_accept_migration_baseline():
 @pytest.mark.parametrize(
     ("python_version", "numpy_version", "pandas_version"),
     [
-        ((3, 12, 9), "2.4.6", "2.3.3"),
-        ((3, 13, 9), "2.5.2", "2.3.3"),
-        ((3, 13, 9), "2.4.6", "3.0.0"),
+        ((3, 12, 9), "2.4.6", "3.0.0"),
+        ((3, 13, 9), "2.5.2", "3.0.0"),
+        ((3, 13, 9), "2.4.6", "2.3.3"),
     ],
 )
 def test_runtime_versions_reject_unapproved_versions(
@@ -34,11 +34,11 @@ def test_runtime_versions_reject_unapproved_versions(
         )
 
 
-def test_wrangles_metadata_requires_pandas_below_three():
+def test_wrangles_metadata_supports_validated_pandas_series():
     container_smoke.validate_wrangles_pandas_requirement(
         [
             "numpy",
-            "pandas[performance]<3.0,>=2.0; python_version >= '3.11'",
+            "pandas[performance]>=2.3,<3.1; python_version >= '3.11'",
             "requests",
         ]
     )
@@ -46,9 +46,9 @@ def test_wrangles_metadata_requires_pandas_below_three():
 
 @pytest.mark.parametrize(
     "requirement",
-    ["pandas>=2.0", "pandas>=3.0,<4.0"],
+    ["pandas>=2.0", "pandas>=3.0,<4.0", "pandas>=2.3,<3.0"],
 )
-def test_wrangles_metadata_rejects_pandas_three(requirement):
+def test_wrangles_metadata_rejects_incompatible_ranges(requirement):
     with pytest.raises(RuntimeError):
         container_smoke.validate_wrangles_pandas_requirement([requirement])
 

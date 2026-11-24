@@ -1892,7 +1892,10 @@ class TestStructureSplitAliases:
             # Recipes normalize the original null cell after the transform.
             expected.at[1, "source"] = ""
         for column, values in outputs.items():
-            expected[column] = pd.Series(values, dtype=object)
+            # Pure text follows pandas' default string dtype; mixed/list and
+            # numeric outputs retain the legacy object-column contract.
+            dtype = 'str' if all(isinstance(value, str) for value in values) else object
+            expected[column] = pd.Series(values, dtype=dtype)
         return f"split.{request.param}", alias, frame, options, expected
 
     def _run(self, operation, frame, options, **kwargs):
@@ -1996,3 +1999,13 @@ class TestStructureSplitAliases:
                 jsonschema.validate({"wrangles": [{operation: {
                     "input": "source", "where": "row_id = 1", "if": "row_count > 0", **options,
                 }}]}, schema)
+
+@pytest.mark.parametrize('dtype', [None, object, 'string'])
+@pytest.mark.parametrize('char', [',', 'regex:,'])
+def test_split_text_missing_strings_first_step(dtype, char):
+    source = pd.DataFrame({'text': pd.Series(['a,b', None, float('nan'), pd.NA, ''], dtype=dtype)})
+    result = wrangles.recipe.run({'wrangles': [{'split.text': {
+        'input': 'text', 'output': 'parts', 'char': char,
+    }}]}, dataframe=source)
+    assert result['parts'].tolist() == [['a', 'b'], ['None'], ['None'], ['None'], ['']]
+    assert result.index.tolist() == source.index.tolist()

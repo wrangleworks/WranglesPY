@@ -14,13 +14,13 @@
 ## Tech Stack
 
 - **Python:** 3.11, 3.12, 3.13, 3.14 (package support); the standard local development environment uses Python 3.13
-- **Core Dependencies:** pandas (>=2.0,<3.0), numpy, polars (1.33.0), pyyaml
+- **Core Dependencies:** pandas (>=2.3,<3.1), numpy, polars (1.33.0), pyyaml
 - **Database Connectors:** sqlalchemy, pymssql, psycopg2-binary, pymysql, pymongo
 - **Cloud/External:** boto3 (AWS S3), simple-salesforce, fabric (SFTP)
 - **Data Formats:** openpyxl (Excel), xlsxwriter
 - **AI/ML:** OpenAI integration, Hugging Face models
 - **Testing:** pytest (9.0.2), pytest-mock, lorem (test data generation)
-- **Containerization:** The WranglesPY CI test image uses Python 3.13-slim-bookworm with pandas 2.3.3 and NumPy 2.4.6; the development container uses Python 3.13-bookworm. The deployed recipe runtime image is owned by `wrangleworks/Lambda-Recipes`.
+- **Containerization:** The WranglesPY CI test image uses Python 3.13-slim-bookworm with pandas 3.0.0 and NumPy 2.4.6; the development container uses Python 3.13-bookworm. The deployed recipe runtime image is owned by `wrangleworks/Lambda-Recipes`.
 
 ## Project Structure
 
@@ -334,7 +334,7 @@ Performance warnings from pandas are suppressed in `recipe.py` as they appear du
 ### CI Test Image Size Optimization
 - Botocore data reduced to S3-only (removes ~300MB)
 - Pandas test data removed from final image
-- Test-image data stack constrained to pandas 2.3.3 and NumPy 2.4.6 while the reusable package continues to allow pandas 2.x
+- Test-image data stack constrained to pandas 3.0.0 and NumPy 2.4.6 while the reusable package supports pandas 2.3 and 3.0, checked by the credential-free CI compatibility matrix
 - All test-image dependencies install from binary wheels; compiler tools are absent from the runtime image
 - Uses slim Debian base image for minimal footprint
 

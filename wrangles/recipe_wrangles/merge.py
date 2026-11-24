@@ -248,12 +248,19 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str, skip_empty: boo
         if cols in cols_changed:
             df[cols] = df[cols].astype(str)
 
+    def normalize_missing(value):
+        # Nested dictionaries are not reached by recipe-level fillna. Keep
+        # structured values intact while restoring JSON-safe scalar nulls.
+        if _pd.api.types.is_scalar(value) and _pd.isna(value):
+            return None
+        return value
+
     results = [  
         {  
-            row[key]: (  
+            normalize_missing(row[key]): (
                 True if val in cols_changed and row[val] == 'True' else  
                 False if val in cols_changed and row[val] == 'False' else  
-                row[val]  
+                normalize_missing(row[val])
             )  
             for key, val in pairs.items()  
             if not skip_empty or (  
@@ -345,6 +352,15 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
         description: Whether to include empty columns in the created dictionary
     """
     _logging.debug(f": Converting columns to dict :: output :: {output}")
+    # String extension dtypes use NaN/pd.NA for missing values. Restore the
+    # Python None marker before detection and dictionary construction so it
+    # follows the same path as object-backed strings on pandas 2.
+    for column in input:
+        values = df[column]
+        missing = values.isna()
+        if missing.any() and _pd.api.types.is_string_dtype(values[~missing]):
+            df[column] = values.astype(object).where(~missing, None)
+
     index_check = 0
     cols_changed = [] 
     for cols in input:
@@ -358,7 +374,9 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
         
         # If the column is in the cols changed then convert values to strings
         if cols in cols_changed:
-            df[cols] = df[cols].astype(str)
+            # Python stringification retains the None/boolean markers used
+            # below; pandas 3 astype(str) preserves missing values instead.
+            df[cols] = df[cols].map(str)
     
     output_list = []
     column_headers = df[input].columns

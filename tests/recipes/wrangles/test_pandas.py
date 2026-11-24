@@ -985,6 +985,29 @@ class TestExplode:
             df['numbers'].tolist() == [4, 7, 14, 14, 14, 14, 19]
         )
 
+    def test_explode_where_multiple_columns_preserves_other_rows(self):
+        data = pd.DataFrame({
+            'column': [['a', 'b'], ['keep'], ['c', 'd']],
+            'other': [[1, 2], [99], [3, 4]],
+            'numbers': [14, 7, 19],
+        }, index=[10, 20, 30])
+
+        result = wrangles.recipe.run(
+            {'wrangles': [{'explode': {
+                'input': ['column', 'other'],
+                'where': 'numbers >= 14',
+            }}]},
+            dataframe=data,
+        )
+
+        assert result.columns.tolist() == ['column', 'other', 'numbers']
+        assert result.to_dict('list') == {
+            'column': ['a', 'b', ['keep'], 'c', 'd'],
+            'other': [1, 2, [99], 3, 4],
+            'numbers': [14, 14, 7, 19, 19],
+        }
+        assert result.index.tolist() == [10, 10, 20, 30, 30]
+
     def test_explode_empty(self):
         """
         Test using explode function with empty dataframe
