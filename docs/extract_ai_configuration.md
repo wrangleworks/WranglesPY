@@ -282,8 +282,9 @@ Operational environment controls:
 | `WRANGLES_EXTRACT_AI_CACHE_LOG_EVERY` | Emit aggregate counters every N lookups; `0` disables logs |
 
 Cache telemetry contains only aggregate counters and sizes. It does not log
-cache keys or values. `wrangles.ai_cache.stats()` returns the current counters,
-and `wrangles.ai_cache.clear()` clears the warm-process cache.
+cache keys or values. `wrangles.ai.cache.stats()` returns the current counters,
+and `wrangles.ai.cache.clear()` clears the warm-process cache. The existing
+`wrangles.ai_cache` import shares the same cache and counters.
 
 ## Dynamic object schemas
 

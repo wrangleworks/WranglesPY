@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import find_packages, setup
 
 # read the contents of the README file
 from pathlib import Path
@@ -10,12 +10,7 @@ with open('requirements.txt') as f:
 
 setup(
     name = 'wrangles',
-    packages = [
-        'wrangles',
-        'wrangles.clients',
-        'wrangles.connectors',
-        'wrangles.recipe_wrangles'
-    ],
+    packages = find_packages(include=('wrangles', 'wrangles.*')),
     package_data = {
         'wrangles': ['ai_defaults.yml']
     },

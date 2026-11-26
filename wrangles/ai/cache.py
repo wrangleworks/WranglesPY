@@ -17,7 +17,7 @@ from dataclasses import dataclass as _dataclass
 from typing import Callable as _Callable
 
 
-_LOG = _logging.getLogger(__name__)
+_LOG = _logging.getLogger("wrangles.ai_cache")
 _LOCK = _threading.Lock()
 _CACHE = _OrderedDict()
 _INFLIGHT = {}

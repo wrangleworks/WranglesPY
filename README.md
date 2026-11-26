@@ -90,6 +90,12 @@ These mock the SDK boundary; they do not constitute a live BYOK run. Hosted
 deployment, XL integration, persistent bundles, API-Core metadata, and Rai are
 outside this increment.
 
+For contributors, the [public AI functions](wrangles/ai/__init__.py) use the
+[structured-question implementation](wrangles/ai/_questions.py) and the
+[shared cache](wrangles/ai/cache.py). The [Agent runtime](wrangles/ai/agents/runtime.py)
+owns Copilot sessions. Add dataframe tools in [tools.py](wrangles/ai/agents/tools.py)
+and maintain local Skill loading in [skills.py](wrangles/ai/agents/skills.py).
+
 ## Python support
 
 Wrangles supports Python 3.11, 3.12, 3.13, and 3.14. Pull requests targeting

@@ -11,7 +11,7 @@ import re
 import yaml
 
 
-_LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger("wrangles.agent_skills")
 _MANIFEST_ID = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
 _TEXT = {"type": "string"}
 _MANIFEST_FIELDS = {
