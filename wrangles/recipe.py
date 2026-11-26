@@ -692,6 +692,8 @@ def _execute_wrangles(
                 if (
                     'input' in params and 
                     wrangle not in [
+                        'ai.agent',
+                        'ai.skill',
                         'math',
                         'maths',
                         'merge.key_value_pairs',

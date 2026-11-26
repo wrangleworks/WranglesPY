@@ -40,6 +40,7 @@ setup(
     author_email = 'eric@wrangleworks.com',
     keywords = ['data','wrangling'],
     install_requires = requirements,
+    extras_require = {'agent': ['microsoft-copilot-sdk==2.0.2']},
     entry_points ={
         'console_scripts': ['wrangles.recipe = wrangles.console:recipe']
     },

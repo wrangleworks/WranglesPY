@@ -6,6 +6,19 @@ import yaml as _yaml
 from .. import ai as _ai
 
 
+def agent(df, input, output, instructions=None, skill=None, skill_package=None,
+          model="gpt-5-mini", api_key=None, timeout=120):
+    """Execute inline instructions and/or one local Skill through the optional SDK."""
+    from ..ai_runtime import run
+    return run(df, input, output, instructions, skill, skill_package, model, api_key, timeout)
+
+
+def skill(df, input, output, skill, skill_package, model="gpt-5-mini", api_key=None, timeout=120):
+    """Apply one named local Skill through the same runtime as ai.agent."""
+    return agent(df, input, output, skill=skill, skill_package=skill_package,
+                 model=model, api_key=api_key, timeout=timeout)
+
+
 _FIELDS = _ai._FIELDS
 
 
@@ -281,4 +294,30 @@ for _name, _kind in (("choose", "choose"), ("score", "score"),
         _definition["description"] = "Compatibility alias for `ai.decisions`. " + _definition["description"]
     if _kind is None:
         _definition["description"] += " Configuration and cache identity retain the existing `ai.answers` role."
+    globals()[_name].__doc__ = _yaml.safe_dump(_definition, sort_keys=False)
+
+
+for _name in ("agent", "skill"):
+    _properties = {
+        "input": {"oneOf": [{"type": "string"}, {"type": "array", "minItems": 1,
+                   "uniqueItems": True, "items": {"type": "string"}}]},
+        "output": {"type": "object", "minProperties": 1, "additionalProperties": {
+            "type": "object", "additionalProperties": False, "required": ["type"],
+            "properties": {"type": {"enum": ["string", "integer", "number", "boolean"]},
+                           "description": {"type": "string"}}}},
+        "skill": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "skill_package": {"type": "string", "description": "Local package containing plugin.json and skills/<name>/SKILL.md."},
+        "model": {"type": "string", "default": "gpt-5-mini", "description": "OpenAI inference model ID; distinct from the Skill name."},
+        "api_key": {"type": "string", "description": "OpenAI BYOK key; defaults to OPENAI_API_KEY."},
+        "timeout": {"type": "number", "exclusiveMinimum": 0, "default": 120},
+    }
+    if _name == "agent":
+        _properties["instructions"] = {"type": "string", "pattern": r"\S"}
+    _definition = {"type": "object", "additionalProperties": False,
+        "description": "Apply instructions or a local Skill to the complete supplied dataframe using the optional local Copilot SDK and OpenAI BYOK.",
+        "required": ["input", "output"] + (["skill", "skill_package"] if _name == "skill" else []),
+        "properties": _properties}
+    if _name == "agent":
+        _definition["anyOf"] = [{"required": ["instructions"]}, {"required": ["skill", "skill_package"]}]
+        _definition["dependentRequired"] = {"skill": ["skill_package"], "skill_package": ["skill"]}
     globals()[_name].__doc__ = _yaml.safe_dump(_definition, sort_keys=False)

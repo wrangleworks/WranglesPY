@@ -240,7 +240,8 @@ def test_decisions_namespace_preserves_answers_alias_and_omits_old_questions_nam
         for name, function in inspect.getmembers(recipe_ai, inspect.isfunction)
         if not name.startswith("_")
     }
-    assert set(schemas) == {"ai.choose", "ai.score", "ai.true_false", "ai.decisions", "ai.answers"}
+    assert set(schemas) == {"ai.choose", "ai.score", "ai.true_false", "ai.decisions", "ai.answers",
+                            "ai.agent", "ai.skill"}
     assert schemas["ai.answers"]["required"] == ["questions"]
     assert schemas["ai.decisions"]["required"] == ["questions"]
 

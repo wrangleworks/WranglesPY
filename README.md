@@ -2,6 +2,89 @@
 
 Full documentation available at [wrangles.io](https://wrangles.io/python).
 
+## Local AI agents and Skills (optional)
+
+`ai.agent` runs inline instructions, optionally with one local Skill;
+`ai.skill` applies a named Skill. Both run a headless Copilot SDK session owned
+by WranglesPY and use OpenAI inference with your own key. Existing recipes do
+not import the SDK or start a runtime.
+
+```sh
+pip install 'wrangles[agent]'
+python -m copilot download-runtime
+```
+
+From a source checkout use `pip install -e '.[agent]'`. This slice pins
+`microsoft-copilot-sdk==2.0.2` (the current distribution of the Copilot Python
+SDK). The SDK downloads its matching native runtime; pre-download it above for
+offline startup. Python 3.11+ and a platform supported by that runtime are required.
+Set `OPENAI_API_KEY` in your process environment, then run the three-row live
+acceptance example from this checkout:
+
+```sh
+python examples/ai_local/run.py
+```
+
+This makes two small billable OpenAI runs and asserts both entry points produce
+`Pump Seal`, `Valve Kit`, `Pump Seal`, with counts `2`, `1`, `2`. It prints the
+resolved Skill and tool names, without printing the API key. Set `PYTHONPATH=.`
+if you are running the source example without an editable install.
+
+```python
+import pandas as pd
+import wrangles
+
+df = pd.DataFrame({'Description': ['PUMP seal', 'valve kit', 'pump SEAL'],
+                   'Unrelated': [10, 20, 30]})
+result = wrangles.recipe.run({'wrangles': [{'ai.agent': {
+    'input': ['Description'],
+    'output': {'Name': {'type': 'string'}, 'Count': {'type': 'integer'}},
+    'instructions': 'Title-case Description into Name. Count rows sharing each Name into Count.',
+    'model': 'gpt-5-mini',
+    'timeout': 120,
+}}]}, dataframe=df)
+```
+
+For a Skill, replace `instructions` with `skill: 'normalize-products'` and
+`skill_package: '/absolute/path/to/examples/ai_local'`. Use the `ai.skill`
+entry point with those same parameters, or retain `ai.agent` to add inline
+instructions. The Skill name is separate from the inference `model`.
+`api_key` can be supplied explicitly, but prefer the environment to keep keys
+out of recipe files and ordinary recipe diagnostics.
+
+Local packages have a `plugin.json` object declaring `name` and a
+`skills/<skill-name>/SKILL.md` file. The Skill file requires YAML front matter
+with matching `name` and nonblank `description`, followed by its instructions.
+Names use lowercase letters/digits separated by hyphens. This slice loads the
+selected Skill's instructions directly into the session; supporting scripts,
+references, and assets are not executed or exposed. Skill symlinks resolving
+outside the package are rejected.
+
+Only declared `input` columns reach the model; use exact column names rather
+than wildcards. The model can read all supplied
+rows together through `read_dataframe`, then use `submit_results` to return
+every row once. Output is a nonempty mapping of destination names to primitive
+types (`string`, `integer`, `number`, `boolean`) with optional descriptions.
+Null, missing, extra, duplicate, or mistyped results fail the step; values are
+never silently coerced. `row_id` is reserved for positional identity. Results
+are restored to input order and index, including duplicate index labels, and
+unrelated columns are preserved. Output columns may explicitly replace input
+columns. A recipe `where` clause limits the dataframe seen by the agent.
+
+Each call uses a fresh temporary runtime home, disables ambient configuration,
+and allows only the two dataframe tools. There are no shell, filesystem,
+network-browsing, or arbitrary Python tools. Runtime startup and inference share
+the step timeout; cleanup has a separate bounded deadline. A successful result
+stores a small report at `result.attrs['wrangles_ai_runtime']` (Skill resolution,
+model and tool invocations). The report describes the latest agent step; normal
+pandas operations may discard attrs. It contains no inputs, outputs, or keys.
+
+Credential-free acceptance tests are included in the local selection:
+`python -m pytest -c pytest-local.ini tests/recipes/wrangles/test_ai_runtime.py`.
+These mock the SDK boundary; they do not constitute a live BYOK run. Hosted
+deployment, XL integration, persistent bundles, API-Core metadata, and Rai are
+outside this increment.
+
 ## Python support
 
 Wrangles supports Python 3.11, 3.12, 3.13, and 3.14. Pull requests targeting
