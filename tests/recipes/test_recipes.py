@@ -11,6 +11,7 @@ import pytest
 import time
 import concurrent.futures
 import threading
+from pathlib import Path
 
 
 def test_recipe_from_file():
@@ -25,6 +26,52 @@ def test_recipe_from_file():
         }
     )
     assert df.columns.tolist() == ['ID', 'Find2']
+
+
+@pytest.mark.parametrize("suffix", [".wrgl.yml", ".wrgl.yaml", ".recipe"])
+@pytest.mark.parametrize("relative", [False, True], ids=["absolute", "relative"])
+def test_recipe_from_path_object(tmp_path, monkeypatch, suffix, relative):
+    """
+    Test that Path objects work like string paths, including recipe variables.
+    """
+    recipe_path = tmp_path / f"recipe café{suffix}"
+    recipe_path.write_text(
+        "read:\n"
+        "  test:\n"
+        "    rows: 1\n"
+        "    values:\n"
+        "      column: ${value}\n",
+        encoding="utf-8"
+    )
+    if relative:
+        monkeypatch.chdir(tmp_path)
+        recipe_path = Path(recipe_path.name)
+
+    df = wrangles.recipe.run(recipe_path, variables={"value": "café"})
+    expected = wrangles.recipe.run(str(recipe_path), variables={"value": "café"})
+
+    pd.testing.assert_frame_equal(df, expected)
+    assert df["column"].tolist() == ["café"]
+
+
+def test_recipe_from_pathlike_object(tmp_path):
+    """
+    Test that filesystem paths use __fspath__, not an object's string display.
+    """
+    recipe_path = tmp_path / "recipe.wrgl.yml"
+    recipe_path.write_text(
+        "read:\n  test:\n    rows: 1\n    values:\n      column: value\n",
+        encoding="utf-8"
+    )
+
+    class RecipePath:
+        def __fspath__(self):
+            return str(recipe_path)
+
+    df = wrangles.recipe.run(RecipePath())
+
+    assert df["column"].tolist() == ["value"]
+
 
 def test_recipe_from__recipe_file():
     """
