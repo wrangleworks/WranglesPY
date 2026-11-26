@@ -10,11 +10,11 @@ import tempfile
 
 import pandas as pd
 
-from .agent_skills import SelectedSkills, load_skills
-from .agent_tools import DataframeTools, TYPES
+from .skills import SelectedSkills, load_skills
+from .tools import DataframeTools, TYPES
 
 
-_LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger("wrangles.ai_runtime")
 
 
 class _IncompleteResult(ValueError):

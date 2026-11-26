@@ -5,7 +5,7 @@ import math
 
 import pandas as pd
 
-from .recipe_wrangles.convert import case as convert_case
+from ...recipe_wrangles.convert import case as convert_case
 
 
 TYPES = {"string": str, "integer": int, "number": (int, float), "boolean": bool}
