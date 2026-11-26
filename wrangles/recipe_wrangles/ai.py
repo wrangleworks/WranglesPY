@@ -6,6 +6,10 @@ import yaml as _yaml
 from .. import ai as _ai
 
 
+agent = _ai.agent
+skill = _ai.skill
+
+
 _FIELDS = _ai._FIELDS
 
 
@@ -281,4 +285,37 @@ for _name, _kind in (("choose", "choose"), ("score", "score"),
         _definition["description"] = "Compatibility alias for `ai.decisions`. " + _definition["description"]
     if _kind is None:
         _definition["description"] += " Configuration and cache identity retain the existing `ai.answers` role."
+    globals()[_name].__doc__ = _yaml.safe_dump(_definition, sort_keys=False)
+
+
+_skill_ref = {"type": "string", "maxLength": 64, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}
+for _name in ("agent", "skill"):
+    _properties = {
+        "input": {"oneOf": [{"type": "string"}, {"type": "array", "minItems": 1,
+                   "uniqueItems": True, "items": {"type": "string"}}]},
+        "output": {"type": "object", "minProperties": 1, "additionalProperties": {
+            "type": "object", "additionalProperties": False, "required": ["type"],
+            "properties": {"type": {"enum": ["string", "integer", "number", "boolean"]},
+                           "description": {"type": "string"}}}},
+        "skill": _skill_ref,
+        "skill_package": {"type": "string", "description": "Agent Plugins directory. Defaults to WRANGLES_AGENT_PLUGIN."},
+        "model": {"type": "string", "default": "gpt-5-mini", "description": "OpenAI inference model ID; distinct from the Skill name."},
+        "api_key": {"type": "string", "description": "OpenAI BYOK key; defaults to OPENAI_API_KEY."},
+        "timeout": {"type": "number", "exclusiveMinimum": 0, "default": 120},
+    }
+    _definition = {"type": "object", "additionalProperties": False,
+        "description": "Apply instructions or a local Skill to the complete supplied dataframe using the optional local Copilot SDK and OpenAI BYOK.",
+        "required": ["input", "output"], "properties": _properties}
+    if _name == "agent":
+        _properties["instructions"] = {"type": "string", "pattern": r"\S"}
+        _properties["skills"] = {"type": "array", "minItems": 1, "uniqueItems": True, "items": {
+            "type": "object", "required": ["model_id"], "additionalProperties": False,
+            "properties": {"model_id": _skill_ref}}}
+        _definition["anyOf"] = [{"required": [key]} for key in ("instructions", "skill", "skills")]
+        _definition["not"] = {"required": ["skill", "skills"]}
+        _definition["if"] = {"required": ["skill_package"]}
+        _definition["then"] = {"anyOf": [{"required": ["skill"]}, {"required": ["skills"]}]}
+    else:
+        _properties["model_id"] = _skill_ref
+        _definition["oneOf"] = [{"required": ["skill"]}, {"required": ["model_id"]}]
     globals()[_name].__doc__ = _yaml.safe_dump(_definition, sort_keys=False)
