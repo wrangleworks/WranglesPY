@@ -20,6 +20,23 @@ from .clients import openrouter as _openrouter
 from .clients import typesafe as _typesafe
 
 
+def agent(df, input, output, instructions=None, skill=None, skill_package=None,
+          model="gpt-5-mini", api_key=None, timeout=120, skills=None):
+    """Run inline instructions and optional local Skills on selected dataframe columns."""
+    from .ai_runtime import run
+    return run(df, input, output, instructions=instructions, skill=skill, skill_package=skill_package,
+               model=model, api_key=api_key, timeout=timeout, skills=skills)
+
+
+def skill(df, input, output, skill=None, skill_package=None, model="gpt-5-mini", api_key=None,
+          timeout=120, model_id=None):
+    """Apply one named Skill through the dataframe Agent runtime."""
+    if (skill is None) == (model_id is None):
+        raise ValueError("Select one Skill using skill or model_id")
+    return agent(df, input, output, skill=skill if model_id is None else model_id, skill_package=skill_package,
+                 model=model, api_key=api_key, timeout=timeout)
+
+
 _KINDS = {"choose": "choice", "score": "score", "true_false": "noul"}
 _FIELDS = {
     "choose": ("choice", "confidence", "probabilities"),

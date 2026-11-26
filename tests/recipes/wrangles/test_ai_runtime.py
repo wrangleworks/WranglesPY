@@ -34,7 +34,8 @@ def source():
 
 @pytest.fixture
 def package(tmp_path):
-    (tmp_path / "plugin.json").write_text('{"name":"test-products"}', encoding="utf-8")
+    manifest = {"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", "name": "test-products"}
+    (tmp_path / "plugin.json").write_text(json.dumps(manifest), encoding="utf-8")
     path = tmp_path / "skills" / "normalize-products" / "SKILL.md"
     path.parent.mkdir(parents=True)
     path.write_text("---\nname: normalize-products\ndescription: Normalize product names\n---\n"
@@ -50,19 +51,20 @@ def sdk(monkeypatch):
                              stop=AsyncMock(), force_stop=AsyncMock())
     factory = Mock(return_value=client)
     connection = Mock(side_effect=lambda **kwargs: SimpleNamespace(**kwargs))
-    monkeypatch.setitem(sys.modules, "copilot", SimpleNamespace(CopilotClient=factory,
+    monkeypatch.setitem(sys.modules, "copilot", SimpleNamespace(CopilotClient=factory, SkillProviderDescriptor=SimpleNamespace,
         RuntimeConnection=SimpleNamespace(for_spawned_stdio=connection)))
     monkeypatch.setitem(sys.modules, "copilot.tools", SimpleNamespace(
         Tool=lambda **kwargs: SimpleNamespace(**kwargs),
         ToolResult=lambda **kwargs: SimpleNamespace(**kwargs)))
-    monkeypatch.setitem(sys.modules, "copilot.session", SimpleNamespace(
-        PermissionNoResult=lambda: "denied"))
+    monkeypatch.setitem(sys.modules, "copilot.rpc", SimpleNamespace(PermissionDecisionReject=lambda: "denied"))
     state = SimpleNamespace(client=client, session=session, factory=factory, connection=connection, read=None,
-                            submitted=None, response={"rows": ROWS})
+                            submitted=None, actions=[], replies=[], response={"rows": ROWS})
 
     async def execute(*args, **kwargs):
         tools = {tool.name: tool for tool in client.create_session.call_args.kwargs["tools"]["definitions"]}
         state.read = json.loads((await tools["read_dataframe"].handler(SimpleNamespace(arguments={}))).text_result_for_llm)
+        for name, arguments in state.actions:
+            state.replies.append(await tools[name].handler(SimpleNamespace(arguments=arguments)))
         state.submitted = await tools["submit_results"].handler(SimpleNamespace(arguments=state.response))
     session.send_and_wait.side_effect = execute
     return state
@@ -89,8 +91,9 @@ def test_recipe_acceptance_preserves_identity_and_unrelated_columns(source, pack
     config = sdk.client.create_session.call_args.kwargs
     assert config["model"] == "openai/gpt-5-mini"
     assert config["inference"]["providers"][0]["api_key"] == "offline-key"
-    assert config["github"] == {"capi": {"enabled": False}}
-    assert config["tools"]["available_tools"] == ["read_dataframe", "submit_results"]
+    assert config["github"]["capi"] == {"enabled": False}
+    assert config["tools"]["available_tools"] == [
+        "custom:read_dataframe", "custom:convert_case", "custom:count_values", "custom:submit_results"]
     assert config["permissions"]["on_request"]({}, {}) == "denied"
     assert sdk.factory.call_args.kwargs["mode"] == "empty"
     assert sdk.factory.call_args.kwargs["github"] == {"use_logged_in_user": False}
@@ -99,11 +102,107 @@ def test_recipe_acceptance_preserves_identity_and_unrelated_columns(source, pack
     if attach:
         assert result.attrs["wrangles_ai_runtime"]["skill"]["name"] == "normalize-products"
         assert result.attrs["wrangles_ai_runtime"]["skill"]["package"] == "test-products"
-        assert "Title-case Description" in config["system_message"]["content"]
+        provider = config["skills"]["provider"]
+        assert config["agents"]["definitions"][0]["skills"] == ["normalize-products"]
+        assert "Title-case Description" in provider.read_skill("normalize-products")
+        assert [s.name for s in provider.list_skills()] == ["normalize-products"]
+        assert provider.read_skill("another-skill") is None
     else:
         assert result.attrs["wrangles_ai_runtime"]["skill"] is None
+        assert config["skills"] == {"enabled": False}
     sdk.session.disconnect.assert_awaited_once()
     sdk.client.stop.assert_awaited_once()
+
+
+CASE_AND_COUNT = [
+    ("convert_case", {"source": "Description", "destination": "Name", "case": "title"}),
+    ("count_values", {"source": "Name", "destination": "Count"}),
+]
+
+
+@pytest.mark.parametrize("kind", ["agent", "skill"])
+def test_python_count_wins_over_conflicting_model_submission(source, sdk, package, kind):
+    sdk.actions = CASE_AND_COUNT
+    # Duplicate input index labels, and the model submits rows out of order.
+    sdk.response = {"rows": [{**r, "Count": 3, "Name": "model echo", "Reviewed": r["row_id"] != 1} for r in ROWS]}
+    result = run(source, kind, skill="normalize-products", skill_package=package,
+                 output={**OUTPUT, "Reviewed": {"type": "boolean"}})
+    assert result["Count"].tolist() == [2, 1, 2]
+    assert result["Name"].tolist() == ["Pump Seal", "Valve Kit", "Pump Seal"]
+    assert result["Reviewed"].tolist() == [True, False, True]
+    pd.testing.assert_frame_equal(result[source.columns], source)
+    assert result.attrs["wrangles_ai_runtime"]["committed_columns"] == ["Name", "Count"]
+
+
+def test_finish_without_echoing_python_columns(source, sdk):
+    sdk.actions = CASE_AND_COUNT
+    sdk.response = {}
+    result = run(source)
+    assert result["Count"].tolist() == [2, 1, 2]
+    assert result.attrs["wrangles_ai_runtime"]["tools"] == ["read_dataframe", "convert_case", "count_values", "submit_results"]
+
+
+def test_python_counts_model_judged_groups_by_position(source, sdk):
+    sdk.actions = [("count_values", {"source": "Group", "destination": "Count", "source_rows": [
+        {"row_id": 2, "value": "seal"}, {"row_id": 0, "value": "seal"}, {"row_id": 1, "value": "valve"}]})]
+    sdk.response = {"rows": [{"row_id": i, "Group": "incorrect echo", "Count": 3} for i in range(3)]}
+    result = run(source, output={"Group": {"type": "string"}, "Count": {"type": "integer"}})
+    assert result["Group"].tolist() == ["seal", "valve", "seal"]
+    assert result["Count"].tolist() == [2, 1, 2]
+
+
+@pytest.mark.parametrize("bad_args", [
+    {"source": "Unrelated", "destination": "Count"},
+    {"source": "Description", "destination": "Unrelated"},
+    {"source": "Description", "destination": "Count", "source_rows": []},
+    {"source": "Name", "destination": "Count", "source_rows": [{"row_id": 0, "value": "x"}] * 3},
+])
+def test_rejected_tools_leave_columns_uncommitted(source, sdk, bad_args):
+    sdk.actions = [("count_values", bad_args)]
+    result = run(source)
+    assert sdk.replies[0].result_type == "failure"
+    assert result.attrs["wrangles_ai_runtime"]["committed_columns"] == []
+
+
+def test_computed_column_cannot_be_replaced_by_another_tool(source, sdk):
+    sdk.actions = [*CASE_AND_COUNT, ("count_values", {"source": "Description", "destination": "Count"})]
+    sdk.response = {}
+    result = run(source)
+    assert sdk.replies[-1].result_type == "failure"
+    assert result["Count"].tolist() == [2, 1, 2]
+
+
+def test_multiple_native_skills_and_configured_package(source, package, sdk, monkeypatch):
+    monkeypatch.setenv("WRANGLES_AGENT_PLUGIN", package)
+    other = Path(package) / "skills" / "second" / "SKILL.md"
+    other.parent.mkdir()
+    other.write_text("---\nname: second\ndescription: Other rules\n---\nKeep original IDs.", encoding="utf-8")
+    result = run(source, skills=[{"model_id": "normalize-products"}, {"model_id": "second"}])
+    config = sdk.client.create_session.call_args.kwargs
+    assert [s.name for s in config["skills"]["provider"].list_skills()] == ["normalize-products", "second"]
+    assert config["agents"]["definitions"][0]["skills"] == ["normalize-products", "second"]
+    assert [item["name"] for item in result.attrs["wrangles_ai_runtime"]["skills"]] == ["normalize-products", "second"]
+    assert len(result.attrs["wrangles_ai_runtime"]["skills"][0]["sha256"]) == 64
+    assert run(source, "skill", model_id="second").attrs["wrangles_ai_runtime"]["skill"]["name"] == "second"
+
+
+@pytest.mark.parametrize("bad", [{"name": "test-products"}, {"$schema": "wrong", "name": "test-products"},
+    {"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", "name": "bad--name"},
+    {"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", "name": "valid", "author": []}])
+def test_reject_invalid_portable_manifest_before_inference(package, source, sdk, bad):
+    (Path(package) / "plugin.json").write_text(json.dumps(bad), encoding="utf-8")
+    with pytest.raises(Exception, match="Invalid Agent Plugins 1.0 manifest"):
+        run(source, "skill", model_id="normalize-products", skill_package=package)
+    sdk.client.start.assert_not_awaited()
+
+
+def test_python_api_from_running_event_loop(source, sdk):
+    async def notebook():
+        return wrangles.ai.agent(source, input="Description", instructions="Normalize", output=OUTPUT,
+                                 api_key="offline-key")
+    sdk.actions = CASE_AND_COUNT
+    sdk.response = {}
+    assert asyncio.run(notebook())["Count"].tolist() == [2, 1, 2]
 
 
 @pytest.mark.parametrize("response", [None, {}, {"rows": []}, {"rows": ROWS[:2]},
@@ -275,3 +374,8 @@ def test_recipe_schemas_describe_both_entry_points(package):
         jsonschema.validate(options, schema)
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate({"input": "Description", "output": OUTPUT}, yaml.safe_load(ai.agent.__doc__))
+    agent_schema = jsonschema.Draft7Validator(yaml.safe_load(ai.agent.__doc__))
+    inline = {"input": "Description", "output": OUTPUT, "instructions": "Apply our rules"}
+    assert agent_schema.is_valid({**inline, "skills": [{"model_id": "normalize-products"}]})
+    assert not agent_schema.is_valid({**inline, "skill_package": package})
+    assert not agent_schema.is_valid({**options, "skills": [{"model_id": "second"}]})
