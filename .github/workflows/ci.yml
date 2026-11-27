@@ -158,6 +158,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
           python -I scripts/check_ai_install.py
+          python -I scripts/check_search_install.py
           wrangles.recipe tests/samples/generate-data.wrgl.yml
 
   test-generate-schema:

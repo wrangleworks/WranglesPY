@@ -81,7 +81,7 @@ INPUT_ROWS = [
 
 def structure_search_response(df, input, metadata, output, prefix=None, save_raw=False):
     """Preserve raw evidence and prepare link-free description prose for extraction."""
-    from wrangles._search_ai_content import google_product_url, unlink_description
+    from wrangles.search._content import google_product_url, unlink_description
 
     headings = [heading for entry in AI_MODE_QUERY for heading in entry
                 if heading not in {"base_query", "query_suffix"}]
@@ -122,7 +122,10 @@ def prepare_search_extraction(df, input, metadata, enabled=True):
 
 def validate_search_sources(df, input, references, pricing, diagnostics, metadata):
     """Check source URLs and IDs in place; leave the other AI outputs untouched."""
-    from wrangles._search_ai_extraction import validate_sources
+    if __package__:
+        from .source_validation import validate_sources
+    else:
+        from source_validation import validate_sources
 
     sources, offers, checks = [], [], []
     for refs, prices, body, ready, meta in zip(

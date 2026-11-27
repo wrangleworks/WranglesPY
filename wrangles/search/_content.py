@@ -9,8 +9,8 @@ from urllib.parse import parse_qsl, urlsplit
 
 import yaml
 
-from . import web
-from ._text_cleanup import _link_end, map_markdown_prose
+from .. import web
+from .._text_cleanup import _link_end, map_markdown_prose
 
 
 _FRONTMATTER = re.compile(r"\A\ufeff?---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.S)

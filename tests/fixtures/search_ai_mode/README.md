@@ -12,6 +12,8 @@ for the pipeline, outputs and extraction rules.
 - `search_ai_mode_test.recipe` declares query generation, Markdown retrieval,
   cleanup, extraction and exports. The offline extraction tests use this same
   runner/recipe pair with mocked services.
+- `source_validation.py` validates extracted references and offers against the
+  observed Markdown evidence; it belongs to this trial, not the runtime API.
 - `response.md` is the synthetic response described below.
 
 ## Run the trial
