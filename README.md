@@ -103,6 +103,13 @@ Wrangles supports Python 3.11, 3.12, 3.13, and 3.14. Pull requests targeting
 3.13, and 3.14 on Ubuntu and Windows. Tagged releases run tests on Python 3.13
 and 3.14 on Ubuntu and macOS, plus package-install checks on Ubuntu.
 
+The concurrent and matrix connectors and the batch and concurrent wrangles use
+threads by default. With `use_multiprocessing: true`, workers use the configured
+`spawn` or `forkserver` start method. If the platform or application selects
+`fork`, Wrangles uses `forkserver` where available and `spawn` elsewhere.
+Define custom worker functions in an importable module and pass their inputs as
+recipe data or variables.
+
 ## Local development
 
 The standard local development environment uses Python 3.13. On Windows,

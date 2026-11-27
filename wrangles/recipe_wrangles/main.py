@@ -34,6 +34,7 @@ from .. import ai_config as _ai_config
 from .standardize import replace
 from .convert import to_json as _to_json
 from .convert import from_json as _from_json
+from ..connectors.concurrent import _create_executor
 from ..connectors.matrix import _define_permutations
 from ..utils import statement_modifier as _statement_modifier
 from ..utils import delayed_variable_interpretation as _delayed_variable_interpretation
@@ -281,13 +282,7 @@ def batch(
     if threads < 1:
         raise ValueError('threads must be an integer greater than 0')
   
-    if use_multiprocessing:
-        # Not publicly documented. Use at your own risk.
-        pool_executor = _futures.ProcessPoolExecutor
-    else:
-        pool_executor = _futures.ThreadPoolExecutor
-
-    with pool_executor(max_workers=threads) as executor:
+    with _create_executor(threads, use_multiprocessing) as executor:
         # Pandas row slices may be views. Give each worker an independent
         # dataframe so nested wrangles can safely add or transform columns.
         batches = [
@@ -495,13 +490,7 @@ def concurrent(
     """
     if variables is None:
         variables = {}
-    if use_multiprocessing:
-        # Not publicly documented. Use at your own risk.
-        pool_executor = _futures.ProcessPoolExecutor
-    else:
-        pool_executor = _futures.ThreadPoolExecutor
-
-    with pool_executor(max_workers=max_concurrency) as executor:
+    with _create_executor(max_concurrency, use_multiprocessing) as executor:
         futures = []
         futures_output_map = {}
         for wrangle_definition in wrangles:
