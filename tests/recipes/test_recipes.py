@@ -18,9 +18,9 @@ def test_recipe_from_file():
     Testing recipe passed as a filename
     """
     df = wrangles.recipe.run(
-        "tests/samples/recipe_sample.wrgl.yaml",
+        "tests/fixtures/recipe_sample.wrgl.yaml",
         variables= {
-            "inputFile": 'tests/samples/data.csv',
+            "inputFile": 'tests/fixtures/data.csv',
             "outputFile": 'tests/temp/write_data.xlsx'
         }
     )
@@ -31,9 +31,9 @@ def test_recipe_from__recipe_file():
     Testing recipe passed as a filename with .recipe extension
     """
     df = wrangles.recipe.run(
-        "tests/samples/recipe_sample.recipe",
+        "tests/fixtures/recipe_sample.recipe",
         variables= {
-            "inputFile": 'tests/samples/data.csv',
+            "inputFile": 'tests/fixtures/data.csv',
             "outputFile": 'tests/temp/write_data.xlsx'
         }
     )
@@ -92,7 +92,7 @@ def test_recipe_special_character():
     """
     Tests special character encoding when reading a recipe containing special characters
     """
-    df = wrangles.recipe.run("tests/samples/recipe_special_character.wrgl.yml")
+    df = wrangles.recipe.run("tests/fixtures/recipe_special_character.wrgl.yml")
     assert df.iloc[0]['column'] == 'this is a ° symbol'
 
 def test_recipe_model():
@@ -409,7 +409,7 @@ def test_invalid_recipe_file_extension():
     throws an appropriate error
     """
     with pytest.raises(RuntimeError) as info:
-        wrangles.recipe.run("tests/samples/recipe_sample.wrgl.yaaml")
+        wrangles.recipe.run("tests/fixtures/recipe_sample.wrgl.yaaml")
     assert (
         info.typename == 'RuntimeError' and
         info.value.args[0].startswith('Error reading recipe')

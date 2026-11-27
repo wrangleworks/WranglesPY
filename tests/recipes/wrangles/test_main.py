@@ -4064,7 +4064,7 @@ class TestRecipe:
         recipe = """
         wrangles:
         - recipe:
-            name: 'tests/samples/recipe_ception.wrgl.yaml'
+            name: 'tests/fixtures/recipe_ception.wrgl.yaml'
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df['col'].iloc[0] == 'MARIO'
@@ -4077,7 +4077,7 @@ class TestRecipe:
             """
             wrangles:
             - recipe:
-                name: 'tests/samples/recipe_ception.wrgl.yaml'
+                name: 'tests/fixtures/recipe_ception.wrgl.yaml'
                 where: numbers > 4
             """,
             dataframe=pd.DataFrame({
@@ -4094,7 +4094,7 @@ class TestRecipe:
         recipe = """
         wrangles:
         - recipe:
-            name: 'tests/samples/recipe_ception.wrgl.yaml'
+            name: 'tests/fixtures/recipe_ception.wrgl.yaml'
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df['col'].iloc[0] == 'MARIO'

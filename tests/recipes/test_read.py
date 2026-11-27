@@ -14,7 +14,7 @@ def test_input_is_list():
     recipe = """
     read:
         - file:
-            name: tests/samples/data.xlsx
+            name: tests/fixtures/data.xlsx
         
     """
     df = wrangles.recipe.run(recipe)
@@ -127,9 +127,9 @@ def test_join_files():
             right_on: Find2
             sources:
                 - file:
-                    name: tests/samples/data.xlsx
+                    name: tests/fixtures/data.xlsx
                 - file:
-                    name: tests/samples/data2.xlsx
+                    name: tests/fixtures/data2.xlsx
     """
     df = wrangles.recipe.run(recipe)
     assert len(df.columns.to_list()) == 4

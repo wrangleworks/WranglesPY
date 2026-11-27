@@ -761,7 +761,7 @@ class TestCreateJinja:
             input: data column
             output: description
             template: 
-                file: tests/samples/jinjadescriptiontemplate.jinja
+                file: tests/fixtures/jinjadescriptiontemplate.jinja
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df['description'][0] == 'This is a 3 inch phillips head screwdriver'

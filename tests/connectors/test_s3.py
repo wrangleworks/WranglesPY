@@ -265,8 +265,8 @@ class TestRunUpload:
                     - s3.upload_files:
                         bucket: wrwx-public
                         file:
-                        - tests/samples/data.csv
-                        - tests/samples/data.json
+                        - tests/fixtures/data.csv
+                        - tests/fixtures/data.json
                         key:
                         - Test_Upload_File.csv
                 """
@@ -285,8 +285,8 @@ class TestRunUpload:
                     - s3.upload_files:
                         bucket: wrwx-public
                         file:
-                        - tests/samples/data.csv
-                        - tests/samples/data.json
+                        - tests/fixtures/data.csv
+                        - tests/fixtures/data.json
                         save_as:
                         - Test_Upload_File.csv
                 """
@@ -304,7 +304,7 @@ class TestRunUpload:
                     - s3.upload_files:
                         bucket: wrwx-does-not-exist
                         key: does_not_exist.csv
-                        file: tests/samples/data.csv
+                        file: tests/fixtures/data.csv
                 """
             )
     def test_run_upload_error_invalid_bucket_file_key(self):
@@ -319,7 +319,7 @@ class TestRunUpload:
                     - s3.upload_files:
                         bucket: wrwx-does-not-exist
                         save_as: does_not_exist.csv
-                        file: tests/samples/data.csv
+                        file: tests/fixtures/data.csv
                 """
             )
 
@@ -336,7 +336,7 @@ class TestRunUpload:
                   on_start:
                     - s3.upload_files:
                         bucket: wrwx-does-not-exist
-                        file: tests/samples/data.csv
+                        file: tests/fixtures/data.csv
                 """
             )
 
@@ -380,7 +380,7 @@ class TestRunUpload:
           on_start:
             - s3.upload_files:
                 bucket: wrwx-public
-                file: tests/samples/data.csv
+                file: tests/fixtures/data.csv
                 aws_access_key_id: {s3_key}
                 aws_secret_access_key: {s3_secret}
         """
@@ -412,7 +412,7 @@ class TestRunUpload:
             - s3.upload_files:
                 bucket: wrwx-public
                 key: Test_Upload_File.csv
-                file: tests/samples/data.csv
+                file: tests/fixtures/data.csv
                 aws_access_key_id: {s3_key}
                 aws_secret_access_key: {s3_secret}
         """
@@ -443,7 +443,7 @@ class TestRunUpload:
             - s3.upload_files:
                 bucket: wrwx-public
                 save_as: Test_Upload_File.csv
-                file: tests/samples/data.csv
+                file: tests/fixtures/data.csv
                 aws_access_key_id: {s3_key}
                 aws_secret_access_key: {s3_secret}
         """
@@ -475,7 +475,7 @@ class TestRunUpload:
         with pytest.raises(RuntimeError, match="Failed to write"):
             wrangles.connectors.s3.upload_files.run(
                 bucket='wrwx-does-not-exist',
-                file=pathlib.Path('tests/samples/data.csv'),
+                file=pathlib.Path('tests/fixtures/data.csv'),
             )
 
     def test_upload_pathlib_path_file_list(self):
@@ -485,7 +485,7 @@ class TestRunUpload:
         with pytest.raises(RuntimeError, match="Failed to write"):
             wrangles.connectors.s3.upload_files.run(
                 bucket='wrwx-does-not-exist',
-                file=[pathlib.Path('tests/samples/data.csv')],
+                file=[pathlib.Path('tests/fixtures/data.csv')],
             )
 
     def test_upload_bc_gen1_key_kwarg_upload_and_download(self):
@@ -499,7 +499,7 @@ class TestRunUpload:
               on_start:
                 - s3.upload_files:
                     bucket: wrwx-public
-                    file: tests/samples/data.csv
+                    file: tests/fixtures/data.csv
                     key: Test_BC_gen1_key.csv
                     aws_access_key_id: {s3_key}
                     aws_secret_access_key: {s3_secret}

@@ -38,7 +38,7 @@ def test_template_file():
           on_start:
             - jinja:
                 template:
-                  file: tests/samples/jinja_generic_template.jinja
+                  file: tests/fixtures/jinja_generic_template.jinja
                 output_file: tests/temp/output_template.jinja
                 context:
                   category_fields:

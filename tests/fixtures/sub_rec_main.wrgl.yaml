@@ -6,4 +6,4 @@ read:
 
 write:
   - recipe:
-      name: tests/samples/sub_rec.wrgl.yaml
+      name: tests/fixtures/sub_rec.wrgl.yaml
