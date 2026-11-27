@@ -122,10 +122,7 @@ def prepare_search_extraction(df, input, metadata, enabled=True):
 
 def validate_search_sources(df, input, references, pricing, diagnostics, metadata):
     """Check source URLs and IDs in place; leave the other AI outputs untouched."""
-    if __package__:
-        from .source_validation import validate_sources
-    else:
-        from source_validation import validate_sources
+    from tests.fixtures.search_ai_mode.source_validation import validate_sources
 
     sources, offers, checks = [], [], []
     for refs, prices, body, ready, meta in zip(
