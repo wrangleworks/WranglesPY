@@ -2,10 +2,10 @@ import concurrent.futures as _futures
 import math as _math
 
 # Import our client factory
-from .clients import get_client as _get_client
-from .clients.gemini import GeminiURLContextClient as _GeminiURLContextClient
+from ..clients import get_client as _get_client
+from ..clients.gemini import GeminiURLContextClient as _GeminiURLContextClient
 from . import _ai_mode
-from . import ai_config as _ai_config
+from .. import ai_config as _ai_config
 
 
 def find_links(

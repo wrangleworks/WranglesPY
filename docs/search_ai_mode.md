@@ -361,3 +361,15 @@ services, source validation and cleanup. Run:
 
 Use a new `--basetemp` path for each trial. Live extraction quality should be
 reviewed against the retained original Markdown and the direct extraction columns.
+
+
+## Implementation locations
+
+The public functions remain under `wrangles.search`. Their implementations live
+in [the search package](../wrangles/search/__init__.py), with private helpers for
+[AI Mode transport normalization](../wrangles/search/_ai_mode.py),
+[Markdown and source URLs](../wrangles/search/_content.py), and
+[retrieval prompt rendering](../wrangles/search/_prompt_template.py).
+Shared prose cleanup stays in `wrangles/_text_cleanup.py` for search and
+standardization. Trial-specific reference/offer validation lives beside the
+[fixture runner](../tests/fixtures/search_ai_mode/source_validation.py).

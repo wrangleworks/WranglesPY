@@ -5,7 +5,7 @@ from collections.abc import Mapping
 import math
 from urllib.parse import urlsplit
 
-from ._search_ai_content import google_product_url, markdown_urls, source_url
+from wrangles.search._content import google_product_url, markdown_urls, source_url
 
 
 def validate_sources(references, offers, markdown, *, google_product=None):

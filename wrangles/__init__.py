@@ -40,3 +40,10 @@ from . import generate
 
 # The historical import shares the cache, lock and counters with wrangles.ai.cache.
 _sys.modules[__name__ + ".ai_cache"] = ai_cache
+
+# Historical private search imports share the relocated implementation.
+from .search import _ai_mode, _content as _search_ai_content, _prompt_template
+
+_sys.modules[__name__ + "._ai_mode"] = _ai_mode
+_sys.modules[__name__ + "._search_ai_content"] = _search_ai_content
+_sys.modules[__name__ + "._prompt_template"] = _prompt_template

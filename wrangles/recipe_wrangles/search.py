@@ -1,7 +1,7 @@
 import logging as _logging
 import pandas as _pd
-from .. import _ai_mode
-from .. import _prompt_template
+from ..search import _ai_mode
+from ..search import _prompt_template
 
 # Import the combined core wrangles
 from .. import search as _search_core

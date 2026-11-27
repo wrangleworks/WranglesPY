@@ -5,7 +5,7 @@ from typing import Union as _Union
 
 # Import our new core web helpers
 from .. import web as _web
-from .. import _ai_mode
+from ..search import _ai_mode
 
 
 def _extract_target_sites(query: str) -> list[str]:

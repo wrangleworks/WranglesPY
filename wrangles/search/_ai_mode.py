@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 import math
 
-from ._search_ai_content import split_markdown
+from ._content import split_markdown
 
 
 def normalize_query(query):

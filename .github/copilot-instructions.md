@@ -369,3 +369,21 @@ pip install .
 - **GitHub Repository:** https://github.com/wrangleworks/WranglesPy
 - **Bug Tracker:** https://github.com/wrangleworks/WranglesPy/issues
 - **User Registration:** https://sso.wrangle.works (for cloud ML models)
+
+
+### Capability implementation locations
+
+- Public search functions live in `wrangles/search/__init__.py`. Add AI Mode
+  normalization in `wrangles/search/_ai_mode.py`, Markdown/source helpers in
+  `_content.py`, and row prompt rendering in `_prompt_template.py`. Keep helper
+  module names private so `wrangles.search.ai_mode` remains callable.
+- Shared Markdown prose cleanup stays in `wrangles/_text_cleanup.py`; search and
+  standardization use the same implementation.
+- Add provider adapters in `wrangles/clients/`, recipe I/O in
+  `wrangles/connectors/`, and YAML/dataframe wrappers in `wrangles/recipe_wrangles/`.
+- Add Agent tools in `wrangles/ai/agents/tools.py`, Skill loading in `skills.py`,
+  and Copilot session behavior in `runtime.py`.
+- AI Mode trial-specific source/offer validation lives beside its runner at
+  `tests/fixtures/search_ai_mode/source_validation.py`; it is not a package API.
+- Historical private search imports are aliases registered in
+  `wrangles/__init__.py`; keep them bound to the relocated modules, not copies.
