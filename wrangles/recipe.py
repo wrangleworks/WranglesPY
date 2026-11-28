@@ -697,6 +697,7 @@ def _execute_wrangles(
                         'math',
                         'maths',
                         'merge.key_value_pairs',
+                        'structure.key_value_pairs',
                         'split.text',
                         'split.list',
                         'structure.split_text',
