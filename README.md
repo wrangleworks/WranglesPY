@@ -103,6 +103,9 @@ Wrangles supports Python 3.11, 3.12, 3.13, and 3.14. Pull requests targeting
 3.13, and 3.14 on Ubuntu and Windows. Tagged releases run tests on Python 3.13
 and 3.14 on Ubuntu and macOS, plus package-install checks on Ubuntu.
 
+Recipe workers use threads by default. See [Recipe multiprocessing and worker counts](docs/recipe_multiprocessing.md)
+for when to use processes, how to set the worker count, and how to run custom functions in workers.
+
 ## Local development
 
 The standard local development environment uses Python 3.13. On Windows,

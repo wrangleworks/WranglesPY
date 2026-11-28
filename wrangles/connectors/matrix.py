@@ -7,7 +7,7 @@ import itertools as _itertools
 from collections import ChainMap as _chainmap
 from typing import Union as _Union
 import types as _types
-import concurrent.futures as _futures
+from .concurrent import _create_executor
 import wrangles as _wrangles
 import pandas as _pd
 from ..utils import get_nested_function as _get_nested_function
@@ -128,13 +128,7 @@ def run(
     """    
     if functions is None:
         functions = {}
-    if use_multiprocessing:
-        # Not publicly documented. Use at your own risk.
-        pool_executor = _futures.ProcessPoolExecutor
-    else:
-        pool_executor = _futures.ThreadPoolExecutor
-
-    with pool_executor(max_workers=max_concurrency) as executor:
+    with _create_executor(max_concurrency, use_multiprocessing) as executor:
         futures = []
         for permutation in _define_permutations(
             variables=variables,
@@ -220,13 +214,7 @@ def read(
     """    
     if functions is None:
         functions = {}
-    if use_multiprocessing:
-        # Not publicly documented. Use at your own risk.
-        pool_executor = _futures.ProcessPoolExecutor
-    else:
-        pool_executor = _futures.ThreadPoolExecutor
-
-    with pool_executor(max_workers=max_concurrency) as executor:
+    with _create_executor(max_concurrency, use_multiprocessing) as executor:
         permutations = _define_permutations(
             variables=variables,
             strategy=strategy,
@@ -311,13 +299,7 @@ def write(
     :param use_multiprocessing: Use multiprocessing instead of threading
     :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
     """    
-    if use_multiprocessing:
-        # Not publicly documented. Use at your own risk.
-        pool_executor = _futures.ProcessPoolExecutor
-    else:
-        pool_executor = _futures.ThreadPoolExecutor
-
-    with pool_executor(max_workers=max_concurrency) as executor:
+    with _create_executor(max_concurrency, use_multiprocessing) as executor:
         futures = []
         for permutation in _define_permutations(
             variables=variables,

@@ -1,8 +1,64 @@
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from scripts import container_smoke
+
+
+def test_launcher_runs_process_recipe_once(tmp_path):
+    recipe = tmp_path / "recipe.yml"
+    recipe.write_text(
+        """\
+run:
+  on_start:
+    - custom.record: {stage: recipe-start}
+    - concurrent:
+        use_multiprocessing: true
+        max_concurrency: 1
+        run:
+          - custom.record: {stage: worker}
+""",
+        encoding="utf-8",
+    )
+    functions = tmp_path / "user_hooks.py"
+    functions.write_text(
+        "def record(stage):\n"
+        "    import multiprocessing\n"
+        "    import os\n"
+        "    print(stage, os.getpid(), multiprocessing.get_start_method(allow_none=True), flush=True)\n",
+        encoding="utf-8",
+    )
+
+    # Pass only the OS environment needed to launch Python, even in credentialed CI.
+    env = {
+        key: os.environ[key]
+        for key in ("PATH", "SYSTEMROOT", "LD_LIBRARY_PATH", "TEMP", "TMP", "TMPDIR")
+        if key in os.environ
+    }
+    env["WRANGLES_RECIPE"] = str(recipe)
+    env["WRANGLES_CUSTOM_FUNCTIONS"] = str(functions)
+    launcher = Path(__file__).resolve().parents[1] / "main.py"
+    result = subprocess.run(
+        [sys.executable, str(launcher)],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert result.returncode == 0, result.stderr
+    events = [
+        line.split() for line in result.stdout.splitlines()
+        if line.startswith(("recipe-start ", "worker "))
+    ]
+    assert [event[0] for event in events] == ["recipe-start", "worker"]
+    (_, launcher_pid, _), (_, worker_pid, start_method) = events
+    assert launcher_pid != worker_pid
+    assert start_method in {"forkserver", "spawn"}
 
 
 def test_runtime_versions_accept_migration_baseline():

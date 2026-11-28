@@ -6,11 +6,28 @@ import pandas as _pd
 import wrangles as _wrangles
 import concurrent.futures as _futures
 import contextvars as _contextvars
+import multiprocessing as _multiprocessing
 import types as _types
 from typing import Union as _Union
 
 
 _schema = {}
+
+
+def _create_executor(max_workers, use_multiprocessing):
+    if not use_multiprocessing:
+        return _futures.ThreadPoolExecutor(max_workers=max_workers)
+
+    methods = _multiprocessing.get_all_start_methods()
+    method = _multiprocessing.get_start_method(allow_none=True) or methods[0]
+    # A threaded recipe host can hold locks across a direct fork. Select a safe
+    # context for this pool without changing the application's start method.
+    if method == "fork":
+        method = "forkserver" if "forkserver" in methods else "spawn"
+    return _futures.ProcessPoolExecutor(
+        max_workers=max_workers, mp_context=_multiprocessing.get_context(method),
+    )
+
 
 def run(
     run: list,
@@ -30,13 +47,7 @@ def run(
     """
     if variables is None:
         variables = {}
-    if use_multiprocessing:
-        # Not publicly documented. Use at your own risk.
-        pool_executor = _futures.ProcessPoolExecutor
-    else:
-        pool_executor = _futures.ThreadPoolExecutor
-
-    with pool_executor(max_workers=max_concurrency) as executor:
+    with _create_executor(max_concurrency, use_multiprocessing) as executor:
         futures = []
         for run_definition in run:
             if use_multiprocessing:
@@ -101,13 +112,7 @@ def read(
     """
     if variables is None:
       variables = {}
-    if use_multiprocessing:
-        # Not publicly documented. Use at your own risk.
-        pool_executor = _futures.ProcessPoolExecutor
-    else:
-        pool_executor = _futures.ThreadPoolExecutor
-    
-    with pool_executor(max_workers=max_concurrency) as executor:
+    with _create_executor(max_concurrency, use_multiprocessing) as executor:
         recipes = [{'read': [read_definition]} for read_definition in read]
         if use_multiprocessing:
             dfs = list(executor.map(
@@ -177,13 +182,7 @@ def write(
     """
     if variables is None:
         variables = {}
-    if use_multiprocessing:
-        # Not publicly documented. Use at your own risk.
-        pool_executor = _futures.ProcessPoolExecutor
-    else:
-        pool_executor = _futures.ThreadPoolExecutor
-
-    with pool_executor(max_workers=max_concurrency) as executor:
+    with _create_executor(max_concurrency, use_multiprocessing) as executor:
         futures = []
         for write_definition in write:
             if use_multiprocessing:

@@ -1,7 +1,17 @@
+import multiprocessing
+
 import wrangles
 import pandas as pd
 from wrangles.connectors import memory
 import pytest
+
+
+def read_worker_context(label):
+    return pd.DataFrame({
+        "label": [label],
+        "start_method": [multiprocessing.get_start_method()],
+    })
+
 
 class TestRun:
     """
@@ -106,6 +116,29 @@ class TestRun:
 
 
 class TestRead:
+    def test_process_reads_use_safe_workers_and_preserve_order(self):
+        df = wrangles.recipe.run(
+            """
+            read:
+              - union:
+                  sources:
+                    - matrix:
+                        use_multiprocessing: true
+                        max_concurrency: 2
+                        variables:
+                          label: [second, first]
+                          applied_permission_group: [null]
+                        read:
+                          - custom.read_worker_context:
+                              label: ${label}
+            """,
+            functions=read_worker_context,
+            variables={"applied_permission_group": None},
+        )
+
+        assert df["label"].tolist() == ["second", "first"]
+        assert set(df["start_method"]) <= {"forkserver", "spawn"}
+
     def test_list(self):
         """
         Test using variables from a list
