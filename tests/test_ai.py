@@ -54,7 +54,7 @@ def transport(monkeypatch):
         return {"model": kwargs["model"], "answers": answers, "usage": {"input_tokens": 10}}
 
     monkeypatch.setattr(typesafe, "call_systemone", call)
-    monkeypatch.setattr(openrouter, "call_systemone", call)
+    monkeypatch.setattr(openrouter, "call_decisions", call)
     return calls
 
 
@@ -92,7 +92,7 @@ def precise_transport(monkeypatch):
         return response
 
     monkeypatch.setattr(typesafe, "call_systemone", call)
-    monkeypatch.setattr(openrouter, "call_systemone", call)
+    monkeypatch.setattr(openrouter, "call_decisions", call)
     return calls, responses
 
 
@@ -290,7 +290,7 @@ def test_probability_rounding_preserves_endpoints_and_rounds_in_both_directions(
         return {"answers": {"repeat": {"type": "noul", "noul": value}}}
 
     client = openrouter if provider == "openrouter" else typesafe
-    monkeypatch.setattr(client, "call_systemone", call)
+    monkeypatch.setattr(client, "call_decisions" if provider == "openrouter" else "call_systemone", call)
     result = ai.true_false("state", NOUL, api_key="synthetic-key", provider=provider)
     assert result["repeat"] == {"probability_true": expected, "true_criteria": ""}
     assert isinstance(result["repeat"]["probability_true"], float)

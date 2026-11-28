@@ -13,8 +13,8 @@ import requests
 
 from tests.fixtures.search_ai_mode import run_search_ai_mode as runner
 from wrangles import ai_cache
-from wrangles._search_ai_content import google_product_url, markdown_urls, source_url, unlink_description
-from wrangles._search_ai_extraction import validate_sources
+from wrangles.search._content import google_product_url, markdown_urls, source_url, unlink_description
+from tests.fixtures.search_ai_mode.source_validation import validate_sources
 
 
 MAKER = "https://maker.invalid/specs"

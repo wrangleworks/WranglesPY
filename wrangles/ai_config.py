@@ -1,16 +1,16 @@
 """Load and resolve the provider/model catalog in WRANGLES_AI_CONFIG.
 
-Version 2 files replace the packaged catalog completely. Resolution combines
-the selected model's defaults, its protocol defaults, and then operation
-defaults. Callers apply explicit per-call options last. Version 1 replacement
-files retain their original extraction policy and capability-override behavior.
+Version 3 delegates the two pilot operations to wrangles.api_config. Existing
+model-driven callers retain the v2 view and role selection. Version 1 retains
+its original extraction policy and capability overrides.
 """
 import copy as _copy
 import functools as _functools
+import hashlib as _hashlib
 import logging as _logging
-import math as _math
 import os as _os
 import re as _re
+import sys as _sys
 from pathlib import Path as _Path
 
 import yaml as _yaml
@@ -72,7 +72,7 @@ def _validate_settings(settings: dict, location: str) -> None:
             raise ValueError(f"{location}.{key} must be an integer >= {minimum}.")
     if "request_timeout_seconds" in settings:
         value = settings["request_timeout_seconds"]
-        if type(value) not in {int, float} or not _math.isfinite(value) or value <= 0:
+        if type(value) not in {int, float} or not 0 < value <= _sys.float_info.max:
             raise ValueError(f"{location}.request_timeout_seconds must be a positive finite number.")
     cache = settings.get("cache", {})
     for key in ("enabled", "single_flight"):
@@ -83,7 +83,7 @@ def _validate_settings(settings: dict, location: str) -> None:
             raise ValueError(f"{location}.cache.{key} must be a non-negative integer.")
     if "ttl_seconds" in cache:
         value = cache["ttl_seconds"]
-        if type(value) not in {int, float} or not _math.isfinite(value) or value < 0:
+        if type(value) not in {int, float} or not 0 <= value <= _sys.float_info.max:
             raise ValueError(f"{location}.cache.ttl_seconds must be a non-negative finite number.")
 
 
@@ -230,20 +230,25 @@ def _validate_v2(config: dict) -> None:
 
 
 @_functools.lru_cache(maxsize=4)
-def _load_config_file(path: str) -> dict:
+def _read_config(path: str) -> tuple:
     config_path = _Path(path)
     try:
-        with config_path.open("r", encoding="utf-8") as config_file:
-            config = _yaml.safe_load(config_file)
+        content = config_path.read_bytes()
+        config = _yaml.safe_load(content.decode("utf-8"))
     except OSError as exc:
         raise ValueError(f"Unable to read AI configuration '{config_path}': {exc}") from exc
     except _yaml.YAMLError as exc:
         raise ValueError(f"AI configuration '{config_path}' is not valid YAML: {exc}") from exc
     _object(config, f"AI configuration '{config_path}'")
     version = config.get("version")
-    if type(version) is not int or version not in {1, 2}:
-        raise ValueError(f"AI configuration '{config_path}' has unsupported version {version!r}; expected 1 or 2.")
-    if version == 2:
+    if type(version) is not int or version not in {1, 2, 3}:
+        raise ValueError(f"AI configuration '{config_path}' has unsupported version {version!r}; expected 1, 2 or 3.")
+    if version == 3:
+        from .api_config.legacy import as_v2
+        from .api_config.resolver import validate_config
+        validate_config(config)
+        _validate_v2(as_v2(config))
+    elif version == 2:
         _validate_v2(config)
     else:
         _object(config.get("extract_ai"), "extract_ai")
@@ -254,6 +259,15 @@ def _load_config_file(path: str) -> dict:
             for model, flags in capabilities.items()
         ):
             raise ValueError("model_capabilities must map model names to boolean reasoning, reasoning_none, or low_verbosity flags.")
+    return config, _hashlib.sha256(content).hexdigest()
+
+
+@_functools.lru_cache(maxsize=4)
+def _load_config_file(path: str) -> dict:
+    config, _ = _read_config(path)
+    if config["version"] == 3:
+        from .api_config.legacy import as_v2
+        return as_v2(config)
     return config
 
 
@@ -264,12 +278,12 @@ def config_path() -> _Path:
 
 
 def load() -> dict:
-    """Return a defensive copy of the active, validated configuration."""
+    """Return a defensive legacy-compatible view. Use api_config.load_snapshot for v3."""
     return _copy.deepcopy(_load_config_file(str(config_path().resolve())))
 
 
 def resolve(operation: str, model: str = None, provider: str = None,
-            protocol: str = None, role: str = None) -> dict:
+            protocol: str = None, role: str = None, *, overrides=None) -> dict:
     """Resolve one operation without changing explicit per-call selections.
 
     Explicit model wins over the requested role, then the operation's default
@@ -277,21 +291,31 @@ def resolve(operation: str, model: str = None, provider: str = None,
     'test' is opt-in. Defaults merge model -> protocol -> operation; callers
     apply explicit request options last. Unlisted explicit models are accepted.
     """
+    if operation in {"ai.answers", "ai.decisions"} and role is None:
+        from . import api_config
+        result = api_config.resolve(operation, model=model, provider=provider, api=protocol, overrides=overrides)
+        chosen = result.choice
+        return {**result.defaults, "model": chosen.request_model, "provider": chosen.transport,
+                "protocol": chosen.api, "endpoints": {chosen.api: result.endpoint}}
     config = load()
     if config["version"] == 2:
-        return _resolve_v2(config, operation, model, provider, protocol, role)
-    if operation == "extract.ai":
+        policy = _resolve_v2(config, operation, model, provider, protocol, role)
+    elif operation == "extract.ai":
         policy = _copy.deepcopy(config["extract_ai"])
         for key, value in (("model", model), ("provider", provider), ("protocol", protocol)):
             if value is not None:
                 policy[key] = value
         return policy
-    packaged = _load_config_file(str(_PACKAGED_CONFIG.resolve()))
-    # Version 1 shared its extraction model with generation, but no other
-    # operation. Its missing extraction options must not inherit packaged ones.
-    if operation == "generate.ai" and model is None and role is None:
-        model = config["extract_ai"].get("model")
-    return _resolve_v2(packaged, operation, model, provider, protocol, role)
+    else:
+        packaged = _load_config_file(str(_PACKAGED_CONFIG.resolve()))
+        if operation == "generate.ai" and model is None and role is None:
+            model = config["extract_ai"].get("model")
+        policy = _resolve_v2(packaged, operation, model, provider, protocol, role)
+    if (operation in {"ai.choose", "ai.score", "ai.true_false", "ai.answers"}
+            and policy["provider"] == "openrouter" and policy["protocol"] in {"decisions", "systemone"}):
+        endpoints = policy["endpoints"]
+        policy.update(protocol="decisions", endpoints={"decisions": endpoints.get("decisions", endpoints.get("systemone"))})
+    return policy
 
 
 def extract_ai() -> dict:
@@ -370,3 +394,4 @@ def model_capabilities(model: str) -> dict:
 def clear_cache() -> None:
     """Reload configuration files on the next call after editing a policy."""
     _load_config_file.cache_clear()
+    _read_config.cache_clear()

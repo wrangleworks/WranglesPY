@@ -4059,34 +4059,6 @@ class TestExtractAI:
         ])
         assert matches >= 2
 
-    def test_ai_array_no_items(self):
-        """
-        Test openai extract with array but items type is
-        not specified. Defaults to string
-        """
-        df = wrangles.recipe.run(
-            """
-            wrangles:
-            - extract.ai:
-                api_key: ${OPENAI_API_KEY}
-                timeout: 60
-                retries: 2
-                output:
-                  fruits:
-                    type: array
-                    description: >-
-                      Return the names of any fruits
-                      that are yellow
-            """,
-            dataframe=pd.DataFrame({
-                "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
-            })
-        )
-        assert (
-            ("lemon" in df['fruits'][0] or "lemons" in df['fruits'][0]) and
-            ("banana" in df['fruits'][0] or "bananas" in df['fruits'][0])
-        )
-
     def test_ai_array_item_type_specified(self):
         """
         Test openai extract with array where

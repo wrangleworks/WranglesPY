@@ -9,6 +9,7 @@ from urllib.parse import urlsplit as _urlsplit
 
 from . import cache as _cache
 from .. import ai_config as _config
+from ..api_config import INHERIT as _INHERIT
 from ..clients import openrouter as _openrouter
 from ..clients import typesafe as _typesafe
 
@@ -302,7 +303,8 @@ def _validate_decimals(decimals):
 
 def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
          timeout, retries, cache, cache_ttl, contexts=None, decimals=2):
-    _validate_decimals(decimals)
+    if decimals is not _INHERIT:
+        _validate_decimals(decimals)
     prepared = _prepare_questions(questions, kind)
     rows = data if isinstance(data, list) else [data]
     for row in rows:
@@ -320,20 +322,34 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
         return []
     pending = [plan for plan in plans if plan["wire"]]
     if not pending:
-        results = [_project_answers({"answers": {}}, plan, decimals) for plan in plans]
+        results = [_project_answers({"answers": {}}, plan, 2 if decimals is _INHERIT else decimals) for plan in plans]
         return results if isinstance(data, list) else results[0]
 
     # Keep the established role and cache namespace for both composite names,
     # including user catalogs written before ai.decisions was introduced.
     operation = f"ai.{kind or 'answers'}"
-    settings = _config.resolve(operation, model=model, provider=provider, protocol=protocol)
+    selection = dict(model=model, provider=provider, protocol=protocol)
+    if kind is None:
+        overrides = {key: value for key, value in (("default_concurrency", threads),
+                     ("request_timeout_seconds", timeout), ("retries", retries)) if value is not None}
+        cache_options = {key: value for key, value in (("enabled", cache), ("ttl_seconds", cache_ttl))
+                         if value is not None}
+        if cache_options:
+            overrides["cache"] = cache_options
+        if decimals is not _INHERIT:
+            overrides["decimals"] = decimals
+        settings = _config.resolve(operation, **selection, overrides=overrides)
+        decimals = settings.get("decimals", 2)
+    else:
+        settings = _config.resolve(operation, **selection)
     providers = {
-        "typesafe": ("Typesafe", "TYPESAFE_API_KEY", _typesafe),
-        "openrouter": ("OpenRouter", "OPENROUTER_API_KEY", _openrouter),
+        ("typesafe", "systemone"): ("Typesafe", "TYPESAFE_API_KEY", _typesafe.call_systemone),
+        ("openrouter", "decisions"): ("OpenRouter", "OPENROUTER_API_KEY", _openrouter.call_decisions),
     }
-    if settings["provider"] not in providers or settings["protocol"] != "systemone":
-        raise ValueError("AI decision wrangles require provider typesafe or openrouter and protocol systemone.")
-    provider_name, key_environment, client = providers[settings["provider"]]
+    interface = (settings["provider"], settings["protocol"])
+    if interface not in providers:
+        raise ValueError("AI decisions require TypeSafe System One or OpenRouter Decisions.")
+    provider_name, key_environment, send = providers[interface]
     workers = threads if threads is not None else settings.get("default_concurrency")
     if type(workers) is not int or workers < 1:
         raise ValueError("threads/default_concurrency must be a positive integer.")
@@ -342,7 +358,7 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
     attempts = retries if retries is not None else settings.get("retries")
     if type(attempts) is not int or attempts < 0:
         raise ValueError("retries must be a non-negative integer.")
-    url = settings.get("endpoints", {}).get("systemone")
+    url = settings.get("endpoints", {}).get(settings["protocol"])
     try:
         parsed_url = _urlsplit(url) if isinstance(url, str) else None
         valid_url = (parsed_url is not None and parsed_url.scheme == "https" and parsed_url.hostname
@@ -350,7 +366,7 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
     except ValueError:
         valid_url = False
     if not valid_url:
-        raise ValueError(f"The {provider_name} systemone endpoint must be an HTTPS URL without embedded credentials or fragments.")
+        raise ValueError(f"The {provider_name} endpoint must be an HTTPS URL without embedded credentials or fragments.")
 
     secret = api_key if api_key is not None else _os.getenv(key_environment)
     if not isinstance(secret, str) or not secret.strip():
@@ -367,12 +383,12 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
     def key_for(plan):
         static_request = {"endpoint": url, "model": settings["model"], "questions": plan["wire"]}
         return _cache.make_key(namespace=operation, provider=settings["provider"],
-                               protocol=settings["protocol"], tenant_secret=secret,
+                               protocol="systemone", tenant_secret=secret,  # historical decision cache identity
                                static_request=static_request, data=plan["state"])
 
     def compute(plan):
-        return client.call_systemone(state=plan["state"], questions=plan["wire"], model=settings["model"],
-                                     api_key=secret, url=url, timeout=request_timeout, retries=attempts)
+        return send(state=plan["state"], questions=plan["wire"], model=settings["model"],
+                    api_key=secret, url=url, timeout=request_timeout, retries=attempts)
 
     responses = _cache.execute_batch(pending, key_for=key_for, compute=compute, cacheable=lambda result: True,
                                     max_workers=workers, policy=policy, preflight_first=True)

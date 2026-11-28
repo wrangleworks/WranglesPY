@@ -19,7 +19,8 @@ def _output_columns(questions, kind=None):
 
 
 def _run(df, questions, kind, input=None, **settings):
-    _ai._validate_decimals(settings.get("decimals", 2))
+    if settings.get("decimals") is not _ai._INHERIT:
+        _ai._validate_decimals(settings.get("decimals", 2))
     prepared = _ai._prepare_questions(questions, kind=kind)
     if df.empty:
         for question in prepared.values():
@@ -70,7 +71,7 @@ def true_false(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
 
 def decisions(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
               model=None, provider=None, protocol=None, threads=None, timeout=None,
-              retries=None, cache=None, cache_ttl=None, decimals=2) -> _pd.DataFrame:
+              retries=None, cache=None, cache_ttl=None, decimals=_ai._INHERIT) -> _pd.DataFrame:
     return _run(df, questions, None, input=input, api_key=api_key,
                 model=model, provider=provider, protocol=protocol, threads=threads,
                 timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl, decimals=decimals)
@@ -78,7 +79,7 @@ def decisions(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
 
 def answers(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
             model=None, provider=None, protocol=None, threads=None, timeout=None,
-            retries=None, cache=None, cache_ttl=None, decimals=2) -> _pd.DataFrame:
+            retries=None, cache=None, cache_ttl=None, decimals=_ai._INHERIT) -> _pd.DataFrame:
     return decisions(df, questions, input=input, api_key=api_key,
                      model=model, provider=provider, protocol=protocol, threads=threads,
                      timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl, decimals=decimals)
@@ -259,9 +260,9 @@ def _schema(kind):
                           "description": "Questions to answer for each input row, keyed by their distinct labels."},
             "api_key": {"type": "string", "description": "Provider API key; defaults to TYPESAFE_API_KEY or OPENROUTER_API_KEY for the selected provider."},
             "model": {"type": "string", "description": "Model ID; defaults to this wrangle's AI catalog selection."},
-            "provider": {"type": "string", "enum": ["typesafe", "openrouter"],
-                         "description": "Provider resolved through the AI catalog; the packaged default is typesafe. Use openrouter for Microsoft decision models."},
-            "protocol": {"type": "string", "enum": ["systemone"],
+            "provider": {"type": "string", "enum": ["typesafe", "openrouter", "microsoft"] if kind is None else ["typesafe", "openrouter"],
+                         "description": "The packaged default is TypeSafe. Composite decisions also accept Microsoft as the model owner."},
+            "protocol": {"type": "string", "enum": ["systemone", "decisions"],
                          "description": "Provider protocol selected through the AI catalog."},
             "threads": {"type": "integer", "minimum": 1,
                         "description": "Maximum row requests in parallel; defaults to the AI catalog."},
@@ -270,7 +271,7 @@ def _schema(kind):
             "retries": {"type": "integer", "minimum": 0,
                         "description": "Additional attempts for retryable failures; defaults to the AI catalog."},
             "decimals": {"type": "integer", "minimum": 0, "default": 2,
-                         "description": "Decimal places for returned scores, confidence, and probabilities, including for_each answers. Defaults to 2 for every provider; affects output only."},
+                         "description": "Decimal places for returned scores, confidence, and probabilities, including for_each answers. The packaged default is 2. Applies to output only."},
             "cache": {"type": "boolean", "description": "Reuse identical successful requests through the shared AI cache. Off by default for these wrangles; set true to enable."},
             "cache_ttl": {"type": "number", "exclusiveMinimum": 0,
                           "description": "Override the cache result lifetime in seconds."},
