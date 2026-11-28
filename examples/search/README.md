@@ -5,7 +5,9 @@ then set `SERPAPI_API_KEY` to your SerpAPI key.
 
 [recipe_search_web.wrgl.yml](recipe_search_web.wrgl.yml) is a collection of
 independent YAML documents, each illustrating a search. Copy one document
-(between `---` separators) into its own recipe file and run:
+(between `---` separators) into its own recipe file. Before running, add a
+`create.index` step with `output: ID` before `search.find_links`, and set
+`id: ID` on each `search.find_links` step. Then run:
 
 ```sh
 wrangles.recipe search-example.wrgl.yml
