@@ -437,3 +437,7 @@ Before saving or running the definition, verify:
 - examples demonstrate decisions rather than repeating the description;
 - object examples contain every required non-null nested property; and
 - uncertain or absent information is represented by `null`, not invented data.
+
+## Runnable examples
+
+See the [extraction examples](../examples/extract_ai/README.md) for the recipe notebook and classification judge recipe.

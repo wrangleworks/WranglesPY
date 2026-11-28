@@ -42,7 +42,7 @@ WranglesPY/
 │   ├── connectors/             # Connector tests
 │   ├── recipes/                # Recipe execution tests
 │   │   └── wrangles/           # Individual wrangle tests
-│   └── samples/                # Sample recipes and data files
+│   └── fixtures/               # Test recipes and data files
 │       ├── *.wrgl.yml          # Recipe files
 │       └── custom_functions.py # Custom function examples
 ├── schema/                     # JSON schema generation
@@ -101,7 +101,7 @@ pytest --cov=wrangles
 - **tests/test_wrangles.py:** Core function tests (classify, extract, etc.)
 - **tests/connectors/:** Connector-specific tests
 - **tests/recipes/:** Recipe execution and wrangle tests
-- **tests/samples/:** Sample data files and recipes for testing
+- **tests/fixtures/:** Sample data files and recipes for testing
 
 ### Authentication for Tests
 Some tests require cloud-based ML models and need credentials set as environment variables:
@@ -122,7 +122,7 @@ pip install .
 ### Test Installation
 ```bash
 pip install .
-wrangles.recipe tests/samples/generate-data.wrgl.yml
+wrangles.recipe tests/fixtures/generate-data.wrgl.yml
 ```
 
 ### CI Test Image Build
@@ -357,7 +357,7 @@ cd schema && python generate_recipe_schema.py
 docker build -t wrangles:test .
 
 # Run recipe locally
-wrangles.recipe tests/samples/recipe-basic.wrgl.yml
+wrangles.recipe tests/fixtures/recipe-basic.wrgl.yml
 
 # Install package locally
 pip install .

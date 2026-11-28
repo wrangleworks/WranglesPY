@@ -173,7 +173,7 @@ def test_run_path_object():
     """
     Test that recipe.run accepts a pathlib.Path to a YAML file (issue #986)
     """
-    df = wrangles.recipe.run(pathlib.Path('tests/samples/recipe-basic.wrgl.yml'))
+    df = wrangles.recipe.run(pathlib.Path('tests/fixtures/recipe-basic.wrgl.yml'))
     assert list(df.columns) == ['header1', 'header2']
 
 
@@ -181,5 +181,5 @@ def test_run_pure_posix_path():
     """
     Test that recipe.run accepts a pathlib.PurePosixPath (issue #986)
     """
-    df = wrangles.recipe.run(pathlib.PurePosixPath('tests/samples/recipe-basic.wrgl.yml'))
+    df = wrangles.recipe.run(pathlib.PurePosixPath('tests/fixtures/recipe-basic.wrgl.yml'))
     assert list(df.columns) == ['header1', 'header2']
