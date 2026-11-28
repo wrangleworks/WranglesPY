@@ -151,6 +151,11 @@ class _wrangles:
         """
         return _wrangles_accessor(self._df, _recipe_wrangles.split)
 
+    @property
+    def structure(self):
+        """Split and serialize data."""
+        return _wrangles_accessor(self._df, _recipe_wrangles.structure)
+
 class _read:
     """
     A class to hold read-related methods and properties.
