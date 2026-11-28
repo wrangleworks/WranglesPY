@@ -8,6 +8,7 @@ of named answers; recipe wrappers project their fields into columns.
 """
 
 from ._decisions import _FIELDS, _output_columns, _prepare_questions, _run, _validate_decimals
+from ..api_config import INHERIT as _INHERIT
 
 __all__ = ["choose", "score", "true_false", "decisions", "answers", "agent", "skill"]
 
@@ -85,7 +86,7 @@ def true_false(data, questions, api_key=None, *, model=None, provider=None, prot
 
 
 def decisions(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
-              threads=None, timeout=None, retries=None, cache=None, cache_ttl=None, decimals=2):
+              threads=None, timeout=None, retries=None, cache=None, cache_ttl=None, decimals=_INHERIT):
     """Provide structured answers to common question types about each input.
 
     Each question declares type choose, score, or true_false with its instructions
@@ -102,7 +103,7 @@ def decisions(data, questions, api_key=None, *, model=None, provider=None, proto
 
 
 def answers(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
-            threads=None, timeout=None, retries=None, cache=None, cache_ttl=None, decimals=2):
+            threads=None, timeout=None, retries=None, cache=None, cache_ttl=None, decimals=_INHERIT):
     """Compatibility alias for :func:`decisions`, with identical inputs and outputs."""
     return decisions(data, questions, api_key=api_key, model=model, provider=provider,
                      protocol=protocol, threads=threads, timeout=timeout, retries=retries,

@@ -35,9 +35,10 @@ setup(
     author_email = 'eric@wrangleworks.com',
     keywords = ['data','wrangling'],
     install_requires = requirements,
-    extras_require = {'agent': ['microsoft-copilot-sdk==2.0.3', 'jsonschema>=4,<5']},
+    extras_require = {'agent': ['microsoft-copilot-sdk==2.0.3']},
     entry_points ={
-        'console_scripts': ['wrangles.recipe = wrangles.console:recipe']
+        'console_scripts': ['wrangles.recipe = wrangles.console:recipe',
+                            'wrangles-api-catalog = wrangles.api_config.catalog:main']
     },
     project_urls = {
         'Bug Tracker': 'https://github.com/wrangleworks/WranglesPy/issues',

@@ -1,14 +1,15 @@
 # AI model configuration
 
-`wrangles/ai_defaults.yml` is the packaged catalog for AI model selection and
-defaults. Set `WRANGLES_AI_CONFIG` to a versioned replacement YAML file to use
-your own catalog. Start from a copy of the packaged file. Configuration is
-loaded locally and cached; call `wrangles.ai_config.clear_cache()` after changing
-an already-loaded file.
+`wrangles/ai_defaults.yml` contains the packaged API configuration. Version 3
+adds caller-owned selections for composite decisions and SerpAPI AI Mode.
+Set `WRANGLES_AI_CONFIG` to a complete replacement YAML file to use your own
+configuration. Start from a copy of the packaged file. After changing a loaded
+file, call `wrangles.ai_config.clear_cache()` to reload it.
+[API configuration and caller catalogs](api_configuration.md)
 
 ## Providers, models, and operations
 
-Version 2 groups models under their providers. Model entries describe lifecycle,
+The remaining operations follow the version-2 layout. Model entries describe lifecycle,
 default roles, model-specific defaults, and known supported parameter values.
 Operation settings hold concurrency, timeouts, caching, and extraction prompts.
 Optional `applications` metadata is a list of non-empty strings,
@@ -131,15 +132,17 @@ trial = ai_config.resolve("extract.ai", role="test")
 assert ai_config.extract_ai() == extraction
 ```
 
-`load()` returns a defensive copy of the active YAML structure. `resolve()` and
-`extract_ai()` return defensive copies of flat effective policies. Changing a
-returned dictionary does not alter cached configuration.
+`load()` returns a defensive copy of a v1/v2 replacement or a v2-compatible
+view of a v3 configuration. Existing callers can inspect model roles and legacy
+endpoint names through that view. Use `wrangles.api_config.load_snapshot().config`
+for the caller-owned layout. `resolve()` and `extract_ai()` return flat effective policies.
 
 ## Integrated callers
 
 | Operation | Callers | Configured settings |
 | --- | --- | --- |
 | `ai.choose`, `ai.score`, `ai.true_false`, `ai.decisions` | Python and recipe structured decisions; `ai.answers` remains an alias | Provider, model, endpoint, concurrency, timeout, retries, cache |
+| `search.ai_mode` | Python and recipe Google AI Mode search | SerpAPI engine, endpoint, locale parameters, concurrency, raw-response inclusion |
 | `extract.ai` | Python and recipe extraction | Model, endpoints, model tuning, concurrency, timeout, retries, strictness, storage, cache, prompt |
 | `embeddings` | `openai.embeddings` and recipe `create.embeddings` | Provider, model, endpoint, batch size, concurrency, timeout, retries, precision, dimensions, Jina task/normalization/truncation |
 | `search.retrieve_link_content` | Python, recipe, and Gemini URL-context client | Model, endpoint/API version, concurrency, per-URL deadline, retries, thinking level, temperature/top-p/top-k/token limits/stop sequences |
@@ -257,11 +260,9 @@ remain available. Typesafe remains the packaged default provider; select
 `provider: openrouter` to use Microsoft Decision as described below. Adding
 another provider to the catalog alone does not implement an adapter for it.
 
-`ai.decisions` and its `ai.answers` alias share the existing `ai.answers`
-operation key, model `default_for` role, and cache namespace. Custom catalogs
-should retain `operations.ai.answers` and `default_for: [ai.answers]` for the
-composite wrangle. This preserves existing configuration until the broader
-provider configuration refactor; an `operations.ai.decisions` entry is not used.
+`ai.decisions` and `ai.answers` share the v3 `ai.decisions` caller selection
+and the existing `ai.answers` cache namespace. Version-2 replacements continue
+to use their configured `operations.ai.answers` and `default_for: [ai.answers]`.
 
 Their packaged runtime defaults are 10 concurrent requests, a 30-second timeout,
 and one additional attempt after a transient failure. Caching is off by default
@@ -286,25 +287,29 @@ Select `provider: openrouter` on any of the four decision wrangles to use
 An explicit `model` can select another compatible decision model; this adapter
 does not call OpenRouter's chat or text-generation APIs.
 
-The provider uses the existing `protocol: systemone` configuration and the full
-request URL under `endpoints.systemone`:
+The v3 model belongs to Microsoft. Its route names the intermediary, API and
+model ID to send on the wire. The endpoint belongs to OpenRouter.
 
 ```yaml
 providers:
-  openrouter:
-    endpoints:
-      systemone: https://openrouter.ai/api/alpha/decisions
+  microsoft:
     models:
-      microsoft/microsoft-decision-1:
+      microsoft-decision-1:
         status: active
-        default_for: [ai.choose, ai.score, ai.true_false, ai.answers]
+        routed_via:
+          provider: openrouter
+          api: decisions
+          request_model: microsoft/microsoft-decision-1
+  openrouter:
+    apis:
+      decisions:
+        endpoint: https://openrouter.ai/api/alpha/decisions
 ```
 
-This is a catalog excerpt, not a complete replacement file. The endpoint is
-OpenRouter's [alpha Decisions API](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-request),
-which sits outside `/api/v1`. The existing protocol key describes the shared
-decision request and response format. No Azure deployment or Azure credential
-is needed for this OpenRouter route.
+For composite decisions, `provider: microsoft` selects this model and
+`provider: openrouter` remains a supported spelling. The adapter uses
+`protocol: decisions`. Older recipes and v2 replacements can still refer to
+the OpenRouter endpoint as `systemone`. [OpenRouter Decisions API](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-request)
 
 Supply `api_key` explicitly, use the local `OPENROUTER_API_KEY` environment
 variable, or use `api_key: ${OPENROUTER_API_KEY}` with a managed recipe secret.
@@ -346,6 +351,6 @@ model explicitly). An older version-2 file does not silently inherit the new
 `ai.*` entries from the packaged catalog. Update it from the packaged catalog
 before calling these operations.
 
-For new files, copy version 2 and edit the provider/model catalog and operation
-settings. The compatibility API `model_capabilities()` remains available for
-existing extraction internals; new configuration should use `supported_values`.
+For new replacements, copy the packaged v3 file. AI Mode retains its packaged
+behavior for v1/v2 files. In v3 its caller/action must be present. The
+compatibility API `model_capabilities()` remains available to extraction.

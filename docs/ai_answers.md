@@ -566,16 +566,14 @@ results from being shared across different requests or credentials. Secrets
 and raw prompts are not written into cache keys or logs. Cache logging is
 disabled by default for these wrangles.
 
-A version-1 AI configuration uses packaged defaults for the new wrangles.
-A version-2 replacement file must include their provider and operation entries;
-missing entries are not silently merged. These functions support
-`provider: typesafe` and `provider: openrouter`, using the existing
-`protocol: systemone` configuration. OpenRouter's `endpoints.systemone` points
-to its full alpha Decisions URL. Explicit model names may be supplied; the
-provider determines whether that model is available. See
-[provider settings](ai_configuration.md#provider-settings) for configuration.
+In the packaged v3 configuration, `ai.decisions` and `ai.answers` select
+TypeSafe Jev through System One. Select `provider: microsoft` on either
+composite name to reach Microsoft Decision-1 through OpenRouter Decisions.
+All four wrangles also accept `provider: openrouter`. Both composite names
+retain the existing `ai.answers` cache identity.
 
-For compatibility, `ai.decisions` and its `ai.answers` alias resolve the existing
-`ai.answers` operation, model `default_for` role, and cache namespace. Keep that
-configuration key in custom catalogs. Renaming the internal key is deferred to
-the broader provider configuration refactor.
+Version-1 configurations use packaged decision defaults. A version-2 replacement
+uses its own `operations.ai.answers`, model roles and endpoint names, including
+the historical `openrouter.endpoints.systemone`. In v3 the selection lives under
+`callers.wranglespy.operations.ai.decisions.actions.wrangle.execute`.
+[Provider settings](ai_configuration.md#provider-settings) · [Caller catalog](api_configuration.md)

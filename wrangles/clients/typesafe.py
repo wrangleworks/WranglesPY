@@ -129,6 +129,12 @@ def _close_response(response):
 
 
 def call_systemone(*, state, questions, model, api_key, url, timeout, retries):
+    """Send structured questions to the TypeSafe System One endpoint."""
+    return _post_decisions(state=state, questions=questions, model=model, api_key=api_key,
+                           url=url, timeout=timeout, retries=retries)
+
+
+def _post_decisions(*, state, questions, model, api_key, url, timeout, retries):
     """Evaluate one state and return the validated, unmodified response.
 
     ``retries`` counts additional attempts. ``timeout`` applies to each HTTP
