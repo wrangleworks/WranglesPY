@@ -38,7 +38,7 @@ You are a **Software Development Engineer in Test (SDET)** for a Python data wra
 - `wrangles/connectors/` – Database/file/cloud connectors
 - `wrangles/recipe_wrangles/` – Recipe-backed transformations
 - `tests/` – Test suite (PRIMARY WRITE location)
-- `tests/samples/` – Example recipes and test fixtures
+- `tests/fixtures/` – Test recipes and fixtures
 - `schema/` – Recipe validation schemas
 
 ### Entry Point
@@ -118,7 +118,7 @@ Before completing a test task, verify:
 - Run tests after writing: `pytest -v path/to/test.py`
 - Include meaningful assertion messages: `assert result == expected, f"Expected {expected}, got {result}"`
 - Mock external dependencies (S3, databases, APIs, HTTP calls)
-- Reuse fixtures from `samples/` where appropriate
+- Reuse fixtures from `tests/fixtures/` where appropriate
 - Follow TDD when implementing new features (Red → Green → Refactor)
 - Check test coverage after adding tests using the coverage tools available in this project
 - Use descriptive test names that serve as documentation

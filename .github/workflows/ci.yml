@@ -170,7 +170,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
           python -I scripts/check_ai_install.py
-          wrangles.recipe tests/samples/generate-data.wrgl.yml
+          wrangles.recipe tests/fixtures/generate-data.wrgl.yml
 
   test-generate-schema:
     runs-on: ubuntu-latest
@@ -253,7 +253,7 @@ jobs:
           docker run --rm "$IMAGE" python -m pip freeze
           docker run --rm \
             --volume "${GITHUB_WORKSPACE}:/workspace:ro" \
-            --workdir /workspace/tests/samples \
+            --workdir /workspace/tests/fixtures \
             "$IMAGE" \
             sh -c 'wrangles.recipe recipe-basic.wrgl.yml && wrangles.recipe recipe_custom_function.wrgl.yml -f custom_functions.py'
 
@@ -298,7 +298,7 @@ jobs:
 
       - name: Run Recipe (Local)
         run: >-
-          cd tests/samples
+          cd tests/fixtures
           && wrangles.recipe recipe-basic.wrgl.yml
           && wrangles.recipe recipe_custom_function.wrgl.yml -f custom_functions.py
 

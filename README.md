@@ -345,3 +345,10 @@ write:
 
 Named workbook table recipes: see [excel.table](docs/excel-tables.md) for the
 WranglesXL companion contract, supported actions and integration requirements.
+
+## Runnable examples and test fixtures
+
+- [Agent and Skill bundle](examples/ai_local/VALIDATION.md): run `python examples/ai_local/run.py` from the repository root.
+- [Extraction recipes](examples/extract_ai/README.md): notebook and classification judge recipe.
+- [Web-search recipes](examples/search/README.md): SerpAPI recipe examples.
+- [Test fixtures](tests/fixtures/README.md): maintained inputs, expected results, recipes and CI smoke commands.

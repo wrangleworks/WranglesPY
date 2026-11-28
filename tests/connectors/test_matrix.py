@@ -204,7 +204,7 @@ class TestRead:
                   sources:
                     - matrix:
                         variables:
-                          var: dir(tests/samples/matrix_dir)
+                          var: dir(tests/fixtures/matrix_dir)
                         read:
                           - file:
                               name: ${var}
@@ -224,7 +224,7 @@ class TestRead:
                   sources:
                     - matrix:
                         variables:
-                          var: dir(tests/samples/matrix_dir)
+                          var: dir(tests/fixtures/matrix_dir)
                         read:
                           - file:
                               name: ${var}
@@ -244,7 +244,7 @@ class TestRead:
             read:
               - matrix:
                   variables:
-                    var: dir(tests/samples/matrix_dir)
+                    var: dir(tests/fixtures/matrix_dir)
                   read:
                     - file:
                         name: ${var}

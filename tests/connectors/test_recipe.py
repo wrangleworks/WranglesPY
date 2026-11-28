@@ -7,9 +7,9 @@ def test_read_recipe_connector():
     recipe = """
     read:
       - recipe:
-          name: 'tests/samples/recipe_sample.wrgl.yaml'
+          name: 'tests/fixtures/recipe_sample.wrgl.yaml'
           variables:
-            inputFile: 'tests/samples/data.csv'
+            inputFile: 'tests/fixtures/data.csv'
     """
     df = wrangles.recipe.run(recipe)
     assert df['Find2'].iloc[0] == 'brg'
@@ -21,9 +21,9 @@ def test_read_recipe_connector_2():
   recipe = """
   read:
       - recipe:
-          name: 'tests/samples/recipe_sample.wrgl.yaml'
+          name: 'tests/fixtures/recipe_sample.wrgl.yaml'
           variables:
-            inputFile: 'tests/samples/data.csv'
+            inputFile: 'tests/fixtures/data.csv'
   """
   df = read(recipe)
   assert df['Find2'].iloc[0] == 'brg'
@@ -33,14 +33,14 @@ def test_write_recipe_connector():
   recipe = """
   read:
       - recipe:
-          name: 'tests/samples/recipe_sample.wrgl.yaml'
+          name: 'tests/fixtures/recipe_sample.wrgl.yaml'
           variables:
-            inputFile: 'tests/samples/data.csv'
+            inputFile: 'tests/fixtures/data.csv'
   write:
       - recipe:
-          name: 'tests/samples/recipe_sample.wrgl.yaml'
+          name: 'tests/fixtures/recipe_sample.wrgl.yaml'
           variables:
-            inputFile: 'tests/samples/data.csv'
+            inputFile: 'tests/fixtures/data.csv'
   """
   df = read(recipe)
   assert df['Find2'].iloc[0] == 'brg'
@@ -52,9 +52,9 @@ def test_run_recipe_connector():
   run:
     on_start:
       - recipe:
-          name: 'tests/samples/recipe_sample.wrgl.yaml'
+          name: 'tests/fixtures/recipe_sample.wrgl.yaml'
           variables:
-            inputFile: 'tests/samples/data.csv'
+            inputFile: 'tests/fixtures/data.csv'
   """
   assert run(recipe) == None
 
@@ -64,7 +64,7 @@ def test_function_sub_recipe():
     Test that custom functions are able to
     be called by sub-recipes.
     """
-    main_recipe = 'tests/samples/sub_rec_main.wrgl.yaml'
+    main_recipe = 'tests/fixtures/sub_rec_main.wrgl.yaml'
 
     # Functions
     def read_data(columns):

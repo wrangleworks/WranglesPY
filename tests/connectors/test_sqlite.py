@@ -6,7 +6,7 @@ def test_read_sql():
     Test basic read
     """
     df = sqlite.read(
-        database = './tests/samples/test.db',
+        database = './tests/fixtures/test.db',
         command = 'SELECT * from df_mock'
     )
     assert df.equals(

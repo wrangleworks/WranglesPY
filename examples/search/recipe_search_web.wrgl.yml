@@ -2,7 +2,7 @@
 #
 # Prerequisites:
 # - SerpAPI account and API key (https://serpapi.com/)
-# - Set environment variable: export SERPAPI_KEY=your_api_key_here
+# - Set environment variable: export SERPAPI_API_KEY=your_api_key_here
 #
 
 # Example 1: Basic web search
