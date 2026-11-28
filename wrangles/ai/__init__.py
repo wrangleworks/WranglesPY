@@ -7,7 +7,7 @@ Each input record is evaluated in one request. Python results are dictionaries
 of named answers; recipe wrappers project their fields into columns.
 """
 
-from ._questions import _FIELDS, _output_columns, _prepare_questions, _run, _validate_decimals
+from ._decisions import _FIELDS, _output_columns, _prepare_questions, _run, _validate_decimals
 from ..api_config import INHERIT as _INHERIT
 
 __all__ = ["choose", "score", "true_false", "decisions", "answers", "agent", "skill"]
