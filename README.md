@@ -103,14 +103,8 @@ Wrangles supports Python 3.11, 3.12, 3.13, and 3.14. Pull requests targeting
 3.13, and 3.14 on Ubuntu and Windows. Tagged releases run tests on Python 3.13
 and 3.14 on Ubuntu and macOS, plus package-install checks on Ubuntu.
 
-The concurrent and matrix connectors and the batch and concurrent wrangles use
-threads by default. With `use_multiprocessing: true`, workers use the configured
-`spawn` or `forkserver` start method. If the platform or application selects
-`fork`, Wrangles uses `forkserver` where available and `spawn` elsewhere.
-Define custom worker functions in an importable module and pass their inputs as
-recipe data or variables. In standalone Python scripts, put the call to
-`wrangles.recipe.run(...)` under `if __name__ == "__main__":` so workers can
-import the script without running the recipe again.
+Recipe workers use threads by default. See [Recipe multiprocessing and worker counts](docs/recipe_multiprocessing.md)
+for when to use processes, how to set the worker count, and how to run custom functions in workers.
 
 ## Local development
 
