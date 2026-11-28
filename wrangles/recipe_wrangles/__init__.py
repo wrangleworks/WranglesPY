@@ -15,6 +15,11 @@ wrangles:
   - convert.case:
 
 """
+from .standardize import case as _standardize_case
+from .standardize import data_type as _standardize_data_type
+from .standardize import fraction_to_decimal as _standardize_fraction_to_decimal
+from .standardize import remove_words as _standardize_remove_words
+from .standardize import round as _standardize_round
 from .standardize import clean as _standardize_clean
 from .standardize import custom as _standardize_custom
 from .standardize import replace as _standardize_replace
@@ -39,6 +44,11 @@ from . import search
 
 # The legacy recipe function stays callable while also exposing the new dotted
 # standardize namespace to recipe resolution and schema discovery.
+standardize.case = _standardize_case
+standardize.data_type = _standardize_data_type
+standardize.fraction_to_decimal = _standardize_fraction_to_decimal
+standardize.remove_words = _standardize_remove_words
+standardize.round = _standardize_round
 standardize.clean = _standardize_clean
 standardize.custom = _standardize_custom
 standardize.replace = _standardize_replace

@@ -1,12 +1,27 @@
 """Dataframe wrappers for standardization wrangles."""
 
+import builtins as _builtins
 import logging as _logging
 import re as _re
 from typing import Union as _Union
+from fractions import Fraction as _Fraction
+
+from numpy import nan as _nan
 
 import pandas as _pd
+import wrangles as _wrangles
 
 from ..standardize import clean as _clean
+from .. import extract as _extract
+
+
+# Pre-compiled regex for sentence case: matches the first non-whitespace character
+# at the start of the string or immediately after punctuation (. ! ?) + optional
+# whitespace. Using (\S) rather than ([a-zA-Z]) preserves the original char-by-char
+# behaviour where a digit after punctuation "consumes" the capitalize flag
+# (e.g. "13.5mm" stays lowercase because the `5` consumes the flag before `m` is
+# reached), while \s* preserves handling of newlines and other Unicode whitespace.
+_SENTENCE_CASE_RE = _re.compile(r'(^\s*|[.!?]\s*)(\S)')
 
 
 def _is_missing(value) -> bool:
@@ -33,6 +48,424 @@ def _concatenate_row(values, separator: str) -> str:
             and (not isinstance(value, str) or value != '')
         )
     )
+
+
+def case(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
+    """
+    type: object
+    description: Change the case of the input.
+    additionalProperties: false
+    required:
+      - input
+      - case
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name or list of input columns
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output columns
+      case:
+        type: string
+        description: The case to convert to. lower, upper, title or sentence
+        enum:
+          - lower
+          - upper
+          - title
+          - sentence
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # Get the requested case, default lower
+    desired_case = case.lower()
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
+    # Return early for empty dataframe
+    if df.empty:
+        df[output] = None
+        return df
+
+    warnings = {
+        "invalid_data": {
+            "logged": False,
+            "message": 'Found invalid values when using convert.case. Non-string values will be skipped.'
+        }
+    }
+
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        if desired_case != 'sentence':
+            source = df[input_column]
+            # .str accessor raises AttributeError on non-object/non-string dtypes (e.g. int64).
+            # For those columns, preserve originals and warn once — matching prior behaviour.
+            if _pd.api.types.is_string_dtype(source.dtype) or _pd.api.types.is_object_dtype(source.dtype):
+                # Use vectorized pandas str methods (C-level, much faster than row-wise apply).
+                # Non-string values (lists, ints, etc.) become NaN after str operations;
+                # detect those and restore the originals so behaviour is unchanged.
+                transformed = getattr(source.str, desired_case)()
+                non_string_mask = source.notna() & transformed.isna()
+                if non_string_mask.any():
+                    if not warnings["invalid_data"]["logged"]:
+                        _logging.warning(warnings['invalid_data']['message'])
+                        warnings["invalid_data"]['logged'] = True
+                    transformed = transformed.where(~non_string_mask, source)
+                df[output_column] = transformed
+            else:
+                if not warnings["invalid_data"]["logged"]:
+                    _logging.warning(warnings['invalid_data']['message'])
+                    warnings["invalid_data"]['logged'] = True
+                df[output_column] = source
+
+        else:
+            # Sentence case: lowercase everything with the vectorized str method, then
+            # use a pre-compiled regex to re-capitalise sentence starts.  This avoids
+            # the slow character-by-character Python loop of the previous implementation.
+            def _getSentenceCase(source, warnings=warnings):
+                if isinstance(source, str):
+                    return _SENTENCE_CASE_RE.sub(
+                        lambda m: m.group(1) + m.group(2).upper(),
+                        source.lower()
+                    )
+                else:
+                    if not warnings["invalid_data"]["logged"]:
+                        _logging.warning(warnings['invalid_data']['message'])
+                        warnings["invalid_data"]['logged'] = True
+                    return source
+
+            df[output_column] = df[input_column].apply(_getSentenceCase)
+
+    return df
+
+
+def data_type(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    output: _Union[str, list] = None,
+    data_type: str = 'str',
+    default: any = None,
+    **kwargs
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Change the data type of the input.
+    additionalProperties: false
+    required:
+      - input
+      - data_type
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name or list of input columns
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output columns
+      data_type:
+        type: string
+        description: The new data type
+        enum:
+          - str
+          - float
+          - int
+          - bool
+          - datetime
+      default:
+        type:
+          - string
+          - number
+          - array
+          - boolean
+          - datetime
+        description: |-
+          Set the default value to return if the input data
+          cannot be converted to the specified data_type.
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
+    # If the datatype is datetime
+    if data_type == 'datetime':
+        for input_column, output_column in zip(input, output):
+            recursion_stop = kwargs.pop('stop', False)
+            temp = _pd.to_datetime(df[input_column], errors="coerce", **kwargs)
+            # Recipe to handle defaults, does not run when converting the default value
+            if not recursion_stop:
+                df['tempadfsgadg'] = temp
+                df = _wrangles.recipe.run(
+                    recipe = """
+                        wrangles:
+                        - replace:
+                            input: tempadfsgadg
+                            find: NaT
+                            replace: ''
+                            where: tempadfsgadg IS NULL
+
+                        - create.column:
+                            output: defaultzdbdfzmngz
+                            value: ${default}
+
+                        - convert.data_type:
+                            input: defaultzdbdfzmngz
+                            data_type: datetime
+                            stop: true
+                            if: ${default} is not None
+
+                        - merge.coalesce:
+                            input:
+                            - tempadfsgadg
+                            - defaultzdbdfzmngz
+                            - ${input_col}
+                            output: ${output_col}
+
+                        - drop:
+                            columns:
+                            - defaultzdbdfzmngz
+                            - tempadfsgadg
+                        """,
+                    dataframe = df,
+                    variables = {
+                        'input_col': input_column,
+                        'output_col': output_column,
+                        'default': default
+                        }
+                    )
+
+            else:
+                df[input_column] = temp
+
+    else:
+        dtype_dict = {
+            'int': int,
+            'float': float,
+            'str': str,
+            'bool': bool
+            }
+
+        # Raise an error if the datatype is not supported
+        if data_type not in dtype_dict:
+            raise TypeError(f"data_type {data_type} is not supported. Supported types are: {list(dtype_dict.keys()) + ['datetime']}")
+        else:
+            data_type = dtype_dict.get(data_type)
+
+        # Loop through and apply for all columns
+        for input_column, output_column in zip(input, output):
+
+            # Function that converts data using dtype() and logs a warning only once when the conversion fails
+            def _safe_convert(x, dtype, default, row):
+                try:
+                    return dtype(x)
+                except Exception as e:
+                    if not getattr(_safe_convert, "_warning_logged", False):
+                        _logging.warning(
+                            f"Found invalid values at row {row} when converting to {data_type} using convert.datatype."
+                            )
+                        _safe_convert._warning_logged = True  # mark as logged
+
+                    # Return default if provided, otherwise return original value
+                    if default is not None:
+                        return default
+                    else:
+                        return x
+
+            df[output_column] = df.apply(lambda row: _safe_convert(row[input_column], data_type, default, row.name), axis=1)
+
+    return df
+
+
+def fraction_to_decimal(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    decimals: int = 4,
+    output: _Union[str, list] = None
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Convert fractions to decimals
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output colum
+      decimals:
+        type:
+          - number
+        description: Number of decimals to round fraction
+    """
+    # Set the output column as input if not provided
+    if output is None: output = input
+
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
+    for in_col, out_col in zip(input, output):
+        results = []
+        for item in df[in_col].astype(str):
+            fractions = fractions = _re.finditer(r'\b(\d+[\s-])?\d+/\d+\b', item)
+            replacement_list = []
+            for match in fractions:
+                fraction_str = match.group()
+
+                # Get only the fraction part with or without whole number
+                fraction = _Fraction(_re.findall(r'\d+\/\d+', fraction_str)[0])
+                decimal = _builtins.round(float(fraction), decimals)
+
+                # try to see if there is a whole number
+                if _re.findall(r'(\d+[\s-])', fraction_str):
+                    # remove the "-" from the whole number
+                    whole_number = _re.findall(r'(\d+[\s-])', fraction_str)[0].strip()
+                    whole_number = _re.sub(r'-', "", whole_number)
+                    whole_number = int(whole_number)
+                    decimal = whole_number + decimal
+
+                replacement_list.append((fraction_str, str(decimal)))
+            for fraction, dec in replacement_list:
+                item = item.replace(fraction, dec)
+
+
+            results.append(item)
+
+        df[out_col] = results
+
+    return df
+
+
+def remove_words(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    to_remove: str,
+    output: _Union[str, list] = None,
+    tokenize_to_remove: bool = False,
+    ignore_case: bool = True
+    ) -> _pd.DataFrame:
+    """
+    type: object
+    description: Remove all the elements that occur in one list from another.
+    additionalProperties: false
+    required:
+      - input
+      - to_remove
+      - output
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of column to remove words from
+      to_remove:
+        type: array
+        description: Column or list of columns with a list of words to be removed
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output columns
+      tokenize_to_remove:
+        type: boolean
+        description: Tokenize all to_remove inputs
+      ignore_case:
+        type: boolean
+        description: Ignore input and to_remove case
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
+    # Early return for empty df
+    if df.empty:
+        df[output] = None
+        return df
+
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = _extract.remove_words(df[input_column].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
+
+    return df
+
+
+def round(df: _pd.DataFrame, input: _Union[str, int, list], decimals: int = 0, output: _Union[str, list] = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Round column(s) to the specified decimals
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column(s)
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column(s)
+      decimals:
+        type: number
+        description: Number of decimal places to round column
+    """
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    _logging.debug(f": Rounding columns :: input :: {input}, decimals :: {decimals}")
+    for input_column, output_column in zip(input, output):
+        # coerce input column to floats (nan on error)
+        # replace nan with empty string
+        df[output_column] = _pd.to_numeric(df[input_column], errors='coerce').round(decimals=decimals).map(float).replace(_nan, '')
+
+    return df
 
 
 def clean(

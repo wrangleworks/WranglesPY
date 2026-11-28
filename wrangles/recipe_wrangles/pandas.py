@@ -1,7 +1,7 @@
 import pandas as _pd
 from typing import Union as _Union
-from numpy import nan as _nan
 import logging as _logging
+from .standardize import round
 
 
 def _sort_by_columns(by):
@@ -224,44 +224,6 @@ def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
         return _coerced_sort_values(df, by_columns, ignore_index, kwargs)
 
 
-def round(df: _pd.DataFrame, input: _Union[str, int, list], decimals: int = 0, output: _Union[str, list] = None) -> _pd.DataFrame:
-    """
-    type: object
-    description: Round column(s) to the specified decimals
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: Name of the input column(s)
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column(s)
-      decimals:
-        type: number
-        description: Number of decimal places to round column
-    """
-    if output is None: output = input
-    
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-    
-    _logging.debug(f": Rounding columns :: input :: {input}, decimals :: {decimals}")
-    for input_column, output_column in zip(input, output):
-        # coerce input column to floats (nan on error)
-        # replace nan with empty string
-        df[output_column] = _pd.to_numeric(df[input_column], errors='coerce').round(decimals=decimals).map(float).replace(_nan, '')
-        
-    return df
-    
-    
 def reindex(
     df: _pd.DataFrame,
     labels: list= None,
