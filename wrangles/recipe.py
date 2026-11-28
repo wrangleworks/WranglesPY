@@ -702,6 +702,7 @@ def _execute_wrangles(
                         'structure.split_text',
                         'structure.split_list',
                         'select.element',
+                        'structure.element',
                         'rename'
                     ]
                 ):

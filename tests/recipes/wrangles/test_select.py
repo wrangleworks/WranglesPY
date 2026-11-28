@@ -1,6 +1,337 @@
 import wrangles
 import pandas as pd
 import pytest
+from copy import deepcopy
+
+
+class TestStructureSelectionAliases:
+    """The selection implementations live in structure; select remains compatible."""
+
+    names = {
+        "select_columns": "columns", "dictionary_elements": "dictionary_element",
+        "element": "element", "group_by": "group_by", "head": "head",
+        "list_elements": "list_element", "sample": "sample", "tail": "tail",
+    }
+
+    @pytest.fixture(autouse=True)
+    def block_live_http(self, monkeypatch):
+        import requests
+
+        def blocked(*args, **kwargs):
+            pytest.fail("Selection alias tests must not contact live services")
+
+        monkeypatch.setattr(requests.sessions.Session, "request", blocked)
+
+    @pytest.fixture(params=list(names))
+    def selection_case(self, request):
+        name = request.param
+        frame = pd.DataFrame({
+            "Group": ["b", "a", "b", "a"], "Value": [10, 20, 30, 40],
+            "Keep": [3, 1, 4, 2],
+        }, index=pd.Index([9, 2, 7, 4], name="row"))
+        if name in ("dictionary_elements", "list_elements", "element"):
+            data, options = {
+                "dictionary_elements": ([{"x": "first"}, {"x": "second"}, {}],
+                                        {"input": "Data", "element": "x"}),
+                "list_elements": ([["first", "extra"], ["second"], []],
+                                  {"input": "Data", "element": 0}),
+                "element": ([{"x": ["first", "extra"]}, {"x": ["second"]}, {}],
+                            {"input": "Data['x'][0]"}),
+            }[name]
+            frame = pd.DataFrame({"Data": data, "Keep": [3, 1, 2]},
+                                 index=pd.Index([7, 2, 9], name="row"))
+            options.update(output="Out", default="missing")
+            expected = frame.assign(Out=["first", "second", "missing"])
+            filtered = frame.assign(Out=["first", "", "missing"])
+        elif name == "select_columns":
+            options = {"input": ["Value", "Group"]}
+            expected = frame[["Value", "Group"]]
+            filtered = expected.loc[[9, 7, 4]]
+        elif name == "group_by":
+            options = {"by": "Group", "sum": "Value"}
+            expected = pd.DataFrame({"Group": ["b", "a"], "Value.sum": [40, 60]})
+            filtered = pd.DataFrame({"Group": ["b", "a"], "Value.sum": [40, 40]})
+        elif name == "sample":
+            options = {"rows": 2, "random_state": 7}
+            expected = frame.loc[[7, 2]].reset_index(drop=True)
+            filtered = frame.loc[[4, 7]].reset_index(drop=True)
+        else:
+            options = {"n": 2}
+            expected = frame.loc[[9, 2] if name == "head" else [7, 4]]
+            filtered = frame.loc[[9, 7] if name == "head" else [7, 4]]
+        return name, frame, options, expected, filtered
+
+    def operations(self, name):
+        return (f"select.{self.names[name]}", f"structure.{name}")
+
+    def run_recipe(self, operation, frame, options, **kwargs):
+        return wrangles.recipe.run(
+            {"wrangles": [{operation: deepcopy(options)}]},
+            dataframe=deepcopy(frame), **kwargs,
+        )
+
+    @pytest.mark.parametrize("entrypoint", ["recipe", "module"])
+    def test_selection_entrypoints_and_implementation_identity(self, selection_case, entrypoint):
+        from wrangles import recipe_wrangles
+
+        name, frame, options, expected, _ = selection_case
+        canonical = getattr(recipe_wrangles.structure, name)
+        assert getattr(recipe_wrangles.select, self.names[name]) is canonical
+        assert canonical.__module__ == "wrangles.recipe_wrangles.structure"
+        for operation in self.operations(name):
+            namespace, method = operation.split(".")
+            if entrypoint == "recipe":
+                result = self.run_recipe(operation, frame, options)
+            else:
+                result = getattr(getattr(recipe_wrangles, namespace), method)(
+                    deepcopy(frame), **deepcopy(options))
+            pd.testing.assert_frame_equal(pd.DataFrame(result), expected)
+
+    def test_existing_select_accessor_retains_results_without_mutating_source(self, selection_case):
+        from wrangles.dataframe import DataFrame
+
+        name, frame, options, expected, _ = selection_case
+        source = DataFrame(deepcopy(frame))
+        result = getattr(source.wrangles.select, self.names[name])(**deepcopy(options))
+        pd.testing.assert_frame_equal(pd.DataFrame(result), expected)
+        pd.testing.assert_frame_equal(source, DataFrame(frame))
+
+    @pytest.mark.parametrize("where, bindings", [
+        ("Keep >= 2", {}),
+        ("Keep >= ?", {"where_params": [2]}),
+        ("Keep >= :minimum", {"where_params": {"minimum": 2}}),
+    ])
+    def test_selection_where_replacement_or_merge_back(self, selection_case, where, bindings):
+        name, frame, options, _, expected = selection_case
+        for operation in self.operations(name):
+            result = self.run_recipe(operation, frame, {**options, "where": where, **bindings})
+            pd.testing.assert_frame_equal(result, expected)
+
+    def test_selection_where_without_matches_skips_execution(self, selection_case):
+        name, frame, options, _, _ = selection_case
+        expected = frame.assign(Out="") if "output" in options else frame
+        for operation in self.operations(name):
+            result = self.run_recipe(operation, frame, {**options, "where": "Keep > 99"})
+            pd.testing.assert_frame_equal(result, expected)
+
+    @pytest.mark.parametrize("enabled", [True, False])
+    def test_selection_if_uses_recipe_variables(self, selection_case, enabled):
+        name, frame, options, expected, _ = selection_case
+        for operation in self.operations(name):
+            result = self.run_recipe(operation, frame, {**options, "if": "${enabled}"},
+                                     variables={"enabled": enabled})
+            pd.testing.assert_frame_equal(result, expected if enabled else frame)
+
+    def test_selection_if_false_skips_invalid_parameters(self, selection_case):
+        name, frame, _, _, _ = selection_case
+        for operation in self.operations(name):
+            result = self.run_recipe(operation, frame, {"input": "Missing*", "if": "row_count < 0"})
+            pd.testing.assert_frame_equal(result, frame)
+
+    @pytest.mark.parametrize("inputs, columns", [
+        (["Value*", "Group"], ["Value A", "Value B", "Group"]),
+        (["-Keep"], ["Group", "Value A", "Value B"]),
+        (["Value B", "*", "-Value A", "-Keep"], ["Value B", "Group"]),
+        ([], ["Group", "Value A", "Value B", "Keep"]),
+    ])
+    def test_select_columns_wildcards_exclusions_and_order(self, inputs, columns):
+        frame = pd.DataFrame({"Group": ["a"], "Value A": [1], "Value B": [2], "Keep": [3]})
+        # A literal followed by a wildcard retains the dispatcher's deduplication.
+        for operation in self.operations("select_columns"):
+            result = self.run_recipe(operation, frame, {"input": inputs})
+            pd.testing.assert_frame_equal(result, frame[columns])
+
+    @pytest.mark.parametrize("name, options, positions", [
+        ("select_columns", {"input": ["Small", "Flag"]}, [0, 1, 2]),
+        ("head", {"n": 2}, [0, 1]), ("tail", {"n": 2}, [1, 2]),
+        ("sample", {"rows": 2, "random_state": 7}, [2, 1]),
+    ])
+    def test_selection_preserves_dtypes_and_index_contract(self, name, options, positions):
+        frame = pd.DataFrame({"Small": pd.Series([2, 4, 6], dtype="int16"),
+                              "Ratio": pd.Series([.5, 1.5, 2.5], dtype="float32"),
+                              "Flag": [True, False, True]})
+        frame.index = pd.Index([8, 3, 6], name="row")
+        expected = frame.iloc[positions]
+        if name == "select_columns":
+            expected = expected[["Small", "Flag"]]
+        if name == "sample":
+            expected = expected.reset_index(drop=True)
+        for operation in self.operations(name):
+            pd.testing.assert_frame_equal(self.run_recipe(operation, frame, options), expected)
+
+    @pytest.mark.parametrize("name, values, options, outputs", [
+        ("dictionary_elements", [{"x": 0}, '{"x": false}', {}, "invalid", None],
+         {"element": "x", "default": False}, [0, False, False, False, False]),
+        ("dictionary_elements", [{"x": 1, "y": 2}, {"x": 3}],
+         {"element": ["x", "y"], "default": {"y": 0}}, [{"x": 1, "y": 2}, {"x": 3, "y": 0}]),
+        ("dictionary_elements", [{"key_x": 1, "other": 2}, {"key_y": 3}],
+         {"element": "key_*"}, [{"key_x": 1, "key_y": ""}, {"key_x": "", "key_y": 3}]),
+        ("list_elements", [[1, 2], [], "[3, 4]"],
+         {"element": -1, "default": "missing"}, [2, "missing", 4]),
+        ("list_elements", [[1, 2, 3], [], "[4, 5]"],
+         {"element": "[1:]"}, [[2, 3], [], [5]]),
+    ])
+    def test_dictionary_and_list_elements_edge_cases(self, name, values, options, outputs):
+        frame = pd.DataFrame({"Data": values, "Keep": range(len(values))})
+        expected = frame.assign(Out=outputs)
+        if values[-1] is None:
+            expected.at[len(values) - 1, "Data"] = ""
+        for operation in self.operations(name):
+            result = self.run_recipe(operation, frame, {"input": "Data", "output": "Out", **options})
+            pd.testing.assert_frame_equal(result, expected)
+
+    @pytest.mark.parametrize("name", ["dictionary_elements", "list_elements"])
+    def test_element_helpers_multiple_columns_and_default_output(self, name):
+        frame = pd.DataFrame({"Left": [{"x": "a"}, {}], "Right": [{"x": "b"}, {}]}
+                             if name == "dictionary_elements" else
+                             {"Left": [["a"], []], "Right": [["b"], []]})
+        options = {"input": ["Left", "Right"], "default": "missing"}
+        if name == "dictionary_elements":
+            options["element"] = "x"
+        for operation in self.operations(name):
+            for explicit_output in (False, True):
+                params = {**options, **({"output": ["A", "B"]} if explicit_output else {})}
+                expected = frame.assign(A=["a", "missing"], B=["b", "missing"]) if explicit_output else pd.DataFrame({
+                    "Left": ["a", "missing"], "Right": ["b", "missing"]})
+                pd.testing.assert_frame_equal(self.run_recipe(operation, frame, params), expected)
+
+    @pytest.mark.parametrize("expression, values, outputs", [
+        ("Data['*'][0]", [{"*": [10, 20]}, '{"*": [30]}'], [10, 30]),
+        ("Data[0]", [{"first": "a", "last": "b"}, {"last": "c", "first": "d"}], ["a", "c"]),
+        ("Data[1:]", ["abc", [1, 2, 3]], ["bc", [2, 3]]),
+        ("Data['x'][1]", [{"x": []}, {}], [False, False]),
+    ])
+    def test_element_literal_paths_slices_positions_and_false_default(self, expression, values, outputs):
+        frame = pd.DataFrame({"Data": values, "Data_extra": ["keep", "keep"]})
+        for operation in self.operations("element"):
+            for explicit_output in (False, True):
+                options = {"input": expression, "default": False}
+                column = "Out" if explicit_output else "Data"
+                if explicit_output:
+                    options["output"] = column
+                pd.testing.assert_frame_equal(self.run_recipe(operation, frame, options),
+                                              frame.assign(**{column: outputs}))
+
+    def test_element_per_input_defaults(self):
+        frame = pd.DataFrame({"Left": [{}, {"x": "present"}], "Right": [[], []]})
+        for operation in self.operations("element"):
+            result = self.run_recipe(operation, frame, {
+                "input": ["Left['x']", "Right[0]"], "output": ["A", "B"], "default": ["missing", 0],
+            })
+            pd.testing.assert_frame_equal(result, frame.assign(A=["missing", "present"], B=[0, 0]))
+
+    def test_group_by_builtin_aggregations_and_default_group(self):
+        frame = pd.DataFrame({"Group": ["b", "a", "b", "a"], "Value": [10, 20, 30, 40],
+                              "Keep": [3, 1, 4, 2]})
+        expected = pd.DataFrame({"Group": ["b", "a"], "Value.sum": [40, 60],
+                                 "Value.p50": [20., 30.], "Keep.list": [[3, 4], [1, 2]],
+                                 "Keep.counts": [{"3": 1, "4": 1}, {"1": 1, "2": 1}]})
+        for operation in self.operations("group_by"):
+            result = self.run_recipe(operation, frame, {
+                "by": "Group", "sum": "Value", "p50": "Value", "list": "Keep", "counts": "Keep"})
+            pd.testing.assert_frame_equal(result, expected)
+            pd.testing.assert_frame_equal(self.run_recipe(operation, frame, {"sum": "Value"}),
+                                          pd.DataFrame({"Value.sum": [100]}))
+
+    def test_group_by_custom_context_and_renamed_overlapping_key(self):
+        def spread(values):
+            return values.max() - values.min()
+
+        frame = pd.DataFrame({"Group": [2, 1, 2], "Value": [10, 20, 40]})
+        for operation in self.operations("group_by"):
+            result = self.run_recipe(operation, frame, {"by": "Group", "custom.spread": "Value"},
+                                     functions={"spread": spread})
+            pd.testing.assert_frame_equal(result, pd.DataFrame({"Group": [2, 1], "Value.spread": [30, 0]}))
+            result = self.run_recipe(operation, frame, {"by": ["Group"], "auto_rename_columns": False,
+                                     "sum": [{"Group": "Group Total"}, {"Value": "Total"}]})
+            pd.testing.assert_frame_equal(result, pd.DataFrame({"Group": [2, 1], "Group Total": [4, 1],
+                                                                "Total": [50, 20]}))
+
+    @pytest.mark.parametrize("name", ["head", "tail"])
+    @pytest.mark.parametrize("n, count", [(1, 1), (3, 3), (99, 3)])
+    def test_head_tail_boundaries(self, name, n, count):
+        frame = pd.DataFrame({"Value": [10, 20, 30]}, index=[8, 3, 6])
+        expected = frame.iloc[:count] if name == "head" else frame.iloc[len(frame) - count:]
+        for operation in self.operations(name):
+            pd.testing.assert_frame_equal(self.run_recipe(operation, frame, {"n": n}), expected)
+
+    @pytest.mark.parametrize("options, positions", [
+        ({"rows": .5}, [2, 1]), ({"rows": "2"}, [2, 1]),
+        ({"rows": 99}, [2, 1, 0, 3]),
+        ({"rows": 2, "replace": True, "weights": "Weight"}, [2, 2]),
+    ])
+    def test_sample_seed_fraction_count_clipping_and_weights(self, options, positions):
+        frame = pd.DataFrame({"Value": [10, 20, 30, 40], "Weight": [0, 0, 1, 0]}, index=[8, 3, 6, 4])
+        for operation in self.operations("sample"):
+            result = self.run_recipe(operation, frame, {"random_state": 7, **options})
+            pd.testing.assert_frame_equal(result, frame.iloc[positions].reset_index(drop=True))
+
+    def test_selection_empty_frames(self, selection_case):
+        name, frame, options, expected, _ = selection_case
+        for operation in self.operations(name):
+            result = self.run_recipe(operation, frame.iloc[:0], options)
+            empty = expected.iloc[:0]
+            # Pandas infers empty extraction output as float64, as in the legacy helper.
+            if "output" in options:
+                empty = empty.astype({"Out": "float64"})
+            pd.testing.assert_frame_equal(result, empty)
+
+    @pytest.mark.parametrize("name, options, error, message", [
+        ("select_columns", {"input": "Missing"}, KeyError, "Missing"),
+        ("dictionary_elements", {"input": ["Data", "Keep"], "output": "Out", "element": "x"},
+         ValueError, "same length for select.dictionary_element"),
+        ("list_elements", {"input": ["Data", "Keep"], "output": "Out"},
+         ValueError, "same length for select.list_element"),
+        ("element", {"input": "Data['missing']"}, KeyError, "Element missing not found"),
+        ("element", {"input": "Data['x']", "default": [1, 2]}, ValueError, "same length as input/output"),
+        ("group_by", {"by": "Keep", "auto_rename_columns": False, "min": "Keep", "max": "Keep"},
+         ValueError, "select.group_by: duplicate output"),
+        ("head", {"n": 0}, ValueError, "n must be a positive integer"),
+        ("head", {"n": 1.5}, ValueError, "n must be a positive integer"),
+        ("tail", {"n": -1}, ValueError, "n must be a positive integer"),
+        ("tail", {"n": "2"}, ValueError, "n must be a positive integer"),
+        ("sample", {"rows": 0}, ValueError, "rows must be a positive integer"),
+        ("sample", {"rows": "bad"}, ValueError, "rows must be a positive integer"),
+    ])
+    def test_selection_preserves_errors(self, name, options, error, message):
+        frame = pd.DataFrame({"Data": [{"x": 1}], "Keep": [2]})
+        for operation in self.operations(name):
+            with pytest.raises(error, match=message):
+                self.run_recipe(operation, frame, options)
+
+    def test_generated_schema_preserves_selection_contracts(self, tmp_path, monkeypatch):
+        import json
+        import runpy
+        from pathlib import Path
+        import jsonschema
+
+        root = Path(__file__).resolve().parents[3]
+        (tmp_path / "recipe_base_schema.json").write_bytes((root / "schema/recipe_base_schema.json").read_bytes())
+        monkeypatch.chdir(tmp_path)
+        runpy.run_path(str(root / "schema/generate_recipe_schema.py"))
+        schema = json.loads((tmp_path / "schema.json").read_text(encoding="utf-8"))
+        operations = schema["$defs"]["wrangles"]["items"]["properties"]
+        examples = {
+            "select_columns": {"input": ["Value", "Group"]},
+            "dictionary_elements": {"input": "Data", "element": "x", "default": "missing"},
+            "element": {"input": "Data['x'][0]", "default": "missing"},
+            "list_elements": {"input": "Data", "element": 0, "default": "missing"},
+            "group_by": {"by": "Group", "sum": "Value"},
+            "head": {"n": 2}, "tail": {"n": 2}, "sample": {"rows": .5},
+        }
+        for name, options in examples.items():
+            legacy, canonical = self.operations(name)
+            assert operations[canonical] == operations[legacy]
+            for operation in (legacy, canonical):
+                jsonschema.validate({"wrangles": [{operation: {**options, "where": "Keep >= :minimum",
+                    "where_params": {"minimum": 2}, "if": "row_count > 0"}}]}, schema)
+
+    def test_existing_structure_split_exports_are_unchanged(self):
+        from wrangles.recipe_wrangles import split, structure
+
+        for old, new in [("dictionary", "split_dictionary"), ("list", "split_list"),
+                         ("text", "split_text"), ("tokenize", "tokenize")]:
+            assert getattr(structure, new) is getattr(split, old)
 
 
 class TestSelectDictionaryElement:
