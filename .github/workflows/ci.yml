@@ -98,11 +98,12 @@ jobs:
           pip install -r requirements-full.txt
           pip install .
 
-      - name: Verify process pools with fork warnings as errors
-        if: runner.os == 'Linux' && matrix.python-version == '3.13'
+      - name: Verify process pools and the recipe launcher
+        if: matrix.python-version == '3.13'
         run: >-
           python -m pytest -v -c pytest-local.ini
           -W error::DeprecationWarning:multiprocessing.popen_fork
+          tests/test_container_smoke.py::test_launcher_runs_process_recipe_once
           tests/connectors/test_concurrent.py::test_read_multiprocess
           tests/connectors/test_concurrent.py::test_run_multiprocess
           tests/connectors/test_matrix.py::TestRead::test_process_reads_use_safe_workers_and_preserve_order

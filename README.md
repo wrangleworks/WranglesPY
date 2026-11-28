@@ -108,7 +108,9 @@ threads by default. With `use_multiprocessing: true`, workers use the configured
 `spawn` or `forkserver` start method. If the platform or application selects
 `fork`, Wrangles uses `forkserver` where available and `spawn` elsewhere.
 Define custom worker functions in an importable module and pass their inputs as
-recipe data or variables.
+recipe data or variables. In standalone Python scripts, put the call to
+`wrangles.recipe.run(...)` under `if __name__ == "__main__":` so workers can
+import the script without running the recipe again.
 
 ## Local development
 

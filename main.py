@@ -4,7 +4,7 @@ import importlib.util
 import sys
 
 
-# If the user has provided a file of custom functions, add those
+# Workers import this launcher and need the same module to unpickle custom functions.
 functions = []
 if os.environ.get("WRANGLES_CUSTOM_FUNCTIONS"):
     file_path = os.environ.get("WRANGLES_CUSTOM_FUNCTIONS")
@@ -16,4 +16,5 @@ if os.environ.get("WRANGLES_CUSTOM_FUNCTIONS"):
     functions = [getattr(module, method) for method in dir(module) if not method.startswith('_')]
 
 
-wrangles.recipe.run(os.environ["WRANGLES_RECIPE"], functions=functions)
+if __name__ == "__main__":
+    wrangles.recipe.run(os.environ["WRANGLES_RECIPE"], functions=functions)
