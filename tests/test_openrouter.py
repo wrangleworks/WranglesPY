@@ -61,7 +61,7 @@ def transport(monkeypatch):
 
 
 def call(**overrides):
-    return openrouter.call_systemone(**{
+    return openrouter.call_decisions(**{
         "state": "synthetic product", "questions": copy.deepcopy(QUESTIONS),
         "model": "microsoft/microsoft-decision-1", "api_key": "synthetic-secret",
         "url": "https://openrouter.ai/api/alpha/decisions", "timeout": 7, "retries": 1,

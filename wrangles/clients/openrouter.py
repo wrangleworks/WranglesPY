@@ -1,9 +1,4 @@
-"""OpenRouter's System One-compatible Decisions API.
-
-Reuse the existing transport and strict answer validation until the provider
-configuration refactor. Keep provider-specific exceptions at this boundary;
-no request bodies, response bodies, or credentials appear in raised errors.
-"""
+"""OpenRouter Decisions uses the shared typed-answer transport and validators."""
 
 from . import typesafe as _typesafe
 
@@ -21,7 +16,7 @@ class OpenRouterResponseError(OpenRouterError):
     """The gateway returned an invalid or incomplete typed response."""
 
 
-def call_systemone(*, state, questions, model, api_key, url, timeout, retries):
+def call_decisions(*, state, questions, model, api_key, url, timeout, retries):
     """Call /api/alpha/decisions using the existing named-question contract.
 
 Confidence and complete probabilities are required by the Wrangles output
@@ -29,7 +24,7 @@ contract even though the gateway schema marks them optional. Missing fields
 fail validation; this adapter never invents confidence or probabilities.
 """
     try:
-        return _typesafe.call_systemone(
+        return _typesafe._post_decisions(
             state=state, questions=questions, model=model, api_key=api_key,
             url=url, timeout=timeout, retries=retries,
         )
@@ -43,3 +38,7 @@ fail validation; this adapter never invents confidence or probabilities.
             str(error).replace("Typesafe", "OpenRouter"),
             status_code=error.status_code, attempts=error.attempts,
         ) from None
+
+
+# Compatibility for integrations which imported the old adapter name.
+call_systemone = call_decisions

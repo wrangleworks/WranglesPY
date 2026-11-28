@@ -14,20 +14,26 @@ def normalize_query(query):
     return query.strip()
 
 
-def request_parameters(kwargs):
+def request_parameters(kwargs, *, keep_omissions=False):
     params = dict(kwargs)
     for name in ("n_results", "num", "google_domain", "query_config", "output"):
         if name in params:
             raise ValueError(f"search.ai_mode does not support {name}; it returns the Markdown answer and metadata.")
+    locale_aliases = {"country": "gl", "language": "hl"}
+    omitted = set()
     for name in ("country", "language", "location", "gl", "hl", "uule"):
         if name in params and (params[name] is None or params[name] == ""):
             params.pop(name)
-    for alias, parameter in (("country", "gl"), ("language", "hl")):
+            omitted.add(locale_aliases.get(name, name))
+    for alias, parameter in locale_aliases.items():
         if alias in params:
             value = params.pop(alias)
             if parameter in params and params[parameter] != value:
                 raise ValueError(f"Conflicting {alias} and {parameter} values.")
             params[parameter] = value
+    if keep_omissions:
+        for key in omitted:
+            params.setdefault(key, None)
     return params
 
 

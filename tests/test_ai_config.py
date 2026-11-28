@@ -54,8 +54,8 @@ def test_packaged_operation_defaults_and_model_lifecycle():
 def test_openrouter_defaults_are_provider_local_and_cache_stays_off(operation):
     policy = ai_config.resolve(operation, provider="openrouter")
     assert policy["model"] == "microsoft/microsoft-decision-1"
-    assert policy["protocol"] == "systemone"
-    assert policy["endpoints"] == {"systemone": "https://openrouter.ai/api/alpha/decisions"}
+    assert policy["protocol"] == "decisions"
+    assert policy["endpoints"] == {"decisions": "https://openrouter.ai/api/alpha/decisions"}
     assert policy["cache"]["enabled"] is False
     assert ai_config.resolve(operation)["provider"] == "typesafe"
     assert ai_config.resolve(operation)["model"] == "jev-1.13.0"

@@ -1,6 +1,37 @@
 # External API configuration and caller catalogs
 
-**Design target, November 27, 2026.** WranglesPY will resolve external API choices for recipes and direct Python calls and export the same choices for product editors. The [current AI configuration guide](ai_configuration.md) describes the shipped v1/v2 loader. [WranglesPY #1206](https://github.com/wrangleworks/WranglesPY/issues/1206) tracks delivery, open decisions and migration evidence.
+WranglesPY reads the **API configuration** to choose an external API for a recipe or direct Python call. It generates a **caller catalog** from that same configuration for tools that present those choices. The first two consumers are `ai.decisions` (also `ai.answers`) and `search.ai_mode`. Other AI operations retain their existing settings. [Packaged API configuration](../wrangles/ai_defaults.yml) · [AI configuration guide](ai_configuration.md) · [Delivery plan](https://github.com/wrangleworks/WranglesPY/issues/1206)
+
+## Using the Python pilot
+
+`wranglespy` is the supported caller in this pilot. The action `wrangle.execute` means running the operation, including through a Python recipe. Read its default at `callers.wranglespy.operations.<operation>.actions.wrangle.execute.default_selection`. The operation's `compatible_apis` lists implemented interfaces. For a model-backed choice, the configuration records either its direct APIs or its route through an intermediary.
+
+| Operation | Default selection | Request |
+| --- | --- | --- |
+| `ai.decisions` | `typesafe / systemone / jev-1.13.0` | POST to TypeSafe System One with the model, state and questions. An explicit `provider: microsoft` follows the model's `routed_via` to OpenRouter Decisions and sends `model: microsoft/microsoft-decision-1` with the OpenRouter key. Wrangles applies `decimals` to the returned values. |
+| `search.ai_mode` | `serpapi / google_ai_mode` | GET the configured search endpoint with the API's `engine=google_ai_mode`, the operation's `output=md` and the input query. The separate `serpapi / google` API identifies classic search. AI Mode has no model selection. |
+
+Copy the packaged YAML to create a complete v3 replacement and set `WRANGLES_AI_CONFIG` to its path. Each choice combines defaults from its API, model (if present), operation/action and caller/action in that order. Explicit call values apply last, including `false` and `0`. Nested mappings merge by key and lists replace their predecessors. A missing caller/action is unavailable. A v1 replacement uses the packaged pilot choices. A v2 replacement uses its own `ai.answers` roles, endpoints and settings for both composite names. Omitting `ai.answers` keeps decisions unavailable. Both older versions retain packaged AI Mode search.
+
+```python
+from wrangles.api_config import export_catalog, load_snapshot, resolve
+
+snapshot = load_snapshot()
+decision = resolve("ai.decisions", provider="microsoft", snapshot=snapshot)
+print(decision.choice.request_model, decision.provenance["request_model"])
+catalog = export_catalog(snapshot)
+```
+
+Generate JSON from an installed package. Omitting the source option selects the active configuration. Omitting `--output-dir` writes JSON to standard output.
+
+```powershell
+wrangles-api-catalog --packaged --output-dir .data/catalogs
+wrangles-api-catalog --config team.yml --output-dir .data/catalogs
+```
+
+The filename and metadata identify the catalog schema version, package version, configuration source and SHA-256 revision of the YAML bytes. Packaged and replacement exports have distinct paths. Each action lists its default selection and eligible choices with their own resolved public defaults. The routed choice names the intermediary and API. The transport endpoint, provider credentials and wire model stay with the adapter.
+
+For SerpAPI, `public_parameters` opts declared fields into the exported schema. `public_definitions` opts local `$defs` into offline inlining. Wrangles validates the effective parameters against all applicable Draft 2020-12 schemas. Schema defaults are annotations. Private annotations and unrestricted kwargs stay out of the caller catalog. Permitted extra kwargs remain usable in Python and recipes. [Generator entry point](../schema/generate_api_catalog.py) · [Request and catalog tests](../tests/test_api_catalog.py)
 
 ## What the configuration owns
 
@@ -44,4 +75,4 @@ The XL saved-extraction editor offers supported `none` and `low` reasoning choic
 
 First exercise the resolver and exporter together on decisions and SerpAPI AI Mode in Python. Compare actual requests and exported defaults for packaged and replacement configurations. Then bring saved and inline extraction onto that resolver and carry origin through JS, Core and Lambda for the XL save → reopen → execute trial. Web needs its own caller selections. Later adapters include DeepL at its translation service, semantic index build/query, classic search and local Agent inference.
 
-Before the first implementation slice, settle the example source shape, missing origin/selection behavior, compatibility with older replacements, and handling of explicit unsupported parameters. Before the XL rollout, settle save/clear semantics, caller propagation, availability by environment, artifact naming and refresh behavior. Preserve protocol support in the integration baseline and reconcile changes separately with [the Responses-only proposal](https://github.com/wrangleworks/WranglesPY/pull/1251).
+The Python pilot establishes the source shape and legacy replacement rules above. Extraction next needs saved/inline precedence and editor save/clear semantics. The XL rollout also requires caller propagation, deployment-matched availability and catalog refresh. [Python pilot](https://github.com/wrangleworks/WranglesPY/issues/1295) · [Extraction successor](https://github.com/wrangleworks/WranglesPY/issues/1296) · [Responses-only proposal](https://github.com/wrangleworks/WranglesPY/pull/1251)

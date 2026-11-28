@@ -91,6 +91,12 @@ contain one query string; explode query lists before searching.
 Blank queries are skipped without a provider request. Provider errors, missing
 or malformed frontmatter/status, and empty successful answers are explicit
 failures in metadata. Non-successful or empty answers do not enter extraction.
+The packaged Python caller selects SerpAPI's `google_ai_mode` API. Its fixed
+`engine=google_ai_mode` and the operation's `output=md` identify the request.
+A v3 replacement can set the endpoint, locale defaults, concurrency and raw
+response preference. Explicit call values take precedence. The caller catalog
+exposes the choice without a model field. [API configuration](api_configuration.md)
+
 The client makes one synchronous SerpAPI request per nonblank query, without
 retries, polling queued/processing jobs, or reading Google's browser token stream.
 The trial uses `THREADS = 5` to run up to five independent synchronous searches
