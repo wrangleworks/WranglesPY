@@ -1,7 +1,4 @@
 import base64 as _base64
-import yaml as _yaml
-import json as _json
-import copy as _copy
 import concurrent.futures as _futures
 from itertools import chain as _chain
 import logging as _logging
@@ -10,10 +7,6 @@ import numpy as _np
 import warnings as _warnings
 from . import openai_responses as _openai_responses
 from . import ai_config as _ai_config
-try:
-    from yaml import CSafeDumper as _YAMLDumper
-except ImportError:
-    from yaml import SafeDumper as _YAMLDumper
 
 SUPPORTED_PROVIDERS = ["openai", "jina"]
 JINA_TASKS = {"retrieval.query", "retrieval.passage", "text-matching", "classification", "separation"}
@@ -28,132 +21,6 @@ _RETRYABLE_TRANSPORT_ERRORS = (
     _requests.exceptions.ContentDecodingError,
 )
 
-
-def format_input_data(data: any) -> str:
-    """Serialize row input exactly as Chat Completions will receive it."""
-    if isinstance(data, (dict, list)):
-        return _yaml.dump(
-            data,
-            indent=2,
-            sort_keys=False,
-            allow_unicode=True,
-            Dumper=_YAMLDumper,
-            width=1000,
-        )
-    return str(data)
-
-
-def _chatGPT(data, api_key, settings, url, timeout, retries):
-    """Send Chat Completions using transport settings resolved by the caller."""
-    content = format_input_data(data)
-
-    settings_local = _copy.deepcopy(settings)
-    settings_local["messages"].append(
-        {
-            "role": "user",
-            "content": f"\n---Data:\n---\n{content}"
-        }
-    )
-
-    if not isinstance(retries, int) or isinstance(retries, bool) or retries < 0:
-        raise ValueError("Retries must be a non-negative integer")
-
-    _logging.debug(f": Calling OpenAI ChatGPT :: timeout :: {timeout}, retries :: {retries}")
-    response = None
-    backoff_time = 1
-    for attempt in range(retries + 1):
-        response = None
-        try:
-            response = _requests.post(
-                url = url,
-                headers = {
-                    "Authorization": f"Bearer {api_key}"
-                },
-                json = settings_local,
-                timeout=timeout
-            )
-        except Exception as e:
-            if attempt == retries or not isinstance(e, _RETRYABLE_TRANSPORT_ERRORS):
-                error = "Timed Out" if isinstance(e, _requests.exceptions.Timeout) else e
-                if settings_local.get("tools", []):
-                    return {
-                        param: error
-                        for param in 
-                        settings_local.get("tools", [])[0]["function"]["parameters"]["required"]
-                    }
-                else:
-                    return error
-
-        if response is not None and response.ok:
-            break
-        else:
-            error_message = ""
-            try:
-                error_message = response.json().get('error').get('message')
-            except:
-                pass
-            # Raise errors for fatal errors rather than continuing
-            if error_message:
-                if "Invalid schema" in error_message:
-                    raise ValueError("The schema submitted for output is not valid.")
-                if "Incorrect API key" in error_message:
-                    raise ValueError("API Key provided is missing or invalid.")
-            context = _openai_responses._response_context(
-                response,
-                endpoint="chat_completions",
-                model=settings_local.get("model"),
-            ) if response is not None else {}
-            _openai_responses._raise_for_fatal_error(context)
-            if attempt == retries or (response is not None and not _openai_responses._should_retry(context)):
-                if response is not None:
-                    _openai_responses._log_api_error(context, final=True)
-                break
-            if response is not None:
-                _openai_responses._log_api_error(context, final=False)
- 
-        if attempt < retries:
-            _logging.warning(f": Retrying OpenAI request :: attempt :: {attempt + 1}")
-            if response is not None and not response.ok:
-                _openai_responses._sleep_for_retry(
-                    context,
-                    backoff_time,
-                )
-            else:
-                _openai_responses._sleep_for_retry(
-                    {},
-                    backoff_time,
-                )
-            backoff_time *= 2
-
-    if response is not None and response.ok:
-        try:
-            result = _json.loads(
-                response.json()['choices'][0]['message']['tool_calls'][0]['function']['arguments']
-            )
-            return result
-        except:
-            pass
-
-    # Attempt to get a useful error message
-    try:
-        error_message = _openai_responses._error_message(
-            _openai_responses._response_context(
-                response,
-                endpoint="chat_completions",
-                model=settings_local.get("model"),
-            )
-        )
-    except:
-        error_message = "Failed"
-
-    _logging.error(f": OpenAI API error :: {error_message}")
-
-    # Return error for each requested column
-    return {
-        param: error_message
-        for param in 
-        settings_local.get("tools", [])[0]["function"]["parameters"]["required"]
-    }
 
 def _divide_batches(l, n):
     """

@@ -22,29 +22,20 @@ def _isolate_request_state(monkeypatch):
     ai_cache.clear()
 
 
-@pytest.fixture(params=["responses", "chat_completions"])
-def transport(monkeypatch, request):
-    protocol = request.param
+@pytest.fixture
+def transport(monkeypatch):
+    protocol = "responses"
     calls = []
 
     def post(**kwargs):
         calls.append(deepcopy(kwargs))
         result = json.dumps({"length": "25mm"})
-        if protocol == "responses":
-            body = {
-                "output": [{
-                    "type": "message",
-                    "content": [{"type": "output_text", "text": result}],
-                }]
-            }
-        else:
-            body = {
-                "choices": [{
-                    "message": {
-                        "tool_calls": [{"function": {"arguments": result}}]
-                    }
-                }]
-            }
+        body = {
+            "output": [{
+                "type": "message",
+                "content": [{"type": "output_text", "text": result}],
+            }]
+        }
         response = requests.Response()
         response.status_code = 200
         response._content = json.dumps(body).encode("utf-8")
@@ -148,8 +139,7 @@ def test_metadata_separates_result_cache_without_changing_model_prompt(transport
     assert {key: value for key, value in first_payload.items() if key != "metadata"} == {
         key: value for key, value in second_payload.items() if key != "metadata"
     }
-    if protocol == "responses":
-        assert first_payload["prompt_cache_key"] == second_payload["prompt_cache_key"]
+    assert first_payload["prompt_cache_key"] == second_payload["prompt_cache_key"]
 
 
 def test_recipe_metadata_resolves_explicit_recipe_and_user_variables(transport):

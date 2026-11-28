@@ -70,9 +70,9 @@ send another OpenAI request or create another stored response. Changing
 reuse each other's cached results. Use `cache: false` only when a fresh
 request is needed for diagnosis, and keep caching enabled for normal runs.
 
-The `store` option applies to the Responses path and does not select the API
-protocol or create Agents SDK workflow traces. The Chat Completions
-compatibility path does not forward this option.
+The `store` option controls Responses storage and does not change the API
+protocol or create Agents SDK workflow traces. Extraction uses Responses for
+all requests.
 
 ## Recipe and user labels in OpenAI logs
 
@@ -123,8 +123,8 @@ characters and values up to 512 characters; see the
 Automatically discovered labels are shortened to 512 characters if needed;
 invalid explicit metadata fails before any OpenAI request.
 
-Metadata is forwarded with both Responses and Chat Completions requests and
-is separate from model instructions. Stored Responses logs show the labels
+Metadata is forwarded with Responses requests and remains separate from model
+instructions. Stored Responses logs show the labels
 when response storage is enabled. Effective metadata is part of the local
 result-cache identity, so changing a label causes a cache miss. It does not
 change the OpenAI prompt-cache key or enable workflow tracing.
