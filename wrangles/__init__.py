@@ -10,6 +10,8 @@ Wrangle your data into shape with machine learning.
 ['ABC123ZZ']
 """
 
+import sys as _sys
+
 from .config import authenticate
 
 from . import connectors
@@ -26,7 +28,7 @@ from . import format
 from . import openai
 from . import ai_config
 from . import ai_definition
-from . import ai_cache
+from .ai import cache as ai_cache
 from . import search
 
 from . import data
@@ -35,3 +37,13 @@ from . import select
 from . import compare
 from . import generate
 
+
+# The historical import shares the cache, lock and counters with wrangles.ai.cache.
+_sys.modules[__name__ + ".ai_cache"] = ai_cache
+
+# Historical private search imports share the relocated implementation.
+from .search import _ai_mode, _content as _search_ai_content, _prompt_template
+
+_sys.modules[__name__ + "._ai_mode"] = _ai_mode
+_sys.modules[__name__ + "._search_ai_content"] = _search_ai_content
+_sys.modules[__name__ + "._prompt_template"] = _prompt_template

@@ -24,6 +24,7 @@ foreach ($name in @(
     "GOOGLE_API_KEY",
     "HUGGINGFACE_TOKEN",
     "OPENAI_API_KEY",
+    "OPENROUTER_API_KEY",
     "SERPAPI_API_KEY",
     "TYPESAFE_API_KEY",
     "WRANGLES_PASSWORD",

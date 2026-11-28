@@ -86,6 +86,35 @@ def test_extract_ai_uses_responses_structured_outputs(monkeypatch, caplog):
     assert schema["additionalProperties"] is False
 
 
+def test_extract_ai_recipe_array_without_items_accepts_scalar_values(monkeypatch):
+    values = ["banana", 2.5, False]
+    requests_sent = []
+
+    def post(**kwargs):
+        requests_sent.append(kwargs["json"])
+        return _Response({"output": [{
+            "type": "message",
+            "content": [{"type": "output_text", "text": json.dumps({"values": values})}],
+        }]})
+
+    monkeypatch.setattr(extract._openai_responses._requests, "post", post)
+    result = recipe.run(
+        {"wrangles": [{"extract.ai": {
+            "input": "Description",
+            "api_key": "offline",
+            "output": {"values": {"type": "array"}},
+        }}]},
+        dataframe=pd.DataFrame({"Description": ["banana, 2.5, false"]}),
+        variables={"applied_permission_group": None},
+    )
+
+    assert len(requests_sent) == 1
+    field = requests_sent[0]["text"]["format"]["schema"]["properties"]["values"]
+    assert set(field["type"]) == {"array", "null"}
+    assert set(field["items"]["type"]) == {"string", "number", "boolean"}
+    assert result.at[0, "values"] == values
+
+
 @pytest.mark.parametrize("store", [None, False, True])
 def test_extract_ai_recipe_preserves_response_storage_override(monkeypatch, store):
     calls = []

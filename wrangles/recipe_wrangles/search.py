@@ -1,10 +1,11 @@
 import logging as _logging
 import pandas as _pd
-from .. import _ai_mode
-from .. import _prompt_template
+from ..search import _ai_mode
+from ..search import _prompt_template
 
 # Import the combined core wrangles
 from .. import search as _search_core
+from ..api_config import INHERIT as _INHERIT
 from .. import format as _format
 
 
@@ -199,10 +200,10 @@ def ai_mode(
     queries: str,
     id: str,
     output: str | list | None = None,
-    client: str = "serpapi",
+    client: str | None = None,
     api_key: str | None = None,
-    threads: int = 10,
-    include_raw_response: bool = False,
+    threads: int = _INHERIT,
+    include_raw_response: bool = _INHERIT,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -278,7 +279,6 @@ def ai_mode(
         enum: [desktop, mobile, tablet]
         description: Optional device override.
     """
-    kwargs = _ai_mode.request_parameters(kwargs)
     if not isinstance(queries, str) or not queries:
         raise ValueError("search.ai_mode requires one query column.")
     if output is None:

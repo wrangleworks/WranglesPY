@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import find_packages, setup
 
 # read the contents of the README file
 from pathlib import Path
@@ -10,12 +10,7 @@ with open('requirements.txt') as f:
 
 setup(
     name = 'wrangles',
-    packages = [
-        'wrangles',
-        'wrangles.clients',
-        'wrangles.connectors',
-        'wrangles.recipe_wrangles'
-    ],
+    packages = find_packages(include=('wrangles', 'wrangles.*')),
     package_data = {
         'wrangles': ['ai_defaults.yml']
     },
@@ -40,8 +35,10 @@ setup(
     author_email = 'eric@wrangleworks.com',
     keywords = ['data','wrangling'],
     install_requires = requirements,
+    extras_require = {'agent': ['microsoft-copilot-sdk==2.0.3']},
     entry_points ={
-        'console_scripts': ['wrangles.recipe = wrangles.console:recipe']
+        'console_scripts': ['wrangles.recipe = wrangles.console:recipe',
+                            'wrangles-api-catalog = wrangles.api_config.catalog:main']
     },
     project_urls = {
         'Bug Tracker': 'https://github.com/wrangleworks/WranglesPy/issues',

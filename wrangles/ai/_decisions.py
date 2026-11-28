@@ -1,10 +1,4 @@
-"""Structured answers to common questions about text or records.
-
-``choose``, ``score``, and ``true_false`` answer one question type at a time;
-``answers`` supports any combination of these types.
-Each input record is evaluated in one request. Python results are dictionaries
-of named answers; recipe wrappers project their fields into columns.
-"""
+"""Prepare, execute, and project structured AI questions."""
 
 import copy as _copy
 import json as _json
@@ -13,9 +7,11 @@ import os as _os
 import re as _re
 from urllib.parse import urlsplit as _urlsplit
 
-from . import ai_cache as _cache
-from . import ai_config as _config
-from .clients import typesafe as _typesafe
+from . import cache as _cache
+from .. import ai_config as _config
+from ..api_config import INHERIT as _INHERIT
+from ..clients import openrouter as _openrouter
+from ..clients import typesafe as _typesafe
 
 
 _KINDS = {"choose": "choice", "score": "score", "true_false": "noul"}
@@ -247,8 +243,8 @@ def _row_plan(state, context, prepared):
     return {"state": state, "prepared": rendered, "wire": _wire_questions(rendered), "groups": groups}
 
 
-def _project_answers(response, plan):
-    answers = _answers(response, plan["prepared"])
+def _project_answers(response, plan, decimals=2):
+    answers = _answers(response, plan["prepared"], decimals)
     result = {}
     for label, group in plan["groups"].items():
         if group is None:
@@ -265,25 +261,27 @@ def _project_answers(response, plan):
     return result
 
 
-def _answers(response, prepared):
+def _answers(response, prepared, decimals=2):
+    """Project validated provider metrics at the requested output precision."""
     result = {}
     for label, question in prepared.items():
         answer = response["answers"][label]
         kind = question["type"]
         if kind == "true_false":
             result[label] = {
-                "probability_true": answer["noul"],
+                "probability_true": round(answer["noul"], decimals),
                 "true_criteria": _copy.deepcopy(question.get("criteria", {}).get("true", "")),
             }
         else:
             value_field = _FIELDS[kind][0]
             probabilities = answer["probabilities"]
             if kind == "score":
-                probabilities = {description: probabilities[str(index)]
+                probabilities = {description: round(probabilities[str(index)], decimals)
                                  for index, description in enumerate(question["criteria"])}
             else:
-                probabilities = {option: probabilities[option] for option in question["criteria"]}
-            result[label] = {value_field: answer[value_field], "confidence": answer["confidence"],
+                probabilities = {option: round(probabilities[option], decimals) for option in question["criteria"]}
+            value = round(answer[value_field], decimals) if kind == "score" else answer[value_field]
+            result[label] = {value_field: value, "confidence": round(answer["confidence"], decimals),
                              "probabilities": probabilities}
     return result
 
@@ -298,8 +296,15 @@ def _positive_number(value, name):
     return value
 
 
+def _validate_decimals(decimals):
+    if type(decimals) is not int or decimals < 0:
+        raise ValueError("decimals must be a non-negative integer.")
+
+
 def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
-         timeout, retries, cache, cache_ttl, contexts=None):
+         timeout, retries, cache, cache_ttl, contexts=None, decimals=2):
+    if decimals is not _INHERIT:
+        _validate_decimals(decimals)
     prepared = _prepare_questions(questions, kind)
     rows = data if isinstance(data, list) else [data]
     for row in rows:
@@ -317,13 +322,34 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
         return []
     pending = [plan for plan in plans if plan["wire"]]
     if not pending:
-        results = [_project_answers({"answers": {}}, plan) for plan in plans]
+        results = [_project_answers({"answers": {}}, plan, 2 if decimals is _INHERIT else decimals) for plan in plans]
         return results if isinstance(data, list) else results[0]
 
+    # Keep the established role and cache namespace for both composite names,
+    # including user catalogs written before ai.decisions was introduced.
     operation = f"ai.{kind or 'answers'}"
-    settings = _config.resolve(operation, model=model, provider=provider, protocol=protocol)
-    if settings["provider"] != "typesafe" or settings["protocol"] != "systemone":
-        raise ValueError("AI answer wrangles currently require provider typesafe and protocol systemone.")
+    selection = dict(model=model, provider=provider, protocol=protocol)
+    if kind is None:
+        overrides = {key: value for key, value in (("default_concurrency", threads),
+                     ("request_timeout_seconds", timeout), ("retries", retries)) if value is not None}
+        cache_options = {key: value for key, value in (("enabled", cache), ("ttl_seconds", cache_ttl))
+                         if value is not None}
+        if cache_options:
+            overrides["cache"] = cache_options
+        if decimals is not _INHERIT:
+            overrides["decimals"] = decimals
+        settings = _config.resolve(operation, **selection, overrides=overrides)
+        decimals = settings.get("decimals", 2)
+    else:
+        settings = _config.resolve(operation, **selection)
+    providers = {
+        ("typesafe", "systemone"): ("Typesafe", "TYPESAFE_API_KEY", _typesafe.call_systemone),
+        ("openrouter", "decisions"): ("OpenRouter", "OPENROUTER_API_KEY", _openrouter.call_decisions),
+    }
+    interface = (settings["provider"], settings["protocol"])
+    if interface not in providers:
+        raise ValueError("AI decisions require TypeSafe System One or OpenRouter Decisions.")
+    provider_name, key_environment, send = providers[interface]
     workers = threads if threads is not None else settings.get("default_concurrency")
     if type(workers) is not int or workers < 1:
         raise ValueError("threads/default_concurrency must be a positive integer.")
@@ -332,7 +358,7 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
     attempts = retries if retries is not None else settings.get("retries")
     if type(attempts) is not int or attempts < 0:
         raise ValueError("retries must be a non-negative integer.")
-    url = settings.get("endpoints", {}).get("systemone")
+    url = settings.get("endpoints", {}).get(settings["protocol"])
     try:
         parsed_url = _urlsplit(url) if isinstance(url, str) else None
         valid_url = (parsed_url is not None and parsed_url.scheme == "https" and parsed_url.hostname
@@ -340,14 +366,14 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
     except ValueError:
         valid_url = False
     if not valid_url:
-        raise ValueError("The Typesafe systemone endpoint must be an HTTPS URL without embedded credentials or fragments.")
+        raise ValueError(f"The {provider_name} endpoint must be an HTTPS URL without embedded credentials or fragments.")
 
-    secret = api_key if api_key is not None else _os.getenv("TYPESAFE_API_KEY")
+    secret = api_key if api_key is not None else _os.getenv(key_environment)
     if not isinstance(secret, str) or not secret.strip():
-        raise ValueError("Set api_key or TYPESAFE_API_KEY for AI answer wrangles.")
+        raise ValueError(f"Set api_key or {key_environment} for {provider_name} AI decision wrangles.")
     secret = secret.strip()
     if any(ord(char) < 33 or ord(char) > 126 for char in secret):
-        raise ValueError("The Typesafe API key must contain only printable ASCII without whitespace.")
+        raise ValueError(f"The {provider_name} API key must contain only printable ASCII without whitespace.")
     if cache_ttl is not None:
         _positive_number(cache_ttl, "cache_ttl")
     policy = _cache.resolve_policy(settings.get("cache", {}), enabled=cache, ttl_seconds=cache_ttl,
@@ -357,83 +383,16 @@ def _run(data, questions, kind, *, api_key, model, provider, protocol, threads,
     def key_for(plan):
         static_request = {"endpoint": url, "model": settings["model"], "questions": plan["wire"]}
         return _cache.make_key(namespace=operation, provider=settings["provider"],
-                               protocol=settings["protocol"], tenant_secret=secret,
+                               protocol="systemone", tenant_secret=secret,  # historical decision cache identity
                                static_request=static_request, data=plan["state"])
 
     def compute(plan):
-        return _typesafe.call_systemone(state=plan["state"], questions=plan["wire"], model=settings["model"],
-                                       api_key=secret, url=url, timeout=request_timeout, retries=attempts)
+        return send(state=plan["state"], questions=plan["wire"], model=settings["model"],
+                    api_key=secret, url=url, timeout=request_timeout, retries=attempts)
 
     responses = _cache.execute_batch(pending, key_for=key_for, compute=compute, cacheable=lambda result: True,
                                     max_workers=workers, policy=policy, preflight_first=True)
     responses = iter(responses)
-    results = [_project_answers(next(responses) if plan["wire"] else {"answers": {}}, plan)
+    results = [_project_answers(next(responses) if plan["wire"] else {"answers": {}}, plan, decimals)
                for plan in plans]
     return results if isinstance(data, list) else results[0]
-
-
-def choose(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
-           threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
-    """Answer which option best fits; return choice, confidence, and probabilities.
-
-    ``data`` is text/a record, or a list of input records. Each question supplies
-    instructions and a mapping of option labels to descriptions (or None).
-    A scalar input returns a named-answer dictionary; a list returns an ordered
-    list of those dictionaries. Model and runtime defaults come from the catalog.
-
-    Instruction and criterion string values accept ``{{ field_name }}``
-    references to input-record fields (spaces/punctuation become underscores).
-    ``for_each`` names a list/dictionary field in ``values`` and binds each
-    candidate to ``variable``. List sources return lists of candidate answers;
-    dictionary sources return dictionaries preserving the original keys.
-    Blank string candidates retain their key or position as an empty dictionary
-    without generating a provider question.
-    Python calls using these features must supply the referenced fields in
-    their input records.
-    """
-    return _run(data, questions, "choose", api_key=api_key, model=model, provider=provider,
-                protocol=protocol, threads=threads, timeout=timeout, retries=retries,
-                cache=cache, cache_ttl=cache_ttl)
-
-
-def score(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
-          threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
-    """Answer where the input falls along ordered, unique criterion descriptions.
-
-    Scores retain the provider's native 0..N-1 scale. Confidence and complete
-    probabilities keyed by description accompany each score. Input/output batch
-    shape, input-record templates, ``for_each``, and configuration follow
-    :func:`choose`.
-    """
-    return _run(data, questions, "score", api_key=api_key, model=model, provider=provider,
-                protocol=protocol, threads=threads, timeout=timeout, retries=retries,
-                cache=cache, cache_ttl=cache_ttl)
-
-
-def true_false(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
-               threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
-    """Answer how likely statements are to be true for the supplied input.
-
-    Each named answer includes probability_true and the supplied true_criteria.
-    Optional criteria use string keys "true" and "false". No Boolean conversion
-    is performed. Input/output batch shape, input-record templates, ``for_each``,
-    and configuration follow :func:`choose`.
-    """
-    return _run(data, questions, "true_false", api_key=api_key, model=model, provider=provider,
-                protocol=protocol, threads=threads, timeout=timeout, retries=retries,
-                cache=cache, cache_ttl=cache_ttl)
-
-
-def answers(data, questions, api_key=None, *, model=None, provider=None, protocol=None,
-            threads=None, timeout=None, retries=None, cache=None, cache_ttl=None):
-    """Provide structured answers to common question types about each input.
-
-    Each question declares type choose, score, or true_false with its instructions
-    and criteria. Any combination of these types is answered in one request per
-    input record. Instructions and criteria support input-record templates and
-    ``for_each`` as described in :func:`choose`. Outputs follow the corresponding
-    individual wrangles; repeated results retain their source collection shape.
-    """
-    return _run(data, questions, None, api_key=api_key, model=model, provider=provider,
-                protocol=protocol, threads=threads, timeout=timeout, retries=retries,
-                cache=cache, cache_ttl=cache_ttl)

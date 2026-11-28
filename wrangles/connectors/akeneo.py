@@ -87,6 +87,11 @@ def read(
         url = response_json.get('_links', {}).get('next', {}).get('href')
         params = None
 
+    # An empty response has no fields to infer; retain the requested schema
+    # so downstream joins can still resolve their keys without adding rows.
+    if not data and columns:
+        return _pd.DataFrame(columns=columns)
+
     df = _pd.json_normalize(data, max_level=0)
 
     if columns:

@@ -1,7 +1,6 @@
-version: 2
+version: 3
 
-# Status describes lifecycle; default_for lists the independent default roles.
-# The catalog records provider settings; callers determine which models and settings to use.
+# Pilot operations select defaults under callers. Unmigrated operations retain v2 roles.
 providers:
   openai:
     endpoints:
@@ -132,15 +131,52 @@ providers:
           task: [retrieval.query, retrieval.passage, text-matching, clustering, classification]
 
   typesafe:
-    endpoints:
-      systemone: https://api.typesafe.ai/v1/systemone
+    apis:
+      systemone:
+        endpoint: https://api.typesafe.ai/v1/systemone
     documentation:
       api: https://docs.typesafe.ai/introduction
     models:
       jev-1.13.0:
         status: active
+        apis: [systemone]
         applications: [classification, scoring, true_false]
-        default_for: [ai.choose, ai.score, ai.true_false, ai.answers]
+        default_for: [ai.choose, ai.score, ai.true_false]
+
+  microsoft:
+    models:
+      microsoft-decision-1:
+        status: active
+        applications: [classification, scoring, true_false]
+        default_for: [ai.choose, ai.score, ai.true_false]
+        routed_via:
+          provider: openrouter
+          api: decisions
+          request_model: microsoft/microsoft-decision-1
+
+  openrouter:
+    apis:
+      decisions:
+        endpoint: https://openrouter.ai/api/alpha/decisions
+    documentation:
+      api: https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-request
+      model_cards: https://openrouter.ai/microsoft/microsoft-decision-1
+
+  serpapi:
+    apis:
+      google:
+        endpoint: https://serpapi.com/search
+        fixed_query: {engine: google}
+      google_ai_mode:
+        endpoint: https://serpapi.com/search
+        fixed_query: {engine: google_ai_mode}
+        public_parameters: [gl, hl]
+        parameter_schema:
+          type: object
+          properties:
+            gl: {type: string}
+            hl: {type: string}
+          additionalProperties: true
 
   huggingface:
     endpoints:
@@ -197,20 +233,30 @@ operations:
         max_value_bytes: 65536
         single_flight: true
         log_every: 0
-  ai.answers:
-    provider: typesafe
-    protocol: systemone
-    defaults:
-      default_concurrency: 10
-      request_timeout_seconds: 30
-      retries: 1
-      cache:
-        enabled: false
-        ttl_seconds: 3600
-        max_entries: 512
-        max_value_bytes: 65536
-        single_flight: true
-        log_every: 0
+  ai.decisions:
+    actions:
+      wrangle.execute:
+        compatible_apis:
+          - {provider: typesafe, api: systemone}
+          - {provider: openrouter, api: decisions}
+        defaults:
+          decimals: 2
+          default_concurrency: 10
+          request_timeout_seconds: 30
+          retries: 1
+          cache:
+            enabled: false
+            ttl_seconds: 3600
+            max_entries: 512
+            max_value_bytes: 65536
+            single_flight: true
+            log_every: 0
+  search.ai_mode:
+    actions:
+      wrangle.execute:
+        compatible_apis: [{provider: serpapi, api: google_ai_mode}]
+        fixed_query: {output: md}
+        defaults: {include_raw_response: false, default_concurrency: 10}
   extract.ai:
     provider: openai
     protocol: responses
@@ -269,3 +315,15 @@ operations:
     defaults:
       request_timeout_seconds: 30
       retries: 1
+
+callers:
+  wranglespy:
+    operations:
+      ai.decisions:
+        actions:
+          wrangle.execute:
+            default_selection: {provider: typesafe, api: systemone, model: jev-1.13.0}
+      search.ai_mode:
+        actions:
+          wrangle.execute:
+            default_selection: {provider: serpapi, api: google_ai_mode}

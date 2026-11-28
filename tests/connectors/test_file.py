@@ -21,7 +21,7 @@ class TestRead:
         recipe = """
           read:
             file:
-              name: tests/samples/data.csv
+              name: tests/fixtures/data.csv
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Replace']
@@ -33,7 +33,7 @@ class TestRead:
         recipe = """
           read:
             file:
-              name: tests/samples/data.csv
+              name: tests/fixtures/data.csv
               drop_empty: true
         """
         df = wrangles.recipe.run(recipe)
@@ -46,7 +46,7 @@ class TestRead:
         recipe = """
           read:
             file:
-              name: tests/samples/data.txt
+              name: tests/fixtures/data.txt
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Replace']
@@ -58,7 +58,7 @@ class TestRead:
         recipe = """
           read:
             file:
-              name: tests/samples/data.json
+              name: tests/fixtures/data.json
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Replace']
@@ -70,7 +70,7 @@ class TestRead:
         recipe = """
           read:
             file:
-              name: tests/samples/empty_df.json
+              name: tests/fixtures/empty_df.json
               drop_empty: true
         """
         df = wrangles.recipe.run(recipe)
@@ -83,7 +83,7 @@ class TestRead:
         recipe = """
           read:
             file:
-              name: tests/samples/data.xlsx
+              name: tests/fixtures/data.xlsx
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Replace']
@@ -95,7 +95,7 @@ class TestRead:
         recipe = """
           read:
             file:
-              name: tests/samples/empty_cols.xlsx
+              name: tests/fixtures/empty_cols.xlsx
               drop_empty: true
         """
         df = wrangles.recipe.run(recipe)
@@ -136,7 +136,7 @@ class TestRead:
         recipe = """
           read:
             file:
-              name: tests/samples/empty_cols.xlsx
+              name: tests/fixtures/empty_cols.xlsx
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Empty1', 'Also Empty', 'Not Empty', 'Replace', 'Spaces']
@@ -148,7 +148,7 @@ class TestRead:
         recipe = """
           read:
             file:
-              name: tests/samples/empty_df.xlsx
+              name: tests/fixtures/empty_df.xlsx
               drop_empty: true
         """
         df = wrangles.recipe.run(recipe)
@@ -159,7 +159,7 @@ class TestRead:
         recipe = """
         read:
           file:
-            name: tests/samples/data.jsonl
+            name: tests/fixtures/data.jsonl
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Replace']
@@ -171,7 +171,7 @@ class TestRead:
         recipe = """
           read:
             file:
-              name: tests/samples/data.csv
+              name: tests/fixtures/data.csv
               columns:
                 - Find
         """
@@ -185,7 +185,7 @@ class TestRead:
         recipe = """
           read:
             file:
-              name: tests/samples/data.json
+              name: tests/fixtures/data.json
               columns:
                 - Find
         """
@@ -199,7 +199,7 @@ class TestRead:
         recipe = """
           read:
             file:
-              name: tests/samples/data.xlsx
+              name: tests/fixtures/data.xlsx
               columns:
                 - Find
         """
@@ -298,7 +298,7 @@ class TestWrite:
         recipe = """
         read:
           file:
-            name: tests/samples/data.xlsx
+            name: tests/fixtures/data.xlsx
         wrangles:
             - convert.case:
                 input: Find
@@ -318,7 +318,7 @@ class TestWrite:
         recipe = """
         read:
           file:
-            name: tests/samples/data.xlsx
+            name: tests/fixtures/data.xlsx
         wrangles:
             - convert.case:
                 input: Find
@@ -342,7 +342,7 @@ class TestWrite:
         recipe = """
         read:
           file:
-            name: tests/samples/data.xlsx
+            name: tests/fixtures/data.xlsx
         wrangles:
             - convert.case:
                 input: Find
@@ -372,7 +372,7 @@ class TestWrite:
         recipe = """
         read:
           file:
-            name: tests/samples/data.xlsx
+            name: tests/fixtures/data.xlsx
         write:
             file:
               name: tests/temp/write_data_optional_wildcard.xlsx
@@ -391,7 +391,7 @@ class TestWrite:
         recipe = """
         read:
           file:
-            name: tests/samples/data.xlsx
+            name: tests/fixtures/data.xlsx
         write:
             file:
               name: tests/temp/write_data_optional_wildcard_no_match.xlsx
@@ -488,7 +488,7 @@ class TestWrite:
         recipe = """
         read:
           file:
-            name: tests/samples/data.xlsx
+            name: tests/fixtures/data.xlsx
         wrangles:
             - convert.case:
                 input: Find
@@ -522,7 +522,7 @@ class TestWrite:
         recipe = """
         read:
           file:
-            name: tests/samples/data.xlsx
+            name: tests/fixtures/data.xlsx
         wrangles:
             - convert.case:
                 input: Find
@@ -1368,14 +1368,14 @@ class TestPathObjects:
         """
         Test that file.read accepts a pathlib.Path for a CSV file
         """
-        df = wrangles.connectors.file.read(pathlib.Path('tests/samples/data.csv'))
+        df = wrangles.connectors.file.read(pathlib.Path('tests/fixtures/data.csv'))
         assert list(df.columns) == ['Find', 'Replace']
 
     def test_read_excel_path_object(self):
         """
         Test that file.read accepts a pathlib.Path for an Excel file
         """
-        df = wrangles.connectors.file.read(pathlib.Path('tests/samples/data.xlsx'))
+        df = wrangles.connectors.file.read(pathlib.Path('tests/fixtures/data.xlsx'))
         assert list(df.columns) == ['Find', 'Replace']
 
     def test_write_csv_path_object(self, tmp_path):

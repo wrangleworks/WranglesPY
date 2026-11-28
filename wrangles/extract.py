@@ -12,7 +12,7 @@ from . import openai as _openai
 from . import openai_responses as _openai_responses
 from . import ai_config as _ai_config
 from . import ai_definition as _ai_definition
-from . import ai_cache as _ai_cache
+from .ai import cache as _ai_cache
 
 _LOG = _logging.getLogger(__name__)
 

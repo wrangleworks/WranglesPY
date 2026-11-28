@@ -33,6 +33,7 @@ from .utils import (
     add_special_parameters as _add_special_parameters,
     wildcard_expansion as _wildcard_expansion,
     wildcard_expansion_dict as _wildcard_expansion_dict,
+    delayed_variable_interpretation as _delayed_variable_interpretation,
     replace_templated_values as _replace_templated_values
 )
 try:
@@ -583,7 +584,7 @@ def _read_data(
     else:
         return results
 
-_NAMED_AI_WRANGLES = {"ai.choose", "ai.score", "ai.true_false", "ai.answers"}
+_NAMED_AI_WRANGLES = {"ai.choose", "ai.score", "ai.true_false", "ai.decisions", "ai.answers"}
 
 
 def _declared_output_columns(wrangle: str, params: dict):
@@ -595,7 +596,7 @@ def _declared_output_columns(wrangle: str, params: dict):
     if wrangle in _NAMED_AI_WRANGLES:
         kind = wrangle.split(".", 1)[1]
         return _recipe_wrangles.ai._output_columns(
-            params.get("questions"), kind=None if kind == "answers" else kind,
+            params.get("questions"), kind=None if kind in {"decisions", "answers"} else kind,
         )
     if "output" not in params:
         return None
@@ -678,11 +679,21 @@ def _execute_wrangles(
                     _logging.info(f": Wrangling :: {wrangle} skipped due to not passing the if statement.")
                     continue
 
+                # Python commands defer interpolation, but input must resolve
+                # before column validation and wildcard expansion.
+                if wrangle == 'python' and 'input' in params:
+                    params['input'] = _replace_templated_values(
+                        params['input'],
+                        _delayed_variable_interpretation(df, variables)
+                    )
+
                 # Blacklist of Wrangles not to allow wildcards for
                 original_input = params.get('input') # Save for later reference
                 if (
                     'input' in params and 
                     wrangle not in [
+                        'ai.agent',
+                        'ai.skill',
                         'math',
                         'maths',
                         'merge.key_value_pairs',

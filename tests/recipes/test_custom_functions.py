@@ -1364,7 +1364,7 @@ def test_from_file():
               input: header1
               output: header2
         """,
-        functions="tests/samples/custom_functions.py"
+        functions="tests/fixtures/custom_functions.py"
     )
     assert df['header2'][0] == "VALUE1"
 

@@ -246,6 +246,99 @@ class TestCleanWhitespace:
     """
     Test spaces
     """
+    @pytest.mark.parametrize('separator', [
+        '\t', '\n', '\r', '\r\n', '\v', '\f', '\x85',
+        '\u00a0', '\u1680', '\u2003', '\u2007', '\u2028', '\u2029',
+        '\u202f', '\u205f', '\u3000', '\x81',
+    ])
+    def test_clean_whitespaces_single_and_mixed_separators(self, separator):
+        """Normalize separators before removing duplicate manufacturer words."""
+        values = [
+            f'STIEFELMAYER{separator}STIEFELMAYER',
+            f'STIEFELMAYER {separator}{separator} STIEFELMAYER',
+            f'{separator}{separator}STIEFELMAYER{separator}',
+            separator * 2,
+            '',
+        ]
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - clean_whitespaces:
+                  input: MFR
+                  output: Normalized
+              - format.remove_duplicates:
+                  input: Normalized
+                  output: MFR clean
+            """,
+            dataframe=pd.DataFrame({'MFR': values})
+        )
+        assert df['MFR'].tolist() == values
+        assert df['Normalized'].tolist() == [
+            'STIEFELMAYER STIEFELMAYER',
+            'STIEFELMAYER STIEFELMAYER',
+            'STIEFELMAYER', '', '',
+        ]
+        assert df['MFR clean'].tolist() == ['STIEFELMAYER'] * 3 + ['', '']
+
+    @pytest.mark.parametrize('separator', [
+        '\u00a0', '\u1680', '\u2003', '\u2007', '\u202f', '\u205f',
+        '\u3000', '\x81',
+    ])
+    def test_clean_whitespaces_unicode_spaces_with_literals_preserved(self, separator):
+        """Preserving tabs/newlines still normalizes Unicode space characters."""
+        df = wrangles.recipe.run(
+            {'wrangles': [{'clean_whitespaces': {
+                'input': 'col', 'remove_literals': False,
+            }}]},
+            dataframe=pd.DataFrame({'col': [f'A{separator} {separator}B']})
+        )
+        assert df['col'].tolist() == ['A B']
+
+    @pytest.mark.parametrize('separator', [
+        '\t', '\n', '\r', '\r\n', '\v', '\f', '\x1c', '\x1d', '\x1e',
+        '\x1f', '\x85', '\u2028', '\u2029',
+    ])
+    def test_clean_whitespaces_preserves_literal_whitespace(self, separator):
+        """Keep tabs and line boundaries intact when remove_literals is false."""
+        df = wrangles.recipe.run(
+            {'wrangles': [{'clean_whitespaces': {
+                'input': 'col', 'remove_literals': False,
+            }}]},
+            dataframe=pd.DataFrame({
+                'col': [f' \u00a0A \u202f{separator}\u2009 B\u3000 '],
+            })
+        )
+        assert df['col'].tolist() == [f'A {separator} B']
+
+    @pytest.mark.parametrize(('remove_literals', 'expected'), [
+        (True, ' A '),
+        (False, '\t A \n'),
+    ])
+    def test_clean_whitespaces_unicode_edges_without_trim(self, remove_literals, expected):
+        df = wrangles.recipe.run(
+            {'wrangles': [{'clean_whitespaces': {
+                'input': 'col', 'remove_literals': remove_literals, 'trim': False,
+            }}]},
+            dataframe=pd.DataFrame({'col': ['\t\u00a0 A \u2003\n']})
+        )
+        assert df['col'].tolist() == [expected]
+
+    @pytest.mark.parametrize('remove_literals', [True, False])
+    def test_clean_whitespaces_preserves_non_whitespace(self, remove_literals):
+        """HTML, escaped text, zero-width formatting and name content are separate."""
+        values = [
+            'STIEFELMAYER<br>STIEFELMAYER',
+            'A\u200bB', 'A\ufeffB', 'A\u200cB', 'A\u200dB',
+            'MINITEC_', r'A\nA', 'Johnson & Johnson',
+        ]
+        df = wrangles.recipe.run(
+            {'wrangles': [{'clean_whitespaces': {
+                'input': 'col', 'remove_literals': remove_literals,
+            }}]},
+            dataframe=pd.DataFrame({'col': values})
+        )
+        assert df['col'].tolist() == values
+
     def test_clean_whitespaces(self):
         """
         Test the base functionality of clean_whitespaces
@@ -3971,7 +4064,7 @@ class TestRecipe:
         recipe = """
         wrangles:
         - recipe:
-            name: 'tests/samples/recipe_ception.wrgl.yaml'
+            name: 'tests/fixtures/recipe_ception.wrgl.yaml'
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df['col'].iloc[0] == 'MARIO'
@@ -3984,7 +4077,7 @@ class TestRecipe:
             """
             wrangles:
             - recipe:
-                name: 'tests/samples/recipe_ception.wrgl.yaml'
+                name: 'tests/fixtures/recipe_ception.wrgl.yaml'
                 where: numbers > 4
             """,
             dataframe=pd.DataFrame({
@@ -4001,7 +4094,7 @@ class TestRecipe:
         recipe = """
         wrangles:
         - recipe:
-            name: 'tests/samples/recipe_ception.wrgl.yaml'
+            name: 'tests/fixtures/recipe_ception.wrgl.yaml'
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df['col'].iloc[0] == 'MARIO'
@@ -4531,6 +4624,41 @@ class TestPython:
             """
         )
         assert df["result"][0] == '{"header1": "a", "header2": "b"}'
+
+    @pytest.mark.parametrize('selection, expected', [
+        ('first value', {'first value': 2}),
+        (['first value', 'second'], {'first value': 2, 'second': 3}),
+        ('sec*', {'second': 3}),
+    ])
+    def test_python_input_variable(self, selection, expected):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                input: ${selection}
+                output: result
+                command: kwargs
+            """,
+            dataframe=pd.DataFrame({'first value': [2], 'second': [3], 'other': [4]}),
+            variables={'selection': selection},
+        )
+        assert df['result'].tolist() == [expected]
+
+    def test_python_input_columns_variable(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.column:
+                output: added
+                value: 7
+            - python:
+                input: ${columns}
+                output: result
+                command: kwargs
+            """,
+            dataframe=pd.DataFrame({'initial': [2]}),
+        )
+        assert df['result'].tolist() == [{'initial': 2, 'added': 7}]
 
     def test_python_input_wildcard(self):
         """

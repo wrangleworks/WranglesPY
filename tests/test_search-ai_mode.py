@@ -10,9 +10,9 @@ import requests
 import yaml
 
 import wrangles
-from wrangles import _ai_mode
+from wrangles.search import _ai_mode
 from wrangles.recipe_wrangles import search as recipe_search
-from wrangles._search_ai_content import split_markdown
+from wrangles.search._content import split_markdown
 
 
 @pytest.fixture(autouse=True)
@@ -272,3 +272,50 @@ def test_find_links_locale_conflict_is_unchanged():
             "queries": "query", "id": "ID", "output": "result",
             "google_domain": "google.co.uk", "country": "uk",
         }}]}, dataframe=data)
+
+
+@pytest.mark.parametrize(("legacy", "relocated"), [
+    ("wrangles._ai_mode", "wrangles.search._ai_mode"),
+    ("wrangles._search_ai_content", "wrangles.search._content"),
+    ("wrangles._prompt_template", "wrangles.search._prompt_template"),
+])
+def test_legacy_search_imports_share_implementation(legacy, relocated):
+    from importlib import import_module
+
+    assert import_module(legacy) is import_module(relocated)
+
+
+def test_legacy_normalizer_patch_reaches_public_search(monkeypatch):
+    from wrangles import _ai_mode as legacy
+
+    monkeypatch.setattr(legacy, "normalize_query", lambda query: "")
+    response = wrangles.search.ai_mode("nonblank query")
+
+    assert response == {
+        "ai_mode_results": "",
+        "ai_mode_metadata": {
+            "query": "", "query_index": 1, "status": "Skipped",
+            "error": None, "search_id": None,
+        },
+    }
+
+
+@pytest.mark.parametrize("module_name", [
+    "tests.fixtures.search_ai_mode.run_search_ai_mode", "run_search_ai_mode",
+])
+def test_fixture_validation_supports_package_and_standalone_imports(monkeypatch, module_name):
+    from importlib import import_module
+
+    monkeypatch.syspath_prepend(str(Path(__file__).parent / "fixtures/search_ai_mode"))
+    runner = import_module(module_name)
+    frame = pd.DataFrame({
+        "body": [""], "references": [[]], "offers": [[]],
+        "__search_ai_ready": [False], "metadata": [{"status": "Skipped"}],
+    })
+    result = runner.validate_search_sources(
+        frame, "body", "references", "offers", "diagnostics", "metadata",
+    )
+
+    assert result["references"].tolist() == [[]]
+    assert result["offers"].tolist() == [[]]
+    assert result["diagnostics"].iloc[0]["status"] == "skipped"

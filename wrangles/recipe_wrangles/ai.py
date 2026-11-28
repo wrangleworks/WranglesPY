@@ -6,6 +6,10 @@ import yaml as _yaml
 from .. import ai as _ai
 
 
+agent = _ai.agent
+skill = _ai.skill
+
+
 _FIELDS = _ai._FIELDS
 
 
@@ -15,6 +19,8 @@ def _output_columns(questions, kind=None):
 
 
 def _run(df, questions, kind, input=None, **settings):
+    if settings.get("decimals") is not _ai._INHERIT:
+        _ai._validate_decimals(settings.get("decimals", 2))
     prepared = _ai._prepare_questions(questions, kind=kind)
     if df.empty:
         for question in prepared.values():
@@ -41,34 +47,42 @@ def _run(df, questions, kind, input=None, **settings):
 
 def choose(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
            model=None, provider=None, protocol=None, threads=None, timeout=None,
-           retries=None, cache=None, cache_ttl=None) -> _pd.DataFrame:
+           retries=None, cache=None, cache_ttl=None, decimals=2) -> _pd.DataFrame:
     return _run(df, questions, "choose", input=input, api_key=api_key,
                 model=model, provider=provider, protocol=protocol, threads=threads,
-                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl)
+                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl, decimals=decimals)
 
 
 def score(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
           model=None, provider=None, protocol=None, threads=None, timeout=None,
-          retries=None, cache=None, cache_ttl=None) -> _pd.DataFrame:
+          retries=None, cache=None, cache_ttl=None, decimals=2) -> _pd.DataFrame:
     return _run(df, questions, "score", input=input, api_key=api_key,
                 model=model, provider=provider, protocol=protocol, threads=threads,
-                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl)
+                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl, decimals=decimals)
 
 
 def true_false(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
                model=None, provider=None, protocol=None, threads=None, timeout=None,
-               retries=None, cache=None, cache_ttl=None) -> _pd.DataFrame:
+               retries=None, cache=None, cache_ttl=None, decimals=2) -> _pd.DataFrame:
     return _run(df, questions, "true_false", input=input, api_key=api_key,
                 model=model, provider=provider, protocol=protocol, threads=threads,
-                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl)
+                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl, decimals=decimals)
+
+
+def decisions(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
+              model=None, provider=None, protocol=None, threads=None, timeout=None,
+              retries=None, cache=None, cache_ttl=None, decimals=_ai._INHERIT) -> _pd.DataFrame:
+    return _run(df, questions, None, input=input, api_key=api_key,
+                model=model, provider=provider, protocol=protocol, threads=threads,
+                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl, decimals=decimals)
 
 
 def answers(df: _pd.DataFrame, questions: dict, input=None, api_key=None,
             model=None, provider=None, protocol=None, threads=None, timeout=None,
-            retries=None, cache=None, cache_ttl=None) -> _pd.DataFrame:
-    return _run(df, questions, None, input=input, api_key=api_key,
-                model=model, provider=provider, protocol=protocol, threads=threads,
-                timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl)
+            retries=None, cache=None, cache_ttl=None, decimals=_ai._INHERIT) -> _pd.DataFrame:
+    return decisions(df, questions, input=input, api_key=api_key,
+                     model=model, provider=provider, protocol=protocol, threads=threads,
+                     timeout=timeout, retries=retries, cache=cache, cache_ttl=cache_ttl, decimals=decimals)
 
 
 def _description_schema(nullable=False):
@@ -246,11 +260,11 @@ def _schema(kind):
                           "propertyNames": {"pattern": r"\S"},
                           "additionalProperties": question_definition,
                           "description": "Questions to answer for each input row, keyed by their distinct labels."},
-            "api_key": {"type": "string", "description": "Typesafe API key; defaults to TYPESAFE_API_KEY."},
+            "api_key": {"type": "string", "description": "Provider API key; defaults to TYPESAFE_API_KEY or OPENROUTER_API_KEY for the selected provider."},
             "model": {"type": "string", "description": "Model ID; defaults to this wrangle's AI catalog selection."},
-            "provider": {"type": "string", "enum": ["typesafe"],
-                         "description": "Provider resolved through the AI catalog; currently typesafe."},
-            "protocol": {"type": "string", "enum": ["systemone"],
+            "provider": {"type": "string", "enum": ["typesafe", "openrouter", "microsoft"] if kind is None else ["typesafe", "openrouter"],
+                         "description": "The packaged default is TypeSafe. Composite decisions also accept Microsoft as the model owner."},
+            "protocol": {"type": "string", "enum": ["systemone", "decisions"],
                          "description": "Provider protocol selected through the AI catalog."},
             "threads": {"type": "integer", "minimum": 1,
                         "description": "Maximum row requests in parallel; defaults to the AI catalog."},
@@ -258,7 +272,9 @@ def _schema(kind):
                         "description": "Per-attempt request timeout in seconds; defaults to the AI catalog."},
             "retries": {"type": "integer", "minimum": 0,
                         "description": "Additional attempts for retryable failures; defaults to the AI catalog."},
-            "cache": {"type": "boolean", "description": "Reuse identical successful requests through the shared AI cache. Off by default for Typesafe; set true to enable."},
+            "decimals": {"type": "integer", "minimum": 0, "default": 2,
+                         "description": "Decimal places for returned scores, confidence, and probabilities, including for_each answers. The packaged default is 2. Applies to output only."},
+            "cache": {"type": "boolean", "description": "Reuse identical successful requests through the shared AI cache. Off by default for these wrangles; set true to enable."},
             "cache_ttl": {"type": "number", "exclusiveMinimum": 0,
                           "description": "Override the cache result lifetime in seconds."},
         },
@@ -266,5 +282,43 @@ def _schema(kind):
 
 
 for _name, _kind in (("choose", "choose"), ("score", "score"),
-                     ("true_false", "true_false"), ("answers", None)):
-    globals()[_name].__doc__ = _yaml.safe_dump(_schema(_kind), sort_keys=False)
+                     ("true_false", "true_false"), ("decisions", None), ("answers", None)):
+    _definition = _schema(_kind)
+    if _name == "answers":
+        _definition["description"] = "Compatibility alias for `ai.decisions`. " + _definition["description"]
+    if _kind is None:
+        _definition["description"] += " Configuration and cache identity retain the existing `ai.answers` role."
+    globals()[_name].__doc__ = _yaml.safe_dump(_definition, sort_keys=False)
+
+
+_skill_ref = {"type": "string", "maxLength": 64, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}
+for _name in ("agent", "skill"):
+    _properties = {
+        "input": {"oneOf": [{"type": "string"}, {"type": "array", "minItems": 1,
+                   "uniqueItems": True, "items": {"type": "string"}}]},
+        "output": {"type": "object", "minProperties": 1, "additionalProperties": {
+            "type": "object", "additionalProperties": False, "required": ["type"],
+            "properties": {"type": {"enum": ["string", "integer", "number", "boolean"]},
+                           "description": {"type": "string"}}}},
+        "skill": _skill_ref,
+        "skill_package": {"type": "string", "description": "Agent Plugins directory. Defaults to WRANGLES_AGENT_PLUGIN."},
+        "model": {"type": "string", "default": "gpt-5-mini", "description": "OpenAI inference model ID; distinct from the Skill name."},
+        "api_key": {"type": "string", "description": "OpenAI BYOK key; defaults to OPENAI_API_KEY."},
+        "timeout": {"type": "number", "exclusiveMinimum": 0, "default": 120},
+    }
+    _definition = {"type": "object", "additionalProperties": False,
+        "description": "Apply instructions or a local Skill to the complete supplied dataframe using the optional local Copilot SDK and OpenAI BYOK.",
+        "required": ["input", "output"], "properties": _properties}
+    if _name == "agent":
+        _properties["instructions"] = {"type": "string", "pattern": r"\S"}
+        _properties["skills"] = {"type": "array", "minItems": 1, "uniqueItems": True, "items": {
+            "type": "object", "required": ["model_id"], "additionalProperties": False,
+            "properties": {"model_id": _skill_ref}}}
+        _definition["anyOf"] = [{"required": [key]} for key in ("instructions", "skill", "skills")]
+        _definition["not"] = {"required": ["skill", "skills"]}
+        _definition["if"] = {"required": ["skill_package"]}
+        _definition["then"] = {"anyOf": [{"required": ["skill"]}, {"required": ["skills"]}]}
+    else:
+        _properties["model_id"] = _skill_ref
+        _definition["oneOf"] = [{"required": ["skill"]}, {"required": ["model_id"]}]
+    globals()[_name].__doc__ = _yaml.safe_dump(_definition, sort_keys=False)

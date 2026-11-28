@@ -91,6 +91,12 @@ contain one query string; explode query lists before searching.
 Blank queries are skipped without a provider request. Provider errors, missing
 or malformed frontmatter/status, and empty successful answers are explicit
 failures in metadata. Non-successful or empty answers do not enter extraction.
+The packaged Python caller selects SerpAPI's `google_ai_mode` API. Its fixed
+`engine=google_ai_mode` and the operation's `output=md` identify the request.
+A v3 replacement can set the endpoint, locale defaults, concurrency and raw
+response preference. Explicit call values take precedence. The caller catalog
+exposes the choice without a model field. [API configuration](api_configuration.md)
+
 The client makes one synchronous SerpAPI request per nonblank query, without
 retries, polling queued/processing jobs, or reading Google's browser token stream.
 The trial uses `THREADS = 5` to run up to five independent synchronous searches
@@ -361,3 +367,15 @@ services, source validation and cleanup. Run:
 
 Use a new `--basetemp` path for each trial. Live extraction quality should be
 reviewed against the retained original Markdown and the direct extraction columns.
+
+
+## Implementation locations
+
+The public functions remain under `wrangles.search`. Their implementations live
+in [the search package](../wrangles/search/__init__.py), with private helpers for
+[AI Mode transport normalization](../wrangles/search/_ai_mode.py),
+[Markdown and source URLs](../wrangles/search/_content.py), and
+[retrieval prompt rendering](../wrangles/search/_prompt_template.py).
+Shared prose cleanup stays in `wrangles/_text_cleanup.py` for search and
+standardization. Trial-specific reference/offer validation lives beside the
+[fixture runner](../tests/fixtures/search_ai_mode/source_validation.py).

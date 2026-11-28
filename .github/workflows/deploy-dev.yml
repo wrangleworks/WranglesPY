@@ -156,7 +156,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-full.txt
           pip install .
-          wrangles.recipe tests/samples/generate-data.wrgl.yml
+          wrangles.recipe tests/fixtures/generate-data.wrgl.yml
 
   # ── 3. Generate and test schema ──────────────────────────────────────────
   test-generate-schema:

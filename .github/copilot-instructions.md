@@ -42,7 +42,7 @@ WranglesPY/
 │   ├── connectors/             # Connector tests
 │   ├── recipes/                # Recipe execution tests
 │   │   └── wrangles/           # Individual wrangle tests
-│   └── samples/                # Sample recipes and data files
+│   └── fixtures/               # Test recipes and data files
 │       ├── *.wrgl.yml          # Recipe files
 │       └── custom_functions.py # Custom function examples
 ├── schema/                     # JSON schema generation
@@ -101,7 +101,7 @@ pytest --cov=wrangles
 - **tests/test_wrangles.py:** Core function tests (classify, extract, etc.)
 - **tests/connectors/:** Connector-specific tests
 - **tests/recipes/:** Recipe execution and wrangle tests
-- **tests/samples/:** Sample data files and recipes for testing
+- **tests/fixtures/:** Sample data files and recipes for testing
 
 ### Authentication for Tests
 Some tests require cloud-based ML models and need credentials set as environment variables:
@@ -122,7 +122,7 @@ pip install .
 ### Test Installation
 ```bash
 pip install .
-wrangles.recipe tests/samples/generate-data.wrgl.yml
+wrangles.recipe tests/fixtures/generate-data.wrgl.yml
 ```
 
 ### CI Test Image Build
@@ -357,7 +357,7 @@ cd schema && python generate_recipe_schema.py
 docker build -t wrangles:test .
 
 # Run recipe locally
-wrangles.recipe tests/samples/recipe-basic.wrgl.yml
+wrangles.recipe tests/fixtures/recipe-basic.wrgl.yml
 
 # Install package locally
 pip install .
@@ -369,3 +369,21 @@ pip install .
 - **GitHub Repository:** https://github.com/wrangleworks/WranglesPy
 - **Bug Tracker:** https://github.com/wrangleworks/WranglesPy/issues
 - **User Registration:** https://sso.wrangle.works (for cloud ML models)
+
+
+### Capability implementation locations
+
+- Public search functions live in `wrangles/search/__init__.py`. Add AI Mode
+  normalization in `wrangles/search/_ai_mode.py`, Markdown/source helpers in
+  `_content.py`, and row prompt rendering in `_prompt_template.py`. Keep helper
+  module names private so `wrangles.search.ai_mode` remains callable.
+- Shared Markdown prose cleanup stays in `wrangles/_text_cleanup.py`; search and
+  standardization use the same implementation.
+- Add provider adapters in `wrangles/clients/`, recipe I/O in
+  `wrangles/connectors/`, and YAML/dataframe wrappers in `wrangles/recipe_wrangles/`.
+- Add Agent tools in `wrangles/ai/agents/tools.py`, Skill loading in `skills.py`,
+  and Copilot session behavior in `runtime.py`.
+- AI Mode trial-specific source/offer validation lives beside its runner at
+  `tests/fixtures/search_ai_mode/source_validation.py`; it is not a package API.
+- Historical private search imports are aliases registered in
+  `wrangles/__init__.py`; keep them bound to the relocated modules, not copies.

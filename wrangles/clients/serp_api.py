@@ -5,7 +5,7 @@ from typing import Union as _Union
 
 # Import our new core web helpers
 from .. import web as _web
-from .. import _ai_mode
+from ..search import _ai_mode
 
 
 def _extract_target_sites(query: str) -> list[str]:
@@ -165,7 +165,8 @@ def _build_error_classic_response(query, query_index: int | None, error: Excepti
 
 
 class SerpApiWranglesClient:
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str = None, *, ai_mode_request=None):
+        self.ai_mode_request = ai_mode_request
         if not api_key or str(api_key).strip().lower() in ("", "none", "null"):
             import os
             self.api_key = os.environ.get("SERPAPI_API_KEY")
@@ -241,7 +242,10 @@ class SerpApiWranglesClient:
                        include_raw_response=False) -> dict:
         """Retrieve Markdown and separate its metadata; do not parse sections."""
         query = _ai_mode.normalize_query(query)
-        kwargs = _ai_mode.request_parameters(kwargs or {})
+        route = self.ai_mode_request
+        if route is None:
+            from ..api_config import resolve
+            route = resolve("search.ai_mode", parameters=kwargs)
         if not query:
             return _ai_mode.normalize_response(
                 "", query, query_index, status="Skipped",
@@ -251,8 +255,8 @@ class SerpApiWranglesClient:
             client = self.client_class(api_key=self.api_key)
             # Older SerpAPI SDK search() implementations always decode JSON.
             # Use the SDK's raw request method so Markdown is retrieved once.
-            http_response = client.request("GET", "/search", params={
-                **kwargs, "engine": "google_ai_mode", "q": query, "output": "md",
+            http_response = client.request("GET", route.endpoint, params={
+                **route.parameters, **route.fixed_query, "q": query,
             })
             content_type = http_response.headers.get("Content-Type", "").lower()
             response = http_response.json() if "json" in content_type else http_response.text
